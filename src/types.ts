@@ -11,6 +11,12 @@ export interface PluginSettings {
 	wikiFolder: string;
 	autoCompile: boolean;
 	autoCompileDelay: number;
+	embeddingProvider: string;
+	embeddingModel: string;
+	embeddingBaseUrl: string;
+	embeddingApiKey: string;
+	language: string;
+	templateFile: string;
 }
 
 export const DEFAULT_SETTINGS: PluginSettings = {
@@ -24,6 +30,12 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	wikiFolder: "wiki",
 	autoCompile: true,
 	autoCompileDelay: 30,
+	embeddingProvider: "openai",
+	embeddingModel: "text-embedding-3-small",
+	embeddingBaseUrl: "https://api.openai.com/v1",
+	embeddingApiKey: "",
+	language: "zh-CN",
+	templateFile: "wiki/templates/prompt-config.json",
 };
 
 export interface RawFile {
@@ -55,10 +67,17 @@ export interface Source {
 	desc: string;
 }
 
+export interface Synthesis {
+	name: string;
+	question: string;
+	concepts: string[];
+}
+
 export interface Analysis {
 	concepts: Concept[];
 	entities: Entity[];
 	sources: Source[];
+	syntheses: Synthesis[];
 }
 
 export interface CompileCache {
@@ -67,7 +86,7 @@ export interface CompileCache {
 	pages: Record<string, { key: string; generatedAt: string | null }>;
 	analysisTime: string | null;
 	perFileAnalysis: Record<string, Analysis>;
-	indexEntries: Record<string, string>;
+	indexEntries: Record<string, { type: string; level: string; name: string; title: string; desc: string }>;
 }
 
 export interface Fingerprint {

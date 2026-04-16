@@ -1,6 +1,6 @@
 {
 	"id": "second-brain",
-	"name": "第二大脑",
+	"name": "Second Brain",
 	"version": "1.0.0",
 	"minAppVersion": "1.5.0",
 	"description": "AI 驱动的知识编译引擎：自动将原始笔记编译为结构化 wiki，维护双向链接。",

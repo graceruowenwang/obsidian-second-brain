@@ -1,4 +1,4 @@
-# 第二大脑 (Second Brain)
+# Second Brain
 
 AI 驱动的知识编译引擎 -- 自动将原始笔记编译为结构化 Wiki，维护双向链接和知识索引。
 
@@ -29,7 +29,7 @@ AI 驱动的知识编译引擎 -- 自动将原始笔记编译为结构化 Wiki�
 1. 下载最新 release 的 `main.js`、`manifest.json`、`styles.css`
 2. 在 Obsidian 库中创建 `.obsidian/plugins/second-brain/` 目录
 3. 将三个文件放入该目录
-4. 重启 Obsidian，在设置中启用"第二大脑"插件
+4. 重启 Obsidian，在设置中启用 "Second Brain" 插件
 
 ### 从源码构建
 

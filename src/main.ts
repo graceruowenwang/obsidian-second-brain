@@ -9,11 +9,13 @@ import { CompileView, VIEW_TYPE_COMPILE } from "./views/compile-view";
 import { ChatView, VIEW_TYPE_CHAT } from "./views/chat-view";
 import { WikiView, VIEW_TYPE_WIKI } from "./views/wiki-view";
 import { runCompile } from "./core/compile";
-import { readRawFiles, readWikiFiles, writeWikiFile, diffFingerprints, emptyCache, filesToMap } from "./core/file-utils";
+import { readRawFiles, readWikiFiles, writeWikiFile, diffFingerprints, emptyCache, filesToMap, clearEmbeddingCache } from "./core/file-utils";
 import { callLLM } from "./core/llm";
 import {
 	buildIncrementalAnalyzePrompt, buildConceptPrompt, buildEntityPrompt, buildSourcePrompt,
 } from "./core/wiki-schema";
+import { loadTemplateConfig } from "./core/templates";
+import { t } from "./core/i18n";
 
 export default class SecondBrain extends Plugin {
 	settings!: PluginSettings;
@@ -22,6 +24,7 @@ export default class SecondBrain extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
+		const lang = this.settings.language;
 
 		// 注册 View
 		this.registerView(VIEW_TYPE_COMPILE, (leaf) => new CompileView(leaf, this as SecondBrainPlugin));
@@ -29,35 +32,35 @@ export default class SecondBrain extends Plugin {
 		this.registerView(VIEW_TYPE_WIKI, (leaf) => new WikiView(leaf, this as SecondBrainPlugin));
 
 		// 左侧栏图标
-		this.addRibbonIcon("zap", "编译 Wiki", () => this.activateView(VIEW_TYPE_COMPILE));
-		this.addRibbonIcon("message-circle", "Wiki 对话", () => this.activateView(VIEW_TYPE_CHAT));
-		this.addRibbonIcon("globe", "Wiki 预览", () => this.activateView(VIEW_TYPE_WIKI));
+		this.addRibbonIcon("zap", t("cmd.compileWiki", lang), () => this.activateView(VIEW_TYPE_COMPILE));
+		this.addRibbonIcon("message-circle", t("cmd.wikiChat", lang), () => this.activateView(VIEW_TYPE_CHAT));
+		this.addRibbonIcon("globe", t("cmd.wikiPreview", lang), () => this.activateView(VIEW_TYPE_WIKI));
 
 		// 命令：编译全部
 		this.addCommand({
 			id: "compile-all",
-			name: "编译全部素材",
+			name: t("cmd.compileAll", lang),
 			callback: () => this.activateView(VIEW_TYPE_COMPILE),
 		});
 
 		// 命令：编译当前文件
 		this.addCommand({
 			id: "compile-current",
-			name: "编译当前文件",
+			name: t("cmd.compileCurrent", lang),
 			editorCallback: (editor: Editor, view: MarkdownView) => this.compileCurrentFile(view),
 		});
 
 		// 命令：打开对话
 		this.addCommand({
 			id: "open-chat",
-			name: "和 Wiki 对话",
+			name: t("cmd.openChat", lang),
 			callback: () => this.activateView(VIEW_TYPE_CHAT),
 		});
 
 		// 命令：打开 Wiki 预览
 		this.addCommand({
 			id: "open-wiki",
-			name: "打开 Wiki 预览",
+			name: t("cmd.openWiki", lang),
 			callback: () => this.activateView(VIEW_TYPE_WIKI),
 		});
 
@@ -65,15 +68,15 @@ export default class SecondBrain extends Plugin {
 		this.addSettingTab(new SecondBrainSettingTab(this.app, this));
 
 		// 自动编译：监听 raw/ 目录文件变化
-		this.registerEvent(this.app.vault.on("create", (file) => this.onRawFileChange(file)));
-		this.registerEvent(this.app.vault.on("modify", (file) => this.onRawFileChange(file)));
+		this.registerEvent(this.app.vault.on("create", (file) => this.onRawFileChange(file as TFile | TFolder)));
+		this.registerEvent(this.app.vault.on("modify", (file) => this.onRawFileChange(file as TFile | TFolder)));
 
 		// 启动时自动检查是否有新素材需要编译
 		if (this.settings.autoCompile && this.settings.apiKey) {
 			this.startupAutoCompile();
 		}
 
-		console.log("第二大脑插件已加载");
+		console.log("Second Brain plugin loaded");
 	}
 
 	onunload() {
@@ -87,7 +90,13 @@ export default class SecondBrain extends Plugin {
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		const saved = (await this.loadData()) as any || {};
+		// 迁移：outputLanguage → language
+		if (saved.outputLanguage && !saved.language) {
+			saved.language = saved.outputLanguage;
+			delete saved.outputLanguage;
+		}
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, saved);
 	}
 
 	async saveSettings() {
@@ -123,7 +132,7 @@ export default class SecondBrain extends Plugin {
 			const cache = (await this.loadData()) as any || emptyCache();
 			const { changed } = diffFingerprints(allFiles, cache);
 			if (changed.length > 0) {
-				new Notice(`检测到 ${changed.length} 个新素材，开始自动编译...`);
+				new Notice(t("notice.detectNew", this.settings.language, { n: changed.length }));
 				this.triggerAutoCompile();
 			}
 		} catch {
@@ -140,10 +149,10 @@ export default class SecondBrain extends Plugin {
 			const result = await runCompile(this.app, this.settings, undefined, false, this);
 			const total = result.conceptsCount + result.entitiesCount + result.sourcesCount;
 			if (!result.reused) {
-				new Notice(`自动编译完成：${total} 个页面已更新`);
+				new Notice(t("notice.autoDone", this.settings.language, { n: total }));
 			}
 		} catch (e: any) {
-			console.error("自动编译失败:", e.message);
+			console.error("Auto compile failed:", e.message);
 		} finally {
 			this.isCompiling = false;
 		}
@@ -156,11 +165,9 @@ export default class SecondBrain extends Plugin {
 		let leaf = workspace.getLeavesOfType(viewType)[0];
 		if (!leaf) {
 			if (viewType === VIEW_TYPE_CHAT || viewType === VIEW_TYPE_WIKI) {
-				// 对话面板在主编辑区打开（全宽）
 				leaf = workspace.getLeaf(true);
 				await leaf.setViewState({ type: viewType, active: true });
 			} else {
-				// 编译面板在右侧栏
 				const rightLeaf = workspace.getRightLeaf(false);
 				if (rightLeaf) {
 					await rightLeaf.setViewState({ type: viewType, active: true });
@@ -178,14 +185,14 @@ export default class SecondBrain extends Plugin {
 		if (!file) return;
 
 		if (!this.settings.apiKey) {
-			new Notice("请先在设置中配置 API Key");
+			new Notice(t("notice.noApiKey", this.settings.language));
 			return;
 		}
 
 		const content = await this.app.vault.read(file);
 		const targetFile = { path: file.path, content };
 
-		new Notice(`正在编译 ${file.path}...`);
+		new Notice(t("notice.compiling", this.settings.language, { path: file.path }));
 
 		try {
 			const wikiFiles = await readWikiFiles(this.app, this.settings.wikiFolder);
@@ -193,9 +200,9 @@ export default class SecondBrain extends Plugin {
 			for (const f of wikiFiles) wikiMap[f.path] = f.content;
 
 			const result = await this.quickIngest(targetFile);
-			new Notice(`编译完成：${result.generated.length} 个页面`);
+			new Notice(t("notice.compileDone", this.settings.language, { n: result.generated.length }));
 		} catch (e: any) {
-			new Notice(`编译失败: ${e.message}`);
+			new Notice(t("notice.compileFail", this.settings.language, { msg: e.message }));
 		}
 	}
 
@@ -204,11 +211,13 @@ export default class SecondBrain extends Plugin {
 		const wikiFiles = await readWikiFiles(this.app, this.settings.wikiFolder);
 		const existingNames = Object.keys(filesToMap(wikiFiles)).map(p => p.split("/").pop()!.replace(/\.md$/, ""));
 
+		const tpl = await loadTemplateConfig(this.app, this.settings.templateFile, this.settings.language);
+
 		const changedMaterials = `--- 文件: ${targetFile.path} ---\n${targetFile.content.slice(0, 4000)}`;
-		const prompt = buildIncrementalAnalyzePrompt(changedMaterials, existingNames);
+		const prompt = buildIncrementalAnalyzePrompt(changedMaterials, existingNames, tpl);
 
 		const analysisResult = await callLLM(
-			[{ role: "system", content: "你是知识管理专家。输出严格的 JSON。" }, { role: "user", content: prompt }],
+			[{ role: "system", content: tpl.analysisSystemPrompt }, { role: "user", content: prompt }],
 			this.settings,
 			{ maxTokens: 4000 }
 		);
@@ -237,12 +246,23 @@ export default class SecondBrain extends Plugin {
 		for (const task of tasks) {
 			let genPrompt: string;
 			let system: string;
-			if (task.type === "concept") { genPrompt = buildConceptPrompt(task.item, task.materials, concepts); system = "你是知识库编辑。"; }
-			else if (task.type === "entity") { genPrompt = buildEntityPrompt(task.item, task.materials, concepts); system = "你是知识库编辑。"; }
-			else { genPrompt = buildSourcePrompt(task.item, task.materials, concepts); system = "你是知识库编辑。"; }
+			if (task.type === "concept") { genPrompt = buildConceptPrompt(task.item, task.materials, concepts, tpl); system = tpl.editorSystemPrompt; }
+			else if (task.type === "entity") { genPrompt = buildEntityPrompt(task.item, task.materials, concepts, tpl); system = tpl.editorSystemPrompt; }
+			else { genPrompt = buildSourcePrompt(task.item, task.materials, concepts, tpl); system = tpl.editorSystemPrompt; }
 
 			try {
-				const page = await callLLM([{ role: "system", content: system }, { role: "user", content: genPrompt }], this.settings, { temperature: 0.3 });
+				const raw = await callLLM([{ role: "system", content: system }, { role: "user", content: genPrompt }], this.settings, { temperature: 0.3 });
+				let page = raw;
+				const fmMatch = raw.match(/^(---\n)([\s\S]*?)(\n---\n*)/);
+				if (fmMatch) {
+					if (!/^status:/m.test(fmMatch[2])) {
+						page = `${fmMatch[1]}status: "draft"\n${fmMatch[2]}${fmMatch[3]}`;
+					} else {
+						page = raw.replace(/^(status:\s*).*$/m, '$1"draft"');
+					}
+				} else {
+					page = `---\nstatus: "draft"\n---\n\n${raw}`;
+				}
 				await writeWikiFile(this.app, this.settings.wikiFolder, task.path, page);
 				generated.push(task.path);
 			} catch (e: any) {
@@ -265,129 +285,178 @@ class SecondBrainSettingTab extends PluginSettingTab {
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();
+		const lang = this.plugin.settings.language;
 
-		containerEl.createEl("h2", { text: "第二大脑 — 设置" });
+		containerEl.createEl("h2", { text: t("set.title", lang) });
 
 		new Setting(containerEl)
-			.setName("LLM Provider")
+			.setName(t("set.provider", lang))
 			.addDropdown((dd) => dd
 				.addOptions({ deepseek: "DeepSeek", openai: "OpenAI", anthropic: "Anthropic (Claude)", openrouter: "OpenRouter", custom: "Custom" })
 				.setValue(this.plugin.settings.provider)
 				.onChange(async (v) => { this.plugin.settings.provider = v; await this.plugin.saveSettings(); }));
 
 		new Setting(containerEl)
-			.setName("Model")
-			.addText((t) => t.setPlaceholder("deepseek-chat").setValue(this.plugin.settings.model).onChange(async (v) => { this.plugin.settings.model = v; await this.plugin.saveSettings(); }));
+			.setName(t("set.model", lang))
+			.addText((t2) => t2.setPlaceholder(t("set.modelPh", lang)).setValue(this.plugin.settings.model).onChange(async (v) => { this.plugin.settings.model = v; await this.plugin.saveSettings(); }));
+
+		const apiKeySetting = new Setting(containerEl)
+			.setName(t("set.apiKey", lang))
+			.setDesc(t("set.apiKeyDesc", lang))
+			.addText((t2) => { t2.setPlaceholder("sk-...").setValue(this.plugin.settings.apiKey).onChange(async (v) => { this.plugin.settings.apiKey = v; await this.plugin.saveSettings(); }); t2.inputEl.type = "password"; });
+		apiKeySetting.descEl.createEl("a", { text: t("set.getApiKey", lang), href: "https://platform.deepseek.com/api_keys" });
 
 		new Setting(containerEl)
-			.setName("API Key")
-			.setDesc("密钥保存在本地，不会上传")
-			.addText((t) => { t.setPlaceholder("sk-...").setValue(this.plugin.settings.apiKey).onChange(async (v) => { this.plugin.settings.apiKey = v; await this.plugin.saveSettings(); }); t.inputEl.type = "password"; });
+			.setName(t("set.baseUrl", lang))
+			.addText((t2) => t2.setPlaceholder(t("set.baseUrlPh", lang)).setValue(this.plugin.settings.baseUrl).onChange(async (v) => { this.plugin.settings.baseUrl = v; await this.plugin.saveSettings(); }));
 
 		new Setting(containerEl)
-			.setName("Base URL")
-			.addText((t) => t.setPlaceholder("https://api.deepseek.com").setValue(this.plugin.settings.baseUrl).onChange(async (v) => { this.plugin.settings.baseUrl = v; await this.plugin.saveSettings(); }));
-
-		new Setting(containerEl)
-			.setName("测试连接")
-			.addButton((btn) => btn.setButtonText("测试").onClick(async () => {
+			.setName(t("set.testConn", lang))
+			.addButton((btn) => btn.setButtonText(t("set.test", lang)).onClick(async () => {
 				try {
-					const reply = await callLLM([{ role: "user", content: "回复两个字：正常" }], this.plugin.settings, { maxTokens: 10, temperature: 0 });
-					new Notice(`连接成功: ${reply}`);
+					const reply = await callLLM([{ role: "user", content: "Hi" }], this.plugin.settings, { maxTokens: 10, temperature: 0 });
+					new Notice(t("notice.connOk", lang, { msg: reply }));
 				} catch (e: any) {
-					new Notice(`连接失败: ${e.message}`);
+					new Notice(t("notice.connFail", lang, { msg: e.message }));
 				}
 			}));
 
-		containerEl.createEl("h3", { text: "自动编译" });
+		containerEl.createEl("h3", { text: t("set.autoSection", lang) });
 
 		new Setting(containerEl)
-			.setName("自动编译")
-			.setDesc("检测到 raw/ 目录有新素材或修改时，自动触发增量编译")
+			.setName(t("set.autoCompile", lang))
+			.setDesc(t("set.autoCompileDesc", lang))
 			.addToggle((toggle) => toggle
 				.setValue(this.plugin.settings.autoCompile)
 				.onChange(async (v) => { this.plugin.settings.autoCompile = v; await this.plugin.saveSettings(); }));
 
 		new Setting(containerEl)
-			.setName("编译延迟（秒）")
-			.setDesc("文件修改后等待多少秒再触发编译，避免频繁调用 API")
+			.setName(t("set.delay", lang))
+			.setDesc(t("set.delayDesc", lang))
 			.addSlider((slider) => slider
 				.setLimits(10, 120, 5)
 				.setValue(this.plugin.settings.autoCompileDelay)
 				.setDynamicTooltip()
 				.onChange(async (v) => { this.plugin.settings.autoCompileDelay = v; await this.plugin.saveSettings(); }));
 
-		containerEl.createEl("h3", { text: "目录配置" });
 
-		new Setting(containerEl)
-			.setName("素材目录")
-			.setDesc("存放原始素材的文件夹")
-			.addText((t) => t.setPlaceholder("raw").setValue(this.plugin.settings.rawFolder).onChange(async (v) => { this.plugin.settings.rawFolder = v; await this.plugin.saveSettings(); }));
+				containerEl.createEl("h3", { text: t("set.embedSection", lang) });
 
-		new Setting(containerEl)
-			.setName("Wiki 目录")
-			.setDesc("AI 编译输出的文件夹")
-			.addText((t) => t.setPlaceholder("wiki").setValue(this.plugin.settings.wikiFolder).onChange(async (v) => { this.plugin.settings.wikiFolder = v; await this.plugin.saveSettings(); }));
+				new Setting(containerEl)
+					.setName(t("set.embedModel", lang))
+					.setDesc(t("set.embedModelDesc", lang))
+					.addText((t2) => t2.setPlaceholder(t("set.embedModelPh", lang)).setValue(this.plugin.settings.embeddingModel).onChange(async (v) => { this.plugin.settings.embeddingModel = v; await this.plugin.saveSettings(); }));
 
-			// --- 数据管理 ---
-			containerEl.createEl("h3", { text: "数据管理" });
+				new Setting(containerEl)
+					.setName(t("set.embedUrl", lang))
+					.setDesc(t("set.embedUrlDesc", lang))
+					.addText((t2) => t2.setPlaceholder(t("set.embedUrlPh", lang)).setValue(this.plugin.settings.embeddingBaseUrl).onChange(async (v) => { this.plugin.settings.embeddingBaseUrl = v; await this.plugin.saveSettings(); }));
+
+				new Setting(containerEl)
+					.setName(t("set.embedKey", lang))
+					.setDesc(t("set.embedKeyDesc", lang))
+					.addText((t2) => { t2.setPlaceholder("sk-...").setValue(this.plugin.settings.embeddingApiKey).onChange(async (v) => { this.plugin.settings.embeddingApiKey = v; await this.plugin.saveSettings(); }); t2.inputEl.type = "password"; });
+
+			containerEl.createEl("h3", { text: t("set.langSection", lang) });
 
 			new Setting(containerEl)
-				.setName("清理 Wiki")
-				.setDesc("删除所有 AI 编译生成的 wiki 页面和编译缓存")
-				.addButton((btn) => btn.setButtonText("清理 Wiki").setWarning().onClick(async () => {
-					const modal = new Modal(this.app);
-					modal.contentEl.createEl("h3", { text: "确认清理 Wiki" });
-					modal.contentEl.createEl("p", { text: "即将删除所有 wiki 页面和编译缓存。该操作不可撤销。" });
-					modal.contentEl.createEl("p", { text: "要继续，请输入 CONFIRM" });
-					const input = modal.contentEl.createEl("input", { type: "text", placeholder: "CONFIRM" });
+				.setName(t("set.language", lang))
+				.setDesc(t("set.languageDesc", lang))
+				.addDropdown((dd) => dd
+					.addOptions({ "zh-CN": "简体中文", "en": "English", "ja": "日本語" })
+					.setValue(this.plugin.settings.language)
+					.onChange(async (v) => { this.plugin.settings.language = v; await this.plugin.saveSettings(); this.display(); }));
 
-					const btnRow = modal.contentEl.createDiv();
-					btnRow.style.display = "flex";
-					btnRow.style.gap = "8px";
-					btnRow.style.justifyContent = "flex-end";
+			new Setting(containerEl)
+				.setName(t("set.tplFile", lang))
+				.setDesc(t("set.tplFileDesc", lang))
+				.addText((t2) => t2.setPlaceholder(t("set.tplFilePh", lang)).setValue(this.plugin.settings.templateFile).onChange(async (v) => { this.plugin.settings.templateFile = v; await this.plugin.saveSettings(); }));
 
-					const cancelBtn = btnRow.createEl("button", { text: "取消" });
-					cancelBtn.addEventListener("click", () => modal.close());
+			new Setting(containerEl)
+				.setName(t("set.genTpl", lang))
+				.setDesc(t("set.genTplDesc", lang))
+				.addButton((btn) => btn.setButtonText(t("set.gen", lang)).onClick(async () => {
+					try {
+						const { generateTemplateFile } = await import("./core/templates");
+						await generateTemplateFile(this.app, this.plugin.settings.templateFile, this.plugin.settings.language);
+						new Notice(t("notice.tplGenerated", lang, { path: this.plugin.settings.templateFile }));
+					} catch (e: any) {
+						new Notice(t("notice.tplFail", lang, { msg: e.message }));
+					}
+				}));
 
-					const confirmBtn = btnRow.createEl("button", { text: "确认清理", cls: "mod-warning" });
-					confirmBtn.addEventListener("click", async () => {
-						if (input.value !== "CONFIRM") {
-							new Notice("请输入 CONFIRM 确认");
-							return;
-						}
-						confirmBtn.disabled = true;
-						confirmBtn.textContent = "清理中...";
-						try {
-							const wikiFolder = this.plugin.settings.wikiFolder;
-							const wikiFiles = await readWikiFiles(this.app, wikiFolder);
-							for (const f of wikiFiles) {
-								const fullPath = `${wikiFolder}/${f.path}`;
-								const file = this.app.vault.getAbstractFileByPath(fullPath);
-								if (file instanceof TFile) {
-									await this.app.vault.delete(file);
-								}
+			containerEl.createEl("h3", { text: t("set.folderSection", lang) });
+
+			new Setting(containerEl)
+				.setName(t("set.rawFolder", lang))
+				.setDesc(t("set.rawFolderDesc", lang))
+				.addText((t2) => t2.setPlaceholder(t("set.rawFolderPh", lang)).setValue(this.plugin.settings.rawFolder).onChange(async (v) => { this.plugin.settings.rawFolder = v; await this.plugin.saveSettings(); }));
+
+			new Setting(containerEl)
+				.setName(t("set.wikiFolder", lang))
+				.setDesc(t("set.wikiFolderDesc", lang))
+				.addText((t2) => t2.setPlaceholder(t("set.wikiFolderPh", lang)).setValue(this.plugin.settings.wikiFolder).onChange(async (v) => { this.plugin.settings.wikiFolder = v; await this.plugin.saveSettings(); }));
+
+				// --- 数据管理 ---
+				containerEl.createEl("h3", { text: t("set.dataSection", lang) });
+
+				new Setting(containerEl)
+					.setName(t("set.cleanWiki", lang))
+					.setDesc(t("set.cleanWikiDesc", lang))
+					.addButton((btn) => btn.setButtonText(t("set.cleanWikiBtn", lang)).setWarning().onClick(async () => {
+						const modal = new Modal(this.app);
+						modal.contentEl.createEl("h3", { text: t("set.confirmTitle", lang) });
+						modal.contentEl.createEl("p", { text: t("set.confirmDesc", lang) });
+						modal.contentEl.createEl("p", { text: t("set.confirmHint", lang) });
+						const input = modal.contentEl.createEl("input", { type: "text", placeholder: t("set.confirmPh", lang) });
+
+						const btnRow = modal.contentEl.createDiv();
+						btnRow.style.display = "flex";
+						btnRow.style.gap = "8px";
+						btnRow.style.justifyContent = "flex-end";
+
+						const cancelBtn = btnRow.createEl("button", { text: t("set.cancel", lang) });
+						cancelBtn.addEventListener("click", () => modal.close());
+
+						const confirmBtn = btnRow.createEl("button", { text: t("set.confirmBtn", lang), cls: "mod-warning" });
+						confirmBtn.addEventListener("click", async () => {
+							if (input.value !== "CONFIRM") {
+								new Notice(t("notice.pleaseConfirm", lang));
+								return;
 							}
-							this.plugin.settings = Object.assign({}, DEFAULT_SETTINGS, emptyCache());
-							await this.plugin.saveData(this.plugin.settings);
-							new Notice(`Wiki 已清理，删除了 ${wikiFiles.length} 个文件`);
-							modal.close();
-						} catch (e: any) {
-							new Notice(`清理失败: ${e.message}`);
-							confirmBtn.disabled = false;
-							confirmBtn.textContent = "确认清理";
-						}
-					});
-					modal.open();
-				}));
+							confirmBtn.disabled = true;
+							confirmBtn.textContent = t("set.cleaning", lang);
+							try {
+								const wikiFolder = this.plugin.settings.wikiFolder;
+								const wikiFiles = await readWikiFiles(this.app, wikiFolder);
+								for (const f of wikiFiles) {
+									const fullPath = `${wikiFolder}/${f.path}`;
+									const file = this.app.vault.getAbstractFileByPath(fullPath);
+									if (file instanceof TFile) {
+										await this.app.vault.delete(file);
+									}
+								}
+								this.plugin.settings = Object.assign({}, DEFAULT_SETTINGS, emptyCache());
+								await this.plugin.saveData(this.plugin.settings);
+								new Notice(t("notice.wikiCleaned", lang, { n: wikiFiles.length }));
+								modal.close();
+							} catch (e: any) {
+								new Notice(t("notice.cleanFail", lang, { msg: e.message }));
+								confirmBtn.disabled = false;
+								confirmBtn.textContent = t("set.confirmBtn", lang);
+							}
+						});
+						modal.open();
+					}));
 
-			new Setting(containerEl)
-				.setName("清理编译缓存")
-				.setDesc("仅清理编译缓存（指纹、分析结果），不删除 wiki 页面，下次编译将全量重新分析")
-				.addButton((btn) => btn.setButtonText("清理缓存").setWarning().onClick(async () => {
-					this.plugin.settings = Object.assign({}, this.plugin.settings, emptyCache());
-					await this.plugin.saveData(this.plugin.settings);
-					new Notice("编译缓存已清理");
-				}));
+				new Setting(containerEl)
+					.setName(t("set.cleanCache", lang))
+					.setDesc(t("set.cleanCacheDesc", lang))
+					.addButton((btn) => btn.setButtonText(t("set.cleanCacheBtn", lang)).setWarning().onClick(async () => {
+						this.plugin.settings = Object.assign({}, this.plugin.settings, emptyCache());
+						await this.plugin.saveData(this.plugin.settings);
+						clearEmbeddingCache();
+						new Notice(t("notice.cacheCleaned", lang));
+					}));
 	}
 }

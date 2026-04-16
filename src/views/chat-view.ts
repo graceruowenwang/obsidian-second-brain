@@ -2,8 +2,9 @@
 
 import { ItemView, WorkspaceLeaf, Notice, MarkdownRenderer, Component } from "obsidian";
 import { callLLMStream } from "../core/llm";
-import { readWikiFiles, findRelevantPages, filesToMap } from "../core/file-utils";
+import { readWikiFiles, findRelevantPages, filesToMap, vectorSearch, buildEmbeddingCache } from "../core/file-utils";
 import type { SecondBrainPlugin } from "../types";
+import { t, LANG_INSTRUCTION } from "../core/i18n";
 
 export const VIEW_TYPE_CHAT = "second-brain-chat";
 
@@ -24,18 +25,19 @@ export class ChatView extends ItemView {
 	}
 
 	getViewType() { return VIEW_TYPE_CHAT; }
-	getDisplayText() { return "Wiki 对话"; }
+	getDisplayText() { return t("chat.title", this.plugin.settings.language); }
 	getIcon() { return "message-circle"; }
 
 	async onOpen() {
 		const container = this.containerEl.children[1] as HTMLElement;
 		container.empty();
 		container.classList.add("second-brain-chat");
+		const lang = this.plugin.settings.language;
 
 		// 头部
 		const header = container.createDiv({ cls: "sb-chat-header" });
-		header.createEl("span", { text: "Wiki 对话", cls: "sb-chat-title" });
-		const clearBtn = header.createEl("button", { text: "清空对话", cls: "sb-chat-clear-btn" });
+		header.createEl("span", { text: t("chat.title", lang), cls: "sb-chat-title" });
+		const clearBtn = header.createEl("button", { text: t("chat.clear", lang), cls: "sb-chat-clear-btn" });
 		clearBtn.addEventListener("click", () => {
 			this.chatHistory = [];
 			this.messagesEl.empty();
@@ -49,11 +51,11 @@ export class ChatView extends ItemView {
 		// 输入区
 		const inputArea = container.createDiv({ cls: "sb-input-area" });
 		this.inputEl = inputArea.createEl("textarea", {
-			attr: { placeholder: "输入你的问题... (Enter 发送, Shift+Enter 换行)", rows: "1" },
+			attr: { placeholder: t("chat.placeholder", lang), rows: "1" },
 			cls: "sb-chat-input",
 		});
-		const sendBtn = inputArea.createEl("button", { text: "发送", cls: "sb-send-btn mod-cta" });
-		const stopBtn = inputArea.createEl("button", { text: "停止", cls: "sb-stop-btn" });
+		const sendBtn = inputArea.createEl("button", { text: t("chat.send", lang), cls: "sb-send-btn mod-cta" });
+		const stopBtn = inputArea.createEl("button", { text: t("chat.stop", lang), cls: "sb-stop-btn" });
 		stopBtn.style.display = "none";
 
 		sendBtn.addEventListener("click", () => this.send());
@@ -70,47 +72,48 @@ export class ChatView extends ItemView {
 			this.inputEl.style.height = Math.min(this.inputEl.scrollHeight, 150) + "px";
 		});
 
-// 内部链接点击：拦截 AI 回复中的 [[wikilink]] 和 <a> 链接
-			this.messagesEl.addEventListener("click", (e) => {
-				const target = e.target as HTMLElement;
-				const anchor = target.closest("a") as HTMLAnchorElement | null;
-				if (!anchor) return;
+	// 内部链接点击：拦截 AI 回复中的 [[wikilink]] 和 <a> 链接
+				this.messagesEl.addEventListener("click", (e) => {
+					const target = e.target as HTMLElement;
+					const anchor = target.closest("a") as HTMLAnchorElement | null;
+					if (!anchor) return;
 
-				const href = anchor.getAttribute("data-href") || anchor.getAttribute("href") || "";
-				if (href.startsWith("http") || anchor.classList.contains("sb-source-link")) return;
+					const href = anchor.getAttribute("data-href") || anchor.getAttribute("href") || "";
+					if (href.startsWith("http") || anchor.classList.contains("sb-source-link")) return;
 
-				e.preventDefault();
-				const wikiFolder = this.plugin.settings.wikiFolder;
-				const candidates = [
-					`${wikiFolder}/${href}.md`,
-					`${wikiFolder}/${href}`,
-					`${wikiFolder}/concepts/核心概念/${href}.md`,
-					`${wikiFolder}/concepts/方法框架/${href}.md`,
-					`${wikiFolder}/concepts/实践经验/${href}.md`,
-					`${wikiFolder}/entities/${href}.md`,
-					`${wikiFolder}/sources/${href}.md`,
-				];
-				for (const p of candidates) {
-					const file = this.app.vault.getAbstractFileByPath(p);
-					if (file) {
-						const leaf = this.app.workspace.getLeaf(true);
-						leaf.openFile(file as any);
-						return;
+					e.preventDefault();
+					const wikiFolder = this.plugin.settings.wikiFolder;
+					const candidates = [
+						`${wikiFolder}/${href}.md`,
+						`${wikiFolder}/${href}`,
+						`${wikiFolder}/concepts/核心概念/${href}.md`,
+						`${wikiFolder}/concepts/方法框架/${href}.md`,
+						`${wikiFolder}/concepts/实践经验/${href}.md`,
+						`${wikiFolder}/entities/${href}.md`,
+						`${wikiFolder}/sources/${href}.md`,
+					];
+					for (const p of candidates) {
+						const file = this.app.vault.getAbstractFileByPath(p);
+						if (file) {
+							const leaf = this.app.workspace.getLeaf(true);
+							leaf.openFile(file as any);
+							return;
+						}
 					}
-				}
-				new Notice("页面未找到: " + href);
-			});
+					new Notice(t("chat.pageNotFound", this.plugin.settings.language, { name: href }));
+				});
 
-					// 加载 wiki
-		await this.loadWiki();
+						// 加载 wiki
+			await this.loadWiki();
 	}
 
 	private addWelcome() {
+		const lang = this.plugin.settings.language;
 		const welcome = this.messagesEl.createDiv({ cls: "sb-welcome" });
-		welcome.createEl("h3", { text: "你好，我是你的知识库助手" });
-		welcome.createEl("p", { text: "请先编译素材，然后就可以和我对话了。你可以问我任何关于知识库中的概念、实体、来源的问题。" });
+		welcome.createEl("h3", { text: t("chat.welcome", lang) });
+		welcome.createEl("p", { text: t("chat.welcomeDesc", lang) });
 		const tips = welcome.createDiv({ cls: "sb-tips" });
-		const examples = ["这个概念的核心定义是什么？", "帮我梳理这些概念之间的关系", "有哪些和 XX 相关的素材？"];
+		const examples = [t("chat.suggestion1", lang), t("chat.suggestion2", lang), t("chat.suggestion3", lang)];
 		for (const ex of examples) {
 			const chip = tips.createDiv({ cls: "sb-tip-chip", text: ex });
 			chip.addEventListener("click", () => {
@@ -124,6 +127,10 @@ export class ChatView extends ItemView {
 		const { wikiFolder } = this.plugin.settings;
 		const files = await readWikiFiles(this.app, wikiFolder);
 		this.wikiMap = filesToMap(files);
+		// 构建向量缓存（后台静默执行）
+		if (this.plugin.settings.embeddingApiKey || this.plugin.settings.apiKey) {
+			buildEmbeddingCache(this.wikiMap, this.plugin.settings).catch(() => {});
+		}
 	}
 
 	private async send() {
@@ -131,7 +138,8 @@ export class ChatView extends ItemView {
 		const q = this.inputEl.value.trim();
 		if (!q) return;
 		const settings = this.plugin.settings;
-		if (!settings.apiKey) { new Notice("请先配置 API Key"); return; }
+		const lang = settings.language;
+		if (!settings.apiKey) { new Notice(t("chat.noApiKey", lang)); return; }
 
 		this.inputEl.value = "";
 		this.inputEl.style.height = "auto";
@@ -146,13 +154,14 @@ export class ChatView extends ItemView {
 		this.addUserMessage(q);
 
 		// 搜索相关页面
-		const pages = findRelevantPages(q, this.wikiMap, 5);
+		const pages = await vectorSearch(q, this.wikiMap, this.plugin.settings, 5);
+		const langInstr = LANG_INSTRUCTION[lang] || LANG_INSTRUCTION["en"];
 		let systemPrompt: string;
 		if (pages.length > 0) {
 			const context = pages.map(p => `=== ${p.filePath} ===\n${p.content.slice(0, 2000)}`).join("\n\n");
-			systemPrompt = `你是这个知识库的助手。基于以下 wiki 页面回答。用简体中文。回答时使用 Markdown 格式，代码用代码块包裹。\n\n相关页面：\n${context}`;
+			systemPrompt = t("chat.systemPrompt", lang, { lang: langInstr, context });
 		} else {
-			systemPrompt = "你是知识库助手。提问暂无相关内容，自然回复。用简体中文。回答时使用 Markdown 格式，代码用代码块包裹。";
+			systemPrompt = t("chat.systemPromptEmpty", lang, { lang: langInstr });
 		}
 
 		const messages = [
@@ -188,7 +197,7 @@ export class ChatView extends ItemView {
 
 			if (pages.length > 0) {
 					const srcEl = msgContentEl.createDiv({ cls: "sb-sources" });
-					srcEl.createEl("span", { text: "参考: " });
+					srcEl.createEl("span", { text: t("chat.refLabel", lang) });
 					for (const p of pages) {
 						const link = srcEl.createEl("a", { text: p.filePath, cls: "sb-source-link" });
 						link.addEventListener("click", (e) => {
@@ -199,7 +208,7 @@ export class ChatView extends ItemView {
 								const leaf = this.app.workspace.getLeaf(true);
 								leaf.openFile(file as any);
 							} else {
-								new Notice("文件未找到: " + fullPath);
+								new Notice(t("chat.fileNotFound", lang, { name: fullPath }));
 							}
 						});
 					}
@@ -213,11 +222,11 @@ export class ChatView extends ItemView {
 				if (e.name === "AbortError") {
 					const el = aiMsgEl.querySelector(".sb-ai-content") as HTMLElement;
 					el.empty();
-					MarkdownRenderer.render(this.app, "_(\u5df2\u505c\u6b62)_", el, "", this.component);
+					MarkdownRenderer.render(this.app, t("chat.stopped", lang), el, "", this.component);
 				} else {
 				const msgContentEl = aiMsgEl.querySelector(".sb-ai-content") as HTMLElement;
 				msgContentEl.empty();
-				msgContentEl.createEl("p", { text: `出错了: ${e.message}`, cls: "sb-error" });
+				msgContentEl.createEl("p", { text: t("chat.error", lang, { msg: e.message }), cls: "sb-error" });
 				}
 		} finally {
 			this.sending = false;
@@ -247,15 +256,17 @@ export class ChatView extends ItemView {
 	}
 
 	private addInteractiveElements(container: HTMLElement) {
+		const lang = this.plugin.settings.language;
+
 		// 代码块：复制按钮
 		container.querySelectorAll("pre > code").forEach((codeEl) => {
 			const pre = codeEl.parentElement;
 			if (!pre || pre.querySelector(".sb-copy-btn")) return;
-			const btn = createEl("button", { cls: "sb-copy-btn", text: "复制" });
+			const btn = createEl("button", { cls: "sb-copy-btn", text: t("chat.copy", lang) });
 			btn.addEventListener("click", async () => {
 				await navigator.clipboard.writeText((codeEl as HTMLElement).textContent || "");
-				btn.textContent = "已复制";
-				setTimeout(() => { btn.textContent = "复制"; }, 1500);
+				btn.textContent = t("chat.copied", lang);
+				setTimeout(() => { btn.textContent = t("chat.copy", lang); }, 1500);
 			});
 			pre.style.position = "relative";
 			pre.appendChild(btn);
@@ -269,14 +280,14 @@ export class ChatView extends ItemView {
 				const alt = img.alt || name;
 
 				const link = createDiv({ cls: "sb-img-link" });
-				const linkText = link.createEl("a", { text: "[图片] " + alt, cls: "sb-img-link-text" });
+				const linkText = link.createEl("a", { text: t("chat.imageAlt", lang, { alt }), cls: "sb-img-link-text" });
 				img.parentElement?.replaceChild(link, img);
 
 				const preview = link.createDiv({ cls: "sb-img-preview" });
 				const previewImg = preview.createEl("img", { attr: { src } });
 				const actions = preview.createDiv({ cls: "sb-img-preview-actions" });
-				const dlBtn = actions.createEl("button", { text: "下载", cls: "sb-img-preview-btn" });
-				const openBtn = actions.createEl("button", { text: "全屏", cls: "sb-img-preview-btn" });
+				const dlBtn = actions.createEl("button", { text: t("chat.download", lang), cls: "sb-img-preview-btn" });
+				const openBtn = actions.createEl("button", { text: t("chat.fullscreen", lang), cls: "sb-img-preview-btn" });
 
 				let hoverTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -324,7 +335,7 @@ export class ChatView extends ItemView {
 			if (table.parentElement?.classList.contains("sb-table-wrap")) return;
 			const wrap = createDiv({ cls: "sb-table-wrap" });
 			table.parentElement?.replaceChild(wrap, table);
-			const btn = createEl("button", { cls: "sb-table-copy-btn", text: "复制表格" });
+			const btn = createEl("button", { cls: "sb-table-copy-btn", text: t("chat.copyTable", lang) });
 			btn.addEventListener("click", async () => {
 				const rows = Array.from(table.querySelectorAll("tr"));
 				const md = rows.map((row, i) => {
@@ -339,8 +350,8 @@ export class ChatView extends ItemView {
 					md.splice(1, 0, sep);
 				}
 				await navigator.clipboard.writeText(md.join("\n"));
-				btn.textContent = "已复制";
-				setTimeout(() => { btn.textContent = "复制表格"; }, 1500);
+				btn.textContent = t("chat.copied", lang);
+				setTimeout(() => { btn.textContent = t("chat.copyTable", lang); }, 1500);
 			});
 			wrap.appendChild(btn);
 			wrap.appendChild(table);

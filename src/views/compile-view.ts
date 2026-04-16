@@ -4,6 +4,7 @@ import { ItemView, WorkspaceLeaf, Notice } from "obsidian";
 import { runCompile } from "../core/compile";
 import { readRawFiles } from "../core/file-utils";
 import type { SecondBrainPlugin, ProgressEvent } from "../types";
+import { t } from "../core/i18n";
 
 export const VIEW_TYPE_COMPILE = "second-brain-compile";
 
@@ -22,20 +23,21 @@ export class CompileView extends ItemView {
 	}
 
 	getViewType() { return VIEW_TYPE_COMPILE; }
-	getDisplayText() { return "编译"; }
+	getDisplayText() { return t("compile.start", this.plugin.settings.language); }
 	getIcon() { return "zap"; }
 
 	async onOpen() {
 		const container = this.containerEl.children[1] as HTMLElement;
 		container.empty();
 		container.classList.add("second-brain-compile");
+		const lang = this.plugin.settings.language;
 
 		// 按钮
 		const btnRow = container.createDiv({ cls: "sb-btn-row" });
-		this.compileBtn = btnRow.createEl("button", { text: "开始编译", cls: "mod-cta" });
+		this.compileBtn = btnRow.createEl("button", { text: t("compile.start", lang), cls: "mod-cta" });
 		this.compileBtn.addEventListener("click", () => this.startCompile());
 
-		const forceBtn = btnRow.createEl("button", { text: "忽略缓存重编" });
+		const forceBtn = btnRow.createEl("button", { text: t("compile.force", lang) });
 		forceBtn.addEventListener("click", () => this.startCompile(true));
 
 		// 状态
@@ -49,7 +51,7 @@ export class CompileView extends ItemView {
 
 		// 日志
 		this.logEl = container.createDiv({ cls: "sb-log" });
-		this.addLog("点击「开始编译」运行 AI 编译流程。", "");
+		this.addLog(t("compile.clickToStart", lang), "");
 
 		// 加载 raw 文件列表
 		this.loadRawFileList(container);
@@ -57,50 +59,52 @@ export class CompileView extends ItemView {
 
 	private async loadRawFileList(container: HTMLElement) {
 		const { rawFolder } = this.plugin.settings;
+		const lang = this.plugin.settings.language;
 		const files = await readRawFiles(this.app, rawFolder);
 		const userList = files.filter(f => !f.path.includes("_usage"));
 		if (userList.length > 0) {
-			this.addLog(`${rawFolder}/ 下有 ${userList.length} 个素材文件`, "ok");
+			this.addLog(t("compile.filesFound", lang, { folder: rawFolder, n: userList.length }), "ok");
 		} else {
-			this.addLog(`${rawFolder}/ 目录为空，请先放入素材`, "err");
+			this.addLog(t("compile.folderEmpty", lang, { folder: rawFolder }), "err");
 		}
 	}
 
 	private async startCompile(force = false) {
 		if (this.compiling) return;
 		const settings = this.plugin.settings;
+		const lang = settings.language;
 		if (!settings.apiKey) {
-			new Notice("请先在设置中配置 API Key");
+			new Notice(t("notice.noApiKey", lang));
 			return;
 		}
 
 		this.compiling = true;
 		this.compileBtn.disabled = true;
-		this.compileBtn.textContent = "编译中...";
+		this.compileBtn.textContent = t("compile.compiling", lang);
 		this.logEl.empty();
 		this.progressFill.style.width = "0%";
 
 		const onProgress = (e: ProgressEvent) => {
 			this.progressFill.style.width = `${e.percent}%`;
-			this.progressLabel.textContent = `${e.stepName} — ${e.detail} (${e.percent}%)`;
+			this.progressLabel.textContent = t("compile.progress", lang, { step: e.stepName, detail: e.detail, pct: e.percent });
 		};
 
 		try {
 			const result = await runCompile(this.app, settings, onProgress, force);
-			this.addLog(`编译完成：${result.conceptsCount} 概念, ${result.entitiesCount} 实体, ${result.sourcesCount} 来源`, "ok");
-			if (result.reused) this.addLog("素材无变化，跳过编译", "");
+			this.addLog(t("compile.done", lang, { c: result.conceptsCount, e: result.entitiesCount, s: result.sourcesCount }), "ok");
+			if (result.reused) this.addLog(t("compile.noChange", lang), "");
 			if (result.errors.length > 0) {
-				this.addLog(`${result.errors.length} 个页面生成失败`, "err");
-				for (const e of result.errors) this.addLog(`  ${e.name}: ${e.error}`, "err");
+				this.addLog(t("compile.errors", lang, { n: result.errors.length }), "err");
+				for (const e of result.errors) this.addLog(t("compile.errorDetail", lang, { name: e.name, error: e.error }), "err");
 			}
-			new Notice("编译完成");
+			new Notice(t("compile.complete", lang));
 		} catch (e: any) {
-			this.addLog(`编译失败: ${e.message}`, "err");
-			new Notice(`编译失败: ${e.message}`);
+			this.addLog(t("compile.fail", lang, { msg: e.message }), "err");
+			new Notice(t("compile.fail", lang, { msg: e.message }));
 		} finally {
 			this.compiling = false;
 			this.compileBtn.disabled = false;
-			this.compileBtn.textContent = "开始编译";
+			this.compileBtn.textContent = t("compile.start", lang);
 		}
 	}
 

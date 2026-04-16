@@ -227,10 +227,153 @@ export function updateFingerprints(
 	}
 }
 
+// 追加写入 log.md 操作日志
+export async function writeLogEntry(
+	app: App,
+	wikiFolder: string,
+	action: "ingest" | "query" | "lint" | "sync",
+	summary: string,
+	details?: string,
+): Promise<void> {
+	const logPath = `${wikiFolder}/log.md`;
+	const today = new Date().toISOString().split("T")[0];
+	let entry = `\n## [${today}] ${action} | ${summary}\n`;
+	if (details) entry += `${details}\n`;
+
+	const existing = app.vault.getAbstractFileByPath(logPath);
+	if (existing instanceof TFile) {
+		const content = await app.vault.read(existing);
+		await app.vault.modify(existing, content + entry);
+	} else {
+		// 新建 log.md
+		await ensureFolder(app, wikiFolder);
+		const header = `---\ntitle: "操作日志"\ntype: log\nlast_updated: ${today}\n---\n\n# 操作日志`;
+		await app.vault.create(logPath, header + entry);
+	}
+}
+
 // 统计分析条目总数
 export function totalAnalysisCount(analysis: any): number {
 	if (!analysis) return 0;
 	return (analysis.concepts?.length || 0) +
 		(analysis.entities?.length || 0) +
 		(analysis.sources?.length || 0);
+}
+
+// === 向量检索 (Embedding-based) ===
+
+import { requestUrl } from "obsidian";
+import type { PluginSettings } from "../types";
+
+// 向量缓存，存储在内存中（每次启动重新计算）
+let embeddingCache: Map<string, number[]> = new Map();
+let cacheBuilt = false;
+
+// 余弦相似度
+function cosineSimilarity(a: number[], b: number[]): number {
+	let dot = 0, normA = 0, normB = 0;
+	for (let i = 0; i < a.length; i++) {
+		dot += a[i] * b[i];
+		normA += a[i] * a[i];
+		normB += b[i] * b[i];
+	}
+	return dot / (Math.sqrt(normA) * Math.sqrt(normB) || 1);
+}
+
+// 调用 embedding API
+async function getEmbedding(text: string, settings: PluginSettings): Promise<number[]> {
+	const url = settings.embeddingBaseUrl.replace(/\/+$/, "") + "/embeddings";
+	const apiKey = settings.embeddingApiKey || settings.apiKey;
+	const res = await requestUrl({
+		url,
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+			Authorization: `Bearer ${apiKey}`,
+		},
+		body: JSON.stringify({
+			model: settings.embeddingModel,
+			input: text.slice(0, 2000),
+		}),
+	});
+	return res.json.data[0].embedding;
+}
+
+// 构建向量缓存：为所有 wiki 页面生成 embedding
+export async function buildEmbeddingCache(
+	files: Record<string, string>,
+	settings: PluginSettings,
+	onProgress?: (done: number, total: number) => void,
+): Promise<void> {
+	if (!settings.embeddingApiKey && !settings.apiKey) {
+		cacheBuilt = false;
+		return;
+	}
+
+	const entries = Object.entries(files);
+	const newCache = new Map<string, number[]>();
+	let done = 0;
+
+	// 保留已有缓存中未变化的页面
+	for (const [path, content] of entries) {
+		if (embeddingCache.has(path)) {
+			newCache.set(path, embeddingCache.get(path)!);
+			done++;
+			continue;
+		}
+
+		try {
+			// 用标题 + 前几段内容作为 embedding 输入
+			const stripped = content.replace(/^---\n[\s\S]*?\n---\n*/, "");
+			const firstPart = stripped.slice(0, 500);
+			const vec = await getEmbedding(firstPart, settings);
+			newCache.set(path, vec);
+			done++;
+			if (onProgress) onProgress(done, entries.length);
+		} catch {
+			// embedding 失败，跳过此页面
+			done++;
+			if (onProgress) onProgress(done, entries.length);
+		}
+	}
+
+	embeddingCache = newCache;
+	cacheBuilt = true;
+}
+
+// 向量检索：用 query embedding 与缓存比较
+export async function vectorSearch(
+	query: string,
+	files: Record<string, string>,
+	settings: PluginSettings,
+	topN = 5,
+): Promise<Array<{ filePath: string; content: string; score: number }>> {
+	if (!cacheBuilt || embeddingCache.size === 0) {
+		// 降级到关键词检索
+		return findRelevantPages(query, files, topN);
+	}
+
+	try {
+		const queryVec = await getEmbedding(query, settings);
+		const scored: Array<{ filePath: string; content: string; score: number }> = [];
+
+		for (const [path, vec] of embeddingCache) {
+			const similarity = cosineSimilarity(queryVec, vec);
+			if (similarity > 0.3) {
+				scored.push({ filePath: path, content: files[path] || "", score: similarity });
+			}
+		}
+
+		scored.sort((a, b) => b.score - a.score);
+		return scored.slice(0, topN);
+	} catch {
+		// embedding 调用失败，降级到关键词检索
+		return findRelevantPages(query, files, topN);
+	}
+}
+
+// 清除 embedding 缓存
+export function clearEmbeddingCache(): void {
+	embeddingCache = new Map();
+	cacheBuilt = false;
 }

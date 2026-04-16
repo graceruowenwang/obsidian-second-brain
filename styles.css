@@ -501,7 +501,7 @@ pre:hover .sb-copy-btn {
 }
 
 /* ============================================
-   Wiki 预览面板
+   Wiki 预览面板 — Modern Polish
    ============================================ */
 
 .second-brain-wiki {
@@ -515,31 +515,41 @@ pre:hover .sb-copy-btn {
 .sb-wiki-toolbar {
 	display: flex;
 	gap: 8px;
-	padding: 10px 16px;
+	padding: 12px 20px;
 	border-bottom: 1px solid var(--background-modifier-border);
 	flex-shrink: 0;
 	align-items: center;
+	background: var(--background-primary);
 }
 
 .sb-wiki-search {
 	flex: 1;
-	padding: 8px 14px;
+	padding: 9px 14px 9px 32px;
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 8px;
 	background: var(--background-secondary);
 	color: var(--text-normal);
 	font-size: 14px;
 	font-family: var(--font-text);
+	transition: border-color 0.15s linear, background 0.15s linear, box-shadow 0.15s linear;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='7.5' cy='7.5' r='5.5'/%3E%3Cline x1='12' y1='12' x2='15' y2='15'/%3E%3C/svg%3E");
+	background-repeat: no-repeat;
+	background-position: 10px center;
 }
 
 .sb-wiki-search:focus {
 	outline: none;
 	border-color: var(--interactive-accent);
-	background: var(--background-primary);
+	background-color: var(--background-primary);
+	box-shadow: 0 0 0 3px rgba(var(--interactive-accent-rgb), 0.12);
+}
+
+.sb-wiki-search::placeholder {
+	color: var(--text-faint);
 }
 
 .sb-wiki-refresh {
-	padding: 8px 16px;
+	padding: 9px 16px;
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 8px;
 	background: transparent;
@@ -547,55 +557,68 @@ pre:hover .sb-copy-btn {
 	cursor: pointer;
 	font-size: 13px;
 	flex-shrink: 0;
+	transition: all 0.15s linear;
 }
 
 .sb-wiki-refresh:hover {
 	background: var(--background-modifier-hover);
 	color: var(--text-normal);
+	border-color: var(--background-modifier-border-hover);
 }
 
 /* 内容区 */
 .sb-wiki-body {
 	flex: 1;
 	overflow-y: auto;
-	padding: 20px 24px;
+	padding: 24px 28px;
+	scroll-behavior: smooth;
 }
 
-/* 统计栏 */
+/* 统计栏 — pill badges */
 .sb-wiki-stats {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin-bottom: 28px;
+}
+
+.sb-stat-item {
 	display: inline-flex;
 	align-items: center;
-	gap: 6px;
-	padding: 8px 20px;
+	gap: 5px;
+	padding: 6px 14px;
 	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
 	border-radius: 20px;
-	margin-bottom: 24px;
+	transition: border-color 0.15s linear;
+}
+
+.sb-stat-item:hover {
+	border-color: var(--interactive-accent);
 }
 
 .sb-stat-num {
-	font-size: 16px;
+	font-size: 14px;
 	font-weight: 700;
 	color: var(--interactive-accent);
 }
 
 .sb-stat-label {
-	font-size: 12px;
+	font-size: 11px;
 	color: var(--text-muted);
-}
-
-.sb-stat-sep {
-	color: var(--text-faint);
-	font-size: 14px;
+	letter-spacing: 0.3px;
 }
 
 /* 分区标题 */
 .sb-wiki-h2 {
-	font-size: 15px;
+	font-size: 13px;
 	font-weight: 600;
-	color: var(--text-normal);
-	margin: 24px 0 4px;
-	padding: 6px 0;
-	border-bottom: 1px solid var(--background-modifier-border);
+	color: var(--text-muted);
+	margin: 28px 0 12px;
+	padding: 0;
+	letter-spacing: 0.5px;
+	text-transform: uppercase;
+	border-bottom: none;
 }
 
 .sb-wiki-h2:first-child {
@@ -605,31 +628,39 @@ pre:hover .sb-copy-btn {
 .sb-wiki-h3 {
 	font-size: 12px;
 	font-weight: 600;
-	color: var(--text-muted);
-	margin: 16px 0 8px;
+	color: var(--text-faint);
+	margin: 12px 0 8px;
 	letter-spacing: 0.3px;
 }
 
 /* 卡片网格 */
 .sb-wiki-grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-	gap: 6px;
-	margin-bottom: 8px;
+	grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+	gap: 8px;
+	margin-bottom: 12px;
 }
 
 .sb-wiki-card {
-	padding: 10px 14px;
-	background: var(--background-secondary);
+	padding: 14px 16px;
+	background: transparent;
 	border: 1px solid var(--background-modifier-border);
-	border-radius: 6px;
+	border-radius: 8px;
 	cursor: pointer;
-	transition: border-color 0.15s, background 0.15s;
+	transition: border-color 0.15s linear, box-shadow 0.15s linear, background 0.15s linear;
+	position: relative;
 }
 
 .sb-wiki-card:hover {
 	border-color: var(--interactive-accent);
-	background: var(--background-secondary-alt);
+	background: var(--background-secondary);
+	box-shadow:
+		0 4px 6px 0px rgba(0, 0, 0, 0.04),
+		0 1px 3px 1px rgba(0, 0, 0, 0.02);
+}
+
+.sb-wiki-card:active {
+	transform: translateY(1px);
 }
 
 .sb-wiki-card-title {
@@ -638,8 +669,8 @@ pre:hover .sb-copy-btn {
 	color: var(--text-accent) !important;
 	text-decoration: none !important;
 	display: block;
-	margin-bottom: 2px;
-	line-height: 1.3;
+	margin-bottom: 4px;
+	line-height: 1.35;
 }
 
 .sb-wiki-card-title:hover {
@@ -649,7 +680,7 @@ pre:hover .sb-copy-btn {
 .sb-wiki-card-desc {
 	font-size: 12px;
 	color: var(--text-muted);
-	line-height: 1.4;
+	line-height: 1.5;
 	margin: 0;
 	display: -webkit-box;
 	-webkit-line-clamp: 2;
@@ -660,16 +691,17 @@ pre:hover .sb-copy-btn {
 .sb-wiki-card-tags {
 	display: flex;
 	gap: 4px;
-	margin-top: 6px;
+	margin-top: 8px;
 	flex-wrap: wrap;
 }
 
 .sb-wiki-tag {
 	font-size: 10px;
-	padding: 1px 6px;
+	padding: 2px 8px;
 	background: var(--background-primary-alt);
 	color: var(--text-faint);
-	border-radius: 3px;
+	border-radius: 10px;
+	letter-spacing: 0.2px;
 }
 
 /* 面包屑导航 */
@@ -677,155 +709,191 @@ pre:hover .sb-copy-btn {
 	display: flex;
 	align-items: center;
 	gap: 10px;
-	margin-bottom: 16px;
-	padding-bottom: 12px;
+	margin-bottom: 20px;
+	padding: 10px 0;
 	border-bottom: 1px solid var(--background-modifier-border);
 }
 
 .sb-wiki-back {
 	font-size: 12px;
-	padding: 4px 12px;
+	padding: 5px 14px;
 	border: 1px solid var(--background-modifier-border);
-	border-radius: 4px;
+	border-radius: 6px;
 	background: transparent;
 	color: var(--text-muted);
 	cursor: pointer;
+	transition: all 0.15s linear;
 }
 
 .sb-wiki-back:hover {
-	background: var(--background-modifier-hover);
+	background: var(--background-secondary);
 	color: var(--text-normal);
+	border-color: var(--background-modifier-border-hover);
 }
 
 .sb-wiki-breadcrumb-title {
-	font-size: 15px;
+	font-size: 16px;
 	font-weight: 600;
 	color: var(--text-normal);
+	letter-spacing: -0.2px;
 }
 
 .sb-wiki-edit-btn {
 	font-size: 11px;
-	padding: 3px 10px;
+	padding: 4px 12px;
 	border: 1px solid var(--background-modifier-border);
-	border-radius: 4px;
+	border-radius: 6px;
 	background: transparent;
 	color: var(--text-muted);
 	cursor: pointer;
 	margin-left: auto;
+	transition: all 0.15s linear;
 }
 
 .sb-wiki-edit-btn:hover {
-	background: var(--background-modifier-hover);
+	background: var(--background-secondary);
 	color: var(--text-normal);
+	border-color: var(--background-modifier-border-hover);
 }
 
-/* 页面内容渲染 */
+/* 页面内容渲染 — typography polish */
 .sb-wiki-page-content {
-	line-height: 1.7;
+	line-height: 1.75;
 	color: var(--text-normal);
+	font-size: 14px;
 }
 
 .sb-wiki-page-content h1 {
-	font-size: 1.4em;
-	margin: 0 0 0.6em;
+	font-size: 1.5em;
+	font-weight: 700;
+	margin: 0 0 0.5em;
 	padding-bottom: 0.3em;
 	border-bottom: 1px solid var(--background-modifier-border);
+	letter-spacing: -0.3px;
+	color: var(--text-normal);
 }
 
 .sb-wiki-page-content h2 {
 	font-size: 1.2em;
-	margin: 1.2em 0 0.4em;
+	font-weight: 600;
+	margin: 1.4em 0 0.5em;
 	color: var(--text-normal);
+	letter-spacing: -0.2px;
 }
 
 .sb-wiki-page-content h3 {
 	font-size: 1.05em;
-	margin: 1em 0 0.3em;
+	font-weight: 600;
+	margin: 1.2em 0 0.4em;
 	color: var(--text-normal);
 }
 
 .sb-wiki-page-content p {
-	margin: 0.5em 0;
+	margin: 0.6em 0;
 }
 
 .sb-wiki-page-content ul,
 .sb-wiki-page-content ol {
-	margin: 0.4em 0;
+	margin: 0.5em 0;
 	padding-left: 1.8em;
 }
 
 .sb-wiki-page-content li {
-	margin: 0.15em 0;
+	margin: 0.2em 0;
+}
+
+.sb-wiki-page-content li::marker {
+	color: var(--text-faint);
 }
 
 .sb-wiki-page-content blockquote {
-	margin: 0.6em 0;
-	padding: 0.6em 1em;
+	margin: 0.8em 0;
+	padding: 0.7em 1.2em;
 	border-left: 3px solid var(--interactive-accent);
 	background: var(--background-primary-alt);
-	border-radius: 0 4px 4px 0;
+	border-radius: 0 6px 6px 0;
+	color: var(--text-muted);
 }
 
 .sb-wiki-page-content pre {
-	margin: 0.6em 0;
-	border-radius: 6px;
+	margin: 0.8em 0;
+	border-radius: 8px;
 	overflow-x: auto;
+	border: 1px solid var(--background-modifier-border);
 }
 
 .sb-wiki-page-content pre code {
 	display: block;
-	padding: 12px 16px;
+	padding: 14px 18px;
 	font-family: var(--font-monospace);
 	font-size: 13px;
-	line-height: 1.5;
+	line-height: 1.6;
 	background: var(--background-primary-alt);
-	border-radius: 6px;
+	border-radius: 8px;
 }
 
 .sb-wiki-page-content code {
 	font-family: var(--font-monospace);
 	font-size: 0.88em;
-	padding: 2px 5px;
-	border-radius: 3px;
+	padding: 2px 6px;
+	border-radius: 4px;
 	background: var(--background-primary-alt);
+	color: var(--text-muted);
 }
 
 .sb-wiki-page-content a.internal-link {
 	color: var(--text-accent);
 	text-decoration: none;
 	cursor: pointer;
+	border-bottom: 1px solid transparent;
+	transition: border-color 0.15s linear;
 }
 
 .sb-wiki-page-content a.internal-link:hover {
-	text-decoration: underline;
+	border-bottom-color: var(--text-accent);
+}
+
+.sb-wiki-page-content a.internal-link.is-unresolved {
+	opacity: 0.5;
 }
 
 .sb-wiki-page-content table {
 	border-collapse: collapse;
 	width: 100%;
-	margin: 0.6em 0;
+	margin: 0.8em 0;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	overflow: hidden;
 }
 
 .sb-wiki-page-content th,
 .sb-wiki-page-content td {
 	border: 1px solid var(--background-modifier-border);
-	padding: 6px 10px;
+	padding: 8px 14px;
 	text-align: left;
 }
 
 .sb-wiki-page-content th {
-	background: var(--background-primary-alt);
+	background: var(--background-secondary);
 	font-weight: 600;
+	font-size: 0.92em;
+	letter-spacing: 0.2px;
+}
+
+.sb-wiki-page-content tr:hover td {
+	background: var(--background-modifier-hover);
 }
 
 /* 反向链接 */
 .sb-wiki-backlinks-title {
-	font-size: 13px;
+	font-size: 11px;
 	font-weight: 600;
-	color: var(--text-muted);
-	margin: 24px 0 8px;
-	padding-top: 12px;
+	color: var(--text-faint);
+	margin: 28px 0 10px;
+	padding-top: 16px;
 	border-top: 1px solid var(--background-modifier-border);
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
 }
 
 .sb-wiki-backlinks-grid {
@@ -836,25 +904,234 @@ pre:hover .sb-copy-btn {
 
 .sb-wiki-backlink-chip {
 	font-size: 12px;
-	padding: 4px 12px;
-	background: var(--background-secondary);
+	padding: 5px 14px;
+	background: transparent;
 	border: 1px solid var(--background-modifier-border);
-	border-radius: 14px;
+	border-radius: 16px;
 	color: var(--text-accent) !important;
 	text-decoration: none !important;
 	cursor: pointer;
-	transition: border-color 0.15s;
+	transition: all 0.15s linear;
 }
 
 .sb-wiki-backlink-chip:hover {
 	border-color: var(--interactive-accent);
-	text-decoration: none !important;
+	background: var(--background-secondary);
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+}
+
+/* === 审核横幅 === */
+.sb-draft-banner {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 10px 16px;
+	margin-bottom: 16px;
+	border: 1px solid var(--text-warning);
+	border-radius: 8px;
+	background: color-mix(in srgb, var(--text-warning) 8%, var(--background-primary));
+}
+
+.sb-draft-label {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--text-warning);
+}
+
+.sb-draft-review-btn {
+	font-size: 12px;
+	padding: 4px 14px;
+	border: 1px solid var(--text-warning);
+	border-radius: 4px;
+	background: transparent;
+	color: var(--text-warning);
+	cursor: pointer;
+	transition: all 0.15s;
+}
+
+.sb-draft-review-btn:hover {
+	background: var(--text-warning);
+	color: var(--background-primary);
+}
+
+.sb-reviewed-banner {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 10px 16px;
+	margin-bottom: 16px;
+	border: 1px solid var(--text-success);
+	border-radius: 8px;
+	background: color-mix(in srgb, var(--text-success) 8%, var(--background-primary));
+}
+
+.sb-reviewed-banner .sb-draft-label {
+	color: var(--text-success);
+}
+
+.sb-reviewed-banner .sb-draft-review-btn {
+	display: none;
 }
 
 /* 空状态 */
 .sb-wiki-empty {
 	text-align: center;
-	padding: 60px 24px;
+	padding: 80px 24px;
 	color: var(--text-faint);
 	font-size: 14px;
+}
+
+.sb-wiki-empty::before {
+	content: "";
+	display: block;
+	width: 48px;
+	height: 48px;
+	margin: 0 auto 16px;
+	border-radius: 50%;
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+}
+
+/* === 思维导图 === */
+
+/* 视图切换按钮组 */
+.sb-wiki-view-toggle {
+	display: flex;
+	gap: 0;
+	margin-right: 4px;
+}
+
+.sb-wiki-view-btn {
+	padding: 6px 14px;
+	font-size: 12px;
+	border: 1px solid var(--background-modifier-border);
+	background: transparent;
+	color: var(--text-muted);
+	cursor: pointer;
+	transition: all 0.15s linear;
+}
+
+.sb-wiki-view-btn:first-child {
+	border-radius: 6px 0 0 6px;
+}
+
+.sb-wiki-view-btn:last-child {
+	border-radius: 0 6px 6px 0;
+	border-left: none;
+}
+
+.sb-wiki-view-btn:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+.sb-wiki-view-btn.active {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border-color: var(--interactive-accent);
+}
+
+.sb-wiki-view-btn.active + .sb-wiki-view-btn {
+	border-left-color: var(--interactive-accent);
+}
+
+/* 思维导图容器 */
+.sb-mmap-container {
+	flex: 1;
+	min-height: 400px;
+	position: relative;
+	margin: 0 -28px -24px;
+}
+
+.sb-mmap-svg {
+	width: 100%;
+	display: block;
+}
+
+/* 连线 */
+.sb-mmap-path {
+		transition: opacity 0.3s ease;
+		stroke-dasharray: 1000;
+		stroke-dashoffset: 1000;
+		animation: sb-path-draw 0.8s ease forwards;
+}
+
+.sb-mmap-path.highlighted {
+	opacity: 0.6 !important;
+	stroke-width: 3;
+}
+
+.sb-mmap-path.dimmed {
+	opacity: 0.05 !important;
+}
+
+	@keyframes sb-path-draw {
+		to { stroke-dashoffset: 0; }
+	}
+
+/* 节点通用 */
+.sb-mmap-node {
+		transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.sb-mmap-node.dimmed {
+	opacity: 0.15;
+}
+
+/* 根节点 */
+.sb-mmap-root-rect {
+	fill: var(--interactive-accent);
+	filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.12));
+}
+
+.sb-mmap-root-text {
+	fill: var(--text-on-accent);
+	font-size: 14px;
+	font-weight: 700;
+	pointer-events: none;
+	user-select: none;
+}
+
+/* 页面节点 */
+.sb-mmap-page-group {
+	cursor: pointer;
+}
+
+.sb-mmap-page-text {
+	font-size: 12px;
+	fill: var(--text-normal);
+	pointer-events: none;
+	user-select: none;
+}
+
+.sb-mmap-page-group:hover .sb-mmap-page-text {
+	fill: var(--text-accent);
+	font-weight: 600;
+}
+
+.sb-mmap-hitarea {
+	cursor: pointer;
+}
+
+/* 图例 */
+.sb-mmap-legend {
+	display: flex;
+	gap: 16px;
+	padding: 0 0 12px;
+	flex-wrap: wrap;
+}
+
+.sb-mmap-legend-item {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	font-size: 11px;
+	color: var(--text-muted);
+}
+
+.sb-mmap-legend-dot {
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	flex-shrink: 0;
 }

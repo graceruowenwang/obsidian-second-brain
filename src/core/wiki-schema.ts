@@ -1,15 +1,9 @@
-// Wiki 规则数据 — 知识库编译的 prompt 模板
-// 从 wiki-schema.js 移植，逻辑不变
+// Wiki 规则数据 -- prompt 模板，支持多语言和用户自定义
 
-import type { Concept, Entity, Source } from "../types";
+import type { Concept, Entity, Source, Synthesis } from "../types";
+import type { TemplateConfig } from "./templates";
 
 export const TODAY = new Date().toISOString().split("T")[0];
-
-export const LEVELS: Record<string, string> = {
-	核心概念: "你的领域中最基础的观点和立场",
-	方法框架: "用来分析和解决问题的结构化工具",
-	实践经验: "来自真实场景的案例、复盘和反思",
-};
 
 // Frontmatter 模板
 export function frontmatter(fields: Record<string, any>): string {
@@ -69,105 +63,142 @@ export function sourceFrontmatter(source: Source): string {
 	});
 }
 
-export const PAGE_RULES = `
-规则：
-- 使用简体中文
-- 第一行必须是 YAML frontmatter（--- 包裹），格式如下：
+// 构建 PAGE_RULES 段（从模板配置动态生成）
+function buildPageRules(tpl: TemplateConfig): string {
+	const levelKeys = tpl.levels.map(l => l.key).join(" | ");
+	return `Rules:
+${tpl.pageRules}
+- First line must be YAML frontmatter (wrapped in ---):
   ---
-  title: "页面标题"
+  title: "Page Title"
   type: concept | entity | source
-  level: 核心概念 | 方法框架 | 实践经验
-  tags: [标签]
+  level: ${levelKeys}
+  status: "draft"
+  tags: [tags]
   last_updated: ${TODAY}
   ---
-  其中 type 和 level 根据页面类型填写，concept 页面必须有 level 字段
-- 相关概念第一次出现时用 [[ConceptName|中文名]] 格式标记双向链接
-- 结尾必须有 ## 关联连接，列出所有引用的概念/实体/来源，格式为 - [[PageName|显示名]]
-- 不要产生孤岛页面，确保每个页面至少链接到 2 个其他已有页面
-- 在正文中主动寻找与已有概念相关的内容，用双链标注
-- 不要输出任何 frontmatter 之外的解释性文字，直接输出完整页面内容`.trim();
+  type and level depend on page type; concept pages must have level field
+  status is always "draft", meaning AI-generated pending review
+- End with ## ${tpl.relatedLinksHeader}, listing all referenced concepts/entities/sources as - [[PageName|Display]]
+- Must link to at least 2 other existing pages to avoid orphan pages`.trim();
+}
 
-export function buildAnalyzePrompt(materials: string): string {
-	return `你是一个知识管理专家。请分析以下素材，提取出核心概念。
+// 分析 prompt 的 JSON 输出格式（含 levels 动态生成）
+function analysisOutputFormat(tpl: TemplateConfig): string {
+	const levelKeys = tpl.levels.map(l => l.key).join("|");
+	return `{"concepts":[{"name":"ConceptName","title":"DisplayTitle","level":"${levelKeys}","desc":"One-line description","source_file":"source_file_path"}],"entities":[{"name":"EntityName","desc":"One-line description"}],"sources":[{"name":"source-slug","source_file":"filename","desc":"One-line summary"}],"syntheses":[{"name":"synthesis-slug","question":"How do these concepts relate?","concepts":["ConceptA","ConceptB"]}]}`;
+}
 
-规则：
-1. 每个概念用 TitleCase 命名（英文）
-2. 每个概念给一句中文描述
-3. 按三层分类：${Object.entries(LEVELS).map(([k, v]) => `${k}（${v}）`).join("、")}
-4. 除了概念，还要识别：实体（人物/组织）、来源（素材摘要）
-5. 概念粒度宜粗不宜细，相近的概念应合并为一个
-6. 直接输出纯 JSON，不要用 markdown 代码块包裹
+export function buildAnalyzePrompt(materials: string, tpl: TemplateConfig): string {
+	const levelsDesc = tpl.levels.map(l => `${l.key}（${l.desc}）`).join("、");
+	return `${tpl.analysisSystemPrompt} Please analyze the following materials and extract core concepts.
 
-输出格式：
-{"concepts":[{"name":"ConceptName","title":"中文名","level":"核心概念|方法框架|实践经验","desc":"一句话描述","source_file":"来源文件路径"}],"entities":[{"name":"EntityName","desc":"一句话描述"}],"sources":[{"name":"摘要-source-slug","source_file":"文件名","desc":"一句话摘要"}]}
+Rules:
+1. Name each concept in TitleCase (English)
+2. Give each concept a one-line description
+3. Classify into levels: ${levelsDesc}
+4. Also identify: entities (people/organizations), sources (material summaries)
+5. Prefer broader concept granularity; merge similar concepts
+6. Output pure JSON only, no markdown code blocks
 
-素材内容：
+Output format:
+${analysisOutputFormat(tpl)}
+
+Materials:
 ${materials}`;
 }
 
-export function buildIncrementalAnalyzePrompt(changedMaterials: string, existingNames: string[]): string {
+export function buildIncrementalAnalyzePrompt(changedMaterials: string, existingNames: string[], tpl: TemplateConfig): string {
+	const levelsDesc = tpl.levels.map(l => `${l.key}（${l.desc}）`).join("、");
 	const existingList = existingNames.length > 0
-		? `\n已有概念名（保持命名一致，不要重复）：${existingNames.join(", ")}\n`
+		? `\nExisting concept names (keep consistent, do not duplicate): ${existingNames.join(", ")}\n`
 		: "";
-	return `你是一个知识管理专家。以下是新增/变化的素材，请从中提取核心概念。
+	return `${tpl.analysisSystemPrompt} Here are new/changed materials. Please extract core concepts from them.
 
-规则：
-1. 每个概念用 TitleCase 命名（英文），与已有概念保持命名一致
-2. 每个概念给一句中文描述
-3. 按三层分类：${Object.entries(LEVELS).map(([k, v]) => `${k}（${v}）`).join("、")}
-4. 除了概念，还要识别：实体（人物/组织）、来源（素材摘要）
-5. 只提取这些新素材中的概念，不要重复已有概念
-6. 概念粒度宜粗不宜细，相近的概念应合并
-7. 直接输出纯 JSON，不要用 markdown 代码块包裹
+Rules:
+1. Name each concept in TitleCase (English), consistent with existing concepts
+2. Give each concept a one-line description
+3. Classify into levels: ${levelsDesc}
+4. Also identify: entities (people/organizations), sources (material summaries)
+5. Only extract concepts from these new materials, do not duplicate existing ones
+6. Prefer broader concept granularity; merge similar concepts
+7. Output pure JSON only, no markdown code blocks
 ${existingList}
-输出格式：
-{"concepts":[{"name":"ConceptName","title":"中文名","level":"核心概念|方法框架|实践经验","desc":"一句话描述","source_file":"来源文件路径"}],"entities":[{"name":"EntityName","desc":"一句话描述"}],"sources":[{"name":"摘要-source-slug","source_file":"文件名","desc":"一句话摘要"}]}
+Output format:
+${analysisOutputFormat(tpl)}
 
-新增/变化的素材：
+New/changed materials:
 ${changedMaterials}`;
 }
 
-export function buildConceptPrompt(concept: Concept, materials: string, allConcepts: Concept[]): string {
+export function buildConceptPrompt(concept: Concept, materials: string, allConcepts: Concept[], tpl: TemplateConfig): string {
 	const otherConcepts = allConcepts
 		.filter((c) => c.name !== concept.name)
 		.map((c) => `${c.name}(${c.title})`);
-	return `基于以下素材，为概念「${concept.name}（${concept.title}）」写一个完整的 wiki 页面。
+	return `Based on the following materials, write a complete wiki page for concept "${concept.name} (${concept.title})".
 
-${PAGE_RULES}
-- 第一行是概念的一句话定义
-- 然后展开说明核心内容，分 2-4 个小节，每节有观点和论证
-- 如果素材中有用户的原创思考，用 > [原创] 标注该段落
+${buildPageRules(tpl)}
+- First line is a one-sentence definition of the concept
+- Then expand on the core content in 2-4 subsections, each with viewpoints and arguments
+- If the materials contain original user insights, mark those paragraphs with > ${tpl.originalPrefix}
 
-已有概念（在正文中相关处必须用 [[Name|中文]] 链接）：${otherConcepts.slice(0, 20).join(", ")}
-- 你必须至少链接到 3 个以上已有概念，减少孤岛页面
+Existing concepts (must link to related ones using [[Name|Display]] in the text): ${otherConcepts.slice(0, 20).join(", ")}
+- You must link to at least 3 existing concepts to reduce orphan pages
 
-素材：
+Materials:
 ${materials}`;
 }
 
-export function buildEntityPrompt(entity: Entity, materials: string, allConcepts: Concept[]): string {
+export function buildEntityPrompt(entity: Entity, materials: string, allConcepts: Concept[], tpl: TemplateConfig): string {
 	const conceptList = (allConcepts || []).map((c) => `${c.name}(${c.title})`).slice(0, 15).join(", ");
-	const linkHint = conceptList ? "\n已有概念（相关处用 [[Name|中文]] 链接）：" + conceptList : "";
-	return `基于以下素材，为实体「${entity.name}」写一个简短的 wiki 页面。
+	const linkHint = conceptList ? `\nExisting concepts (link related ones with [[Name|Display]]): ` + conceptList : "";
+	return `Based on the following materials, write a brief wiki page for entity "${entity.name}".
 
-${PAGE_RULES}
-- 介绍这个人/组织的身份和核心贡献${linkHint}
+${buildPageRules(tpl)}
+- Introduce the identity and core contributions of this person/organization${linkHint}
 
-素材：
+Materials:
 ${materials}`;
 }
 
-export function buildSourcePrompt(source: Source, materials: string, allConcepts: Concept[]): string {
+export function buildSourcePrompt(source: Source, materials: string, allConcepts: Concept[], tpl: TemplateConfig): string {
 	const conceptList = (allConcepts || []).map((c) => `${c.name}(${c.title})`).slice(0, 15).join(", ");
-	const linkHint = conceptList ? "\n已有概念（相关处用 [[Name|中文]] 链接）：" + conceptList : "";
-	return `为以下素材写一个摘要 wiki 页面。
+	const linkHint = conceptList ? `\nExisting concepts (link related ones with [[Name|Display]]): ` + conceptList : "";
+	return `Write a summary wiki page for the following material.
 
-来源文件：${source.source_file}
-摘要主题：${source.desc}
+Source file: ${source.source_file}
+Summary topic: ${source.desc}
 
-${PAGE_RULES}
-- 提炼 3-5 个核心要点，不要照搬原文${linkHint}
+${buildPageRules(tpl)}
+- Extract 3-5 key points, do not copy the original text${linkHint}
 
-素材：
+Materials:
 ${materials}`;
+}
+
+export function buildSynthesisPrompt(synthesis: Synthesis, allConcepts: Concept[], conceptPages: Array<{ name: string; content: string }>, tpl: TemplateConfig): string {
+	const conceptList = allConcepts.map((c) => `${c.name}(${c.title})`).slice(0, 20).join(", ");
+	const relatedConcepts = allConcepts.filter(c => synthesis.concepts.includes(c.name));
+	const relatedContent = conceptPages
+		.filter(p => synthesis.concepts.some(cn => p.name === cn))
+		.map(p => `=== ${p.name} ===\n${p.content.slice(0, 1500)}`)
+		.join("\n\n");
+
+	return `${tpl.synthesisEditorPrompt} Based on the following wiki pages of multiple concepts, write a cross-concept synthesis page.
+
+Core question this page should answer: ${synthesis.question}
+Related concepts: ${relatedConcepts.map(c => `${c.name}(${c.title})`).join(", ")}
+
+${buildPageRules(tpl)}
+- type is always synthesis
+- No level field needed
+- First paragraph answers the core question in one passage
+- Then 2-3 subsections analyzing from cross-concept perspectives
+- Identify deep connections, contradictions, or complementary relationships between these concepts
+- Provide insights or recommendations based on the analysis
+
+Existing concepts (must link to related ones using [[Name|Display]] in the text): ${conceptList}
+
+Related concept wiki content:
+${relatedContent.slice(0, 12000)}`;
 }

@@ -4,19 +4,56 @@
 import { App, Notice } from "obsidian";
 import { callLLM } from "./llm";
 import {
-	readRawFiles, readWikiFiles, writeWikiFile, deleteWikiFile,
+	readRawFiles, readWikiFiles, writeWikiFile, deleteWikiFile, writeLogEntry,
 	findRelevantPages, diffFingerprints, updateFingerprints,
 	totalAnalysisCount, simpleHash, emptyCache, filesToMap,
 } from "./file-utils";
 import {
-	LEVELS, buildAnalyzePrompt, buildIncrementalAnalyzePrompt,
-	buildConceptPrompt, buildEntityPrompt, buildSourcePrompt,
+	buildAnalyzePrompt, buildIncrementalAnalyzePrompt,
+	buildConceptPrompt, buildEntityPrompt, buildSourcePrompt, buildSynthesisPrompt,
 } from "./wiki-schema";
-import type { PluginSettings, Analysis, CompileCache, ProgressEvent, Concept, Entity, Source } from "../types";
-
+import { loadTemplateConfig, getLevelsDesc } from "./templates";
+import { t } from "./i18n";
+import type { PluginSettings, Analysis, CompileCache, ProgressEvent, Concept, Entity, Source, Synthesis } from "../types";
 const MAX_CHARS = 60000;
 const ANALYSIS_MAX_TOKENS = 4000;
 const BATCH = 5;
+
+// 确保页面 frontmatter 中包含 status: "draft"
+function ensureDraftStatus(content: string): string {
+	const fmMatch = content.match(/^(---\n)([\s\S]*?)(\n---\n*)/);
+	if (!fmMatch) {
+		// 没有 frontmatter，加一个
+		return `---\nstatus: "draft"\n---\n\n${content}`;
+	}
+	const [, open, body, close] = fmMatch;
+	if (/^status:/m.test(body)) {
+		// 已有 status，替换为 draft
+		return content.replace(/^(status:\s*).*$/m, '$1"draft"');
+	}
+	// 没有 status，插入到 frontmatter 第一行
+	return `${open}status: "draft"\n${body}${close}`;
+}
+
+// 健壮解析 LLM 返回的 JSON 分析结果
+function parseAnalysisJSON(raw: string): Analysis {
+	const cleaned = raw.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+	const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+	if (!jsonMatch) {
+		return { concepts: [], entities: [], sources: [], syntheses: [] };
+	}
+	try {
+		const parsed = JSON.parse(jsonMatch[0]);
+		return {
+			concepts: Array.isArray(parsed.concepts) ? parsed.concepts : [],
+			entities: Array.isArray(parsed.entities) ? parsed.entities : [],
+			sources: Array.isArray(parsed.sources) ? parsed.sources : [],
+			syntheses: Array.isArray(parsed.syntheses) ? parsed.syntheses : [],
+		};
+	} catch {
+		return { concepts: [], entities: [], sources: [], syntheses: [] };
+	}
+}
 
 // 合并旧分析 + 增量分析结果
 function mergeAnalysis(oldAnalysis: Analysis | null, incremental: Analysis): Analysis {
@@ -25,12 +62,13 @@ function mergeAnalysis(oldAnalysis: Analysis | null, incremental: Analysis): Ana
 		concepts: [...(oldAnalysis.concepts || [])],
 		entities: [...(oldAnalysis.entities || [])],
 		sources: [...(oldAnalysis.sources || [])],
+		syntheses: [...(oldAnalysis.syntheses || [])],
 	};
-	for (const type of ["concepts", "entities", "sources"] as const) {
-		const existingNames = new Set(merged[type].map(item => item.name));
+	for (const type of ["concepts", "entities", "sources", "syntheses"] as const) {
+		const existingNames = new Set(merged[type].map((item: any) => item.name));
 		for (const item of (incremental[type] || [])) {
-			if (existingNames.has(item.name)) {
-				const idx = merged[type].findIndex(e => e.name === item.name);
+			if (existingNames.has((item as any).name)) {
+				const idx = merged[type].findIndex((e: any) => e.name === (item as any).name);
 				if (idx >= 0) merged[type][idx] = item;
 			} else {
 				merged[type].push(item);
@@ -118,10 +156,10 @@ function buildTask(item: AnalysisItem, allFiles: Array<{ path: string; content: 
 	const pagePath = getPagePath(item);
 	if (item._type === "concept") {
 		const materials = findRelevantMaterials(item.name, item.desc || item.title, allFiles, 10000);
-		return { name: item.title || item.name, path: pagePath, prompt: buildConceptPrompt(item, materials, concepts), system: "你是知识库编辑。写出结构清晰、有观点的 wiki 页面。", temp: 0.4, item };
+		return { name: item.title || item.name, path: pagePath, prompt: buildConceptPrompt(item, materials, concepts, tpl), system: tpl.editorSystemPrompt, temp: 0.4, item };
 	} else if (item._type === "entity") {
 		const materials = findRelevantMaterials(item.name, item.desc || "", allFiles, 8000);
-		return { name: item.name, path: pagePath, prompt: buildEntityPrompt(item, materials, concepts), system: "你是知识库编辑。写出简洁准确的介绍。", temp: 0.3, item };
+		return { name: item.name, path: pagePath, prompt: buildEntityPrompt(item, materials, concepts, tpl), system: tpl.editorSystemPrompt, temp: 0.3, item };
 	} else {
 		let sourceContent = "";
 		if (item.source_file) {
@@ -129,7 +167,7 @@ function buildTask(item: AnalysisItem, allFiles: Array<{ path: string; content: 
 			if (sourceFile) sourceContent = sourceFile.content.slice(0, 10000);
 		}
 		if (!sourceContent) sourceContent = findRelevantMaterials(item.name, item.desc || "", allFiles, 8000);
-		return { name: item.name, path: pagePath, prompt: buildSourcePrompt(item, sourceContent, concepts), system: "你是知识库编辑。提炼核心要点，不要照搬原文。", temp: 0.3, item };
+		return { name: item.name, path: pagePath, prompt: buildSourcePrompt(item, sourceContent, concepts, tpl), system: tpl.editorSystemPrompt, temp: 0.3, item };
 	}
 }
 
@@ -195,6 +233,9 @@ export async function runCompile(
 ) {
 	const { rawFolder, wikiFolder } = settings;
 
+	// Load template config
+	const tpl = await loadTemplateConfig(app, settings.templateFile, settings.language);
+
 	// Step 1: 读取素材
 	onProgress({ step: 1, stepName: "读取素材", detail: "正在扫描...", percent: 15 });
 	const allFiles = await readRawFiles(app, rawFolder);
@@ -227,19 +268,23 @@ export async function runCompile(
 		if (!changedMaterials) {
 			newAnalysis = cache.analysis!;
 		} else {
-			const result = await callLLM([{ role: "system", content: "你是知识管理专家。输出严格的 JSON。" }, { role: "user", content: buildIncrementalAnalyzePrompt(changedMaterials.slice(0, MAX_CHARS), existingNames) }], settings, { maxTokens: ANALYSIS_MAX_TOKENS });
-			const jsonMatch = result.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim().match(/\{[\s\S]*\}/);
-			if (!jsonMatch) throw new Error("增量分析返回格式异常");
-			const incrementalResult = JSON.parse(jsonMatch[0]) as Analysis;
-			newAnalysis = mergeAnalysis(cache.analysis!, incrementalResult);
+			const result = await callLLM([{ role: "system", content: tpl.analysisSystemPrompt }, { role: "user", content: buildIncrementalAnalyzePrompt(changedMaterials.slice(0, MAX_CHARS), existingNames, tpl) }], settings, { maxTokens: ANALYSIS_MAX_TOKENS });
+				const incrementalResult = parseAnalysisJSON(result);
+				if (incrementalResult.concepts.length === 0 && incrementalResult.entities.length === 0 && incrementalResult.sources.length === 0) {
+					new Notice(t("notice.badAnalysis", settings.language));
+					newAnalysis = cache.analysis!;
+				} else {
+					newAnalysis = mergeAnalysis(cache.analysis!, incrementalResult);
+				}
 		}
 	} else {
 		onProgress({ step: 2, stepName: "AI 分析素材", detail: "正在提取概念...", percent: 30 });
 		const analysisMaterials = allFiles.filter(f => !f.path.includes("_usage")).map(f => `--- 文件: ${f.path} ---\n${f.content.slice(0, 2000)}`).join("\n\n");
-		const result = await callLLM([{ role: "system", content: "你是知识管理专家。输出严格的 JSON。" }, { role: "user", content: buildAnalyzePrompt(analysisMaterials.slice(0, MAX_CHARS)) }], settings, { maxTokens: ANALYSIS_MAX_TOKENS });
-		const jsonMatch = result.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim().match(/\{[\s\S]*\}/);
-		if (!jsonMatch) throw new Error("AI 返回格式异常");
-		newAnalysis = JSON.parse(jsonMatch[0]) as Analysis;
+		const result = await callLLM([{ role: "system", content: tpl.analysisSystemPrompt }, { role: "user", content: buildAnalyzePrompt(analysisMaterials.slice(0, MAX_CHARS), tpl) }], settings, { maxTokens: ANALYSIS_MAX_TOKENS });
+			newAnalysis = parseAnalysisJSON(result);
+			if (newAnalysis.concepts.length === 0 && newAnalysis.entities.length === 0 && newAnalysis.sources.length === 0) {
+				throw new Error("AI 分析返回格式异常，请重试");
+			}
 	}
 
 	cache.analysis = newAnalysis;
@@ -272,7 +317,8 @@ export async function runCompile(
 		onProgress({ step: 3, stepName: "生成 wiki", detail: `生成中 (${batch.length} 个)...`, percent: 45 + Math.floor((i / Math.max(tasks.length, 1)) * 45), pagesDone, pagesTotal: totalPages });
 
 		const results = await Promise.allSettled(batch.map(async (task) => {
-			const page = await callLLM([{ role: "system", content: task.system }, { role: "user", content: task.prompt }], settings, { temperature: task.temp });
+			const raw = await callLLM([{ role: "system", content: task.system }, { role: "user", content: task.prompt }], settings, { temperature: task.temp });
+			const page = ensureDraftStatus(raw);
 			await writeWikiFile(app, wikiFolder, task.path, page);
 			cache.pages[task.path] = { key: task.item.name, generatedAt: new Date().toISOString() };
 			pagesDone++;
@@ -280,13 +326,39 @@ export async function runCompile(
 
 		for (let j = 0; j < results.length; j++) {
 			if (results[j].status === "rejected") {
-				errors.push({ name: batch[j].name, path: batch[j].path, error: results[j].reason?.message || "未知错误" });
+				errors.push({ name: batch[j].name, path: batch[j].path, error: (results[j] as PromiseRejectedResult).reason?.message || "未知错误" });
 				pagesDone++;
 			}
 		}
 
 		await (plugin || app).saveData(cache);
 		}
+
+		// Step 3.5: 生成 synthesis 页面（跨概念综合分析）
+		const syntheses = newAnalysis.syntheses || [];
+		if (syntheses.length > 0) {
+			onProgress({ step: 3, stepName: "生成综合分析", detail: `${syntheses.length} 个跨概念分析...`, percent: 90 });
+			const wikiFiles = await readWikiFiles(app, wikiFolder);
+			const conceptPages = wikiFiles
+				.filter(f => f.path.includes("concepts/"))
+				.map(f => ({ name: f.path.split("/").pop()!.replace(".md", ""), content: f.content }));
+
+			for (const synth of syntheses) {
+				try {
+					const synthPrompt = buildSynthesisPrompt(synth, concepts, conceptPages, tpl);
+					const rawPage = await callLLM(
+						[{ role: "system", content: tpl.synthesisEditorPrompt }, { role: "user", content: synthPrompt }],
+						settings, { temperature: 0.5 }
+					);
+					const page = ensureDraftStatus(rawPage);
+					await writeWikiFile(app, wikiFolder, `syntheses/${synth.name}.md`, page);
+				} catch (e: any) {
+					errors.push({ name: synth.name, path: `syntheses/${synth.name}.md`, error: e.message });
+				}
+			}
+			await (plugin || app).saveData(cache);
+		}
+
 
 		// Step 4: 生成索引
 		onProgress({ step: 4, stepName: "生成索引", detail: "更新 index.md...", percent: 95 });
@@ -303,11 +375,15 @@ export async function runCompile(
 	for (const s of (newAnalysis.sources || [])) {
 		cache.indexEntries[getPagePath({ ...s, _type: "source" })] = { type: "source", level: "", name: s.name, title: s.desc || s.name, desc: s.desc || "" };
 	}
+		for (const syn of (newAnalysis.syntheses || [])) {
+			cache.indexEntries[`syntheses/${syn.name}.md`] = { type: "synthesis", level: "", name: syn.name, title: syn.question || syn.name, desc: syn.question || "" };
+		}
 
 	// 从 indexEntries 构建 index.md
 	const levels: Record<string, Array<{ name: string; title: string; desc: string }>> = {};
 	const entities: Array<{ name: string; desc: string }> = [];
 	const sources: Array<{ name: string; desc: string }> = [];
+		const synthEntries: Array<{ name: string; desc: string }> = [];
 
 	for (const entry of Object.values(cache.indexEntries)) {
 		if (entry.type === "concept") {
@@ -318,13 +394,15 @@ export async function runCompile(
 			entities.push({ name: entry.name, desc: entry.desc });
 		} else if (entry.type === "source") {
 			sources.push({ name: entry.name, desc: entry.desc });
+			} else if (entry.type === "synthesis") {
+				syntheses.push({ name: entry.name, desc: entry.desc });
 		}
 	}
 
 	let indexContent = `---\ntitle: "Wiki Index"\ntype: index\nlast_updated: ${TODAY}\n---\n\n# Wiki Index\n\n## 概念体系\n\n`;
 	for (const [level, items] of Object.entries(levels)) {
 		if (items.length === 0) continue;
-		indexContent += `### ${level} — ${LEVELS[level] || level}\n\n`;
+		indexContent += `### ${level} — ${(tpl.levels.find(l => l.key === level)?.desc || level)}\n\n`;
 		for (const item of items) indexContent += `- [[${item.name}|${item.title}]] — ${item.desc}\n`;
 		indexContent += "\n";
 	}
