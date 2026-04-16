@@ -1,0 +1,860 @@
+/* 第二大脑 Obsidian 插件 — 样式 */
+
+/* === 编译面板（右侧栏） === */
+.second-brain-compile {
+	padding: 12px;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	height: 100%;
+}
+
+.sb-btn-row {
+	display: flex;
+	gap: 8px;
+}
+
+.sb-btn-row button {
+	flex: 1;
+}
+
+.sb-status {
+	font-size: 12px;
+	color: var(--text-muted);
+}
+
+.sb-progress-wrap {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.sb-progress-label {
+	font-size: 11px;
+	color: var(--text-muted);
+}
+
+.sb-progress-bar {
+	height: 6px;
+	background: var(--background-modifier-border);
+	border-radius: 3px;
+	overflow: hidden;
+}
+
+.sb-progress-fill {
+	height: 100%;
+	background: var(--interactive-accent);
+	transition: width 0.3s ease;
+	width: 0%;
+}
+
+.sb-log {
+	flex: 1;
+	overflow-y: auto;
+	font-family: var(--font-monospace);
+	font-size: 12px;
+	border-top: 1px solid var(--background-modifier-border);
+	padding-top: 8px;
+}
+
+.sb-log-line {
+	padding: 3px 0;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.sb-log-line.ok {
+	color: var(--text-success);
+}
+
+.sb-log-line.err {
+	color: var(--text-error);
+}
+
+/* === 对话面板（主编辑区全宽） === */
+.second-brain-chat {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	background: var(--background-primary);
+}
+
+/* 头部 */
+.sb-chat-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 8px 16px;
+	border-bottom: 1px solid var(--background-modifier-border);
+	flex-shrink: 0;
+}
+
+.sb-chat-title {
+	font-size: 16px;
+	font-weight: 600;
+	color: var(--text-normal);
+}
+
+.sb-chat-clear-btn {
+	font-size: 12px;
+	padding: 4px 12px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: transparent;
+	color: var(--text-muted);
+	cursor: pointer;
+}
+
+.sb-chat-clear-btn:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+/* 消息区 */
+.sb-messages {
+	flex: 1;
+	overflow-y: auto;
+	padding: 12px 0;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+/* 单条消息 */
+.sb-msg {
+	display: flex;
+	gap: 8px;
+	padding: 0 16px;
+	max-width: 100%;
+}
+
+.sb-msg-user {
+	justify-content: flex-end;
+}
+
+.sb-msg-ai {
+	justify-content: flex-start;
+}
+
+/* 头像 */
+.sb-avatar {
+	width: 24px;
+	height: 24px;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 10px;
+	font-weight: 600;
+	flex-shrink: 0;
+}
+
+.sb-avatar-user {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.sb-avatar-ai {
+	background: var(--background-secondary);
+	color: var(--text-muted);
+	border: 1px solid var(--background-modifier-border);
+}
+
+/* 气泡 */
+.sb-bubble {
+	padding: 8px 12px;
+	border-radius: 12px;
+	font-size: 13px;
+	line-height: 1.5;
+	word-break: break-word;
+}
+
+.sb-msg-ai .sb-bubble {
+	max-width: 80%;
+	background: var(--background-secondary);
+	color: var(--text-normal);
+	border-bottom-left-radius: 4px;
+}
+
+.sb-bubble-user {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border-bottom-right-radius: 4px;
+	max-width: 60%;
+	width: fit-content;
+	padding: 6px 12px;
+	white-space: pre-wrap;
+}
+
+.sb-msg-ai .sb-bubble {
+	background: var(--background-secondary);
+	color: var(--text-normal);
+	border-bottom-left-radius: 4px;
+}
+
+/* AI 消息内的 Markdown 渲染 */
+.sb-ai-content {
+	width: 100%;
+	overflow: visible;
+}
+
+/* 隐藏未被包裹的原始图片，保留预览浮层里的 */
+.sb-ai-content > p > img,
+.sb-ai-content > img {
+	display: none;
+}
+
+.sb-ai-content p {
+	margin: 0.4em 0;
+}
+
+.sb-ai-content p:first-child {
+	margin-top: 0;
+}
+
+.sb-ai-content p:last-child {
+	margin-bottom: 0;
+}
+
+.sb-ai-content h1, .sb-ai-content h2, .sb-ai-content h3,
+.sb-ai-content h4, .sb-ai-content h5, .sb-ai-content h6 {
+	margin: 0.8em 0 0.4em;
+	font-size: 1em;
+}
+
+.sb-ai-content h3 { font-size: 1.05em; }
+.sb-ai-content h2 { font-size: 1.1em; }
+
+.sb-ai-content ul, .sb-ai-content ol {
+	margin: 0.4em 0;
+	padding-left: 1.5em;
+}
+
+.sb-ai-content li {
+	margin: 0.2em 0;
+}
+
+.sb-ai-content blockquote {
+	margin: 0.5em 0;
+	padding: 0.5em 1em;
+	border-left: 3px solid var(--interactive-accent);
+	background: var(--background-primary-alt);
+	border-radius: 0 4px 4px 0;
+}
+
+/* 代码块 */
+.sb-ai-content pre {
+	position: relative;
+	margin: 0.6em 0;
+	border-radius: 6px;
+	overflow-x: auto;
+	overflow-y: hidden;
+}
+
+.sb-ai-content pre code {
+	display: block;
+	padding: 14px 16px;
+	font-family: var(--font-monospace);
+	font-size: 13px;
+	line-height: 1.5;
+	overflow-x: auto;
+	background: var(--background-primary-alt) !important;
+}
+
+/* 行内代码 */
+.sb-ai-content code {
+	font-family: var(--font-monospace);
+	font-size: 0.9em;
+	padding: 2px 6px;
+	border-radius: 3px;
+	background: var(--background-primary-alt);
+}
+
+.sb-ai-content pre code {
+	padding: 14px 16px;
+	font-size: 13px;
+}
+
+/* Mermaid / SVG 图表约束 */
+.sb-ai-content svg {
+	max-width: 100%;
+	height: auto;
+	display: block;
+}
+
+.sb-ai-content pre.language-mermaid,
+.sb-ai-content .mermaid {
+	overflow: auto;
+	max-height: 400px;
+	border-radius: 6px;
+	background: var(--background-primary-alt);
+	margin: 0.6em 0;
+}
+
+.sb-ai-content pre.language-mermaid svg,
+.sb-ai-content .mermaid svg {
+	max-width: none;
+	min-width: 200px;
+}
+
+.sb-ai-content .cm-preview-code-block,
+.sb-ai-content [class*="mermaid"] {
+	overflow: auto;
+	max-height: 400px;
+}
+
+.sb-ai-content [class*="mermaid"] svg {
+	max-width: none;
+}
+
+/* 复制按钮 */
+.sb-copy-btn,
+.sb-table-copy-btn,
+.sb-img-preview-btn,
+.sb-stop-btn {
+	font-family: inherit;
+	line-height: 1;
+	min-height: unset;
+	height: auto;
+}
+
+.sb-copy-btn {
+	position: absolute;
+	top: 6px;
+	right: 6px;
+	padding: 2px 8px;
+	font-size: 11px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 3px;
+	background: var(--background-primary);
+	color: var(--text-muted);
+	cursor: pointer;
+	opacity: 0;
+	transition: opacity 0.15s;
+	z-index: 5;
+}
+
+pre:hover .sb-copy-btn {
+	opacity: 1;
+}
+
+.sb-copy-btn:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+.sb-ai-content th, .sb-ai-content td {
+	border: 1px solid var(--background-modifier-border);
+	padding: 6px 10px;
+	text-align: left;
+}
+
+.sb-ai-content th {
+	background: var(--background-primary-alt);
+	font-weight: 600;
+}
+
+/* 来源引用 */
+.sb-sources {
+	font-size: 11px;
+	color: var(--text-faint);
+	margin-top: 8px;
+	padding-top: 6px;
+	border-top: 1px solid var(--background-modifier-border);
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 4px;
+}
+
+.sb-source-link {
+	color: var(--text-accent);
+	cursor: pointer;
+	text-decoration: none;
+}
+
+.sb-source-link:hover {
+	text-decoration: underline;
+}
+
+/* 欢迎区 */
+.sb-welcome {
+	text-align: center;
+	padding: 60px 24px 40px;
+	color: var(--text-muted);
+}
+
+.sb-welcome h3 {
+	color: var(--text-normal);
+	font-size: 18px;
+	margin-bottom: 8px;
+}
+
+.sb-welcome p {
+	font-size: 14px;
+	margin-bottom: 24px;
+}
+
+.sb-tips {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: 8px;
+}
+
+.sb-tip-chip {
+	padding: 8px 16px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 20px;
+	font-size: 13px;
+	color: var(--text-muted);
+	cursor: pointer;
+	transition: all 0.2s;
+}
+
+.sb-tip-chip:hover {
+	background: var(--background-secondary);
+	color: var(--text-normal);
+	border-color: var(--interactive-accent);
+}
+
+/* 加载动画 */
+.sb-typing {
+	display: flex;
+	gap: 4px;
+	padding: 4px 0;
+}
+
+.sb-typing-dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var(--text-faint);
+	animation: sb-typing-bounce 1.4s ease-in-out infinite;
+}
+
+.sb-typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.sb-typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes sb-typing-bounce {
+	0%, 60%, 100% { transform: translateY(0); }
+	30% { transform: translateY(-6px); }
+}
+
+/* 错误提示 */
+.sb-error {
+	color: var(--text-error);
+}
+
+/* 输入区 */
+.sb-input-area {
+	display: flex;
+	gap: 8px;
+	padding: 10px 16px;
+	border-top: 1px solid var(--background-modifier-border);
+	background: var(--background-primary);
+	flex-shrink: 0;
+	align-items: flex-end;
+}
+
+.sb-chat-input {
+	flex: 1;
+	padding: 10px 14px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 10px;
+	background: var(--background-secondary);
+	color: var(--text-normal);
+	font-size: 14px;
+	line-height: 1.5;
+	resize: none;
+	min-height: 42px;
+	max-height: 150px;
+	font-family: var(--font-text);
+}
+
+.sb-chat-input:focus {
+	outline: none;
+	border-color: var(--interactive-accent);
+	background: var(--background-primary);
+}
+
+.sb-send-btn {
+	padding: 10px 20px;
+	height: 42px;
+	flex-shrink: 0;
+}
+
+.sb-stop-btn {
+	padding: 10px 20px;
+	height: 42px;
+	flex-shrink: 0;
+	border: 1px solid var(--text-error);
+	background: transparent;
+	color: var(--text-error);
+	border-radius: var(--button-radius);
+	cursor: pointer;
+	font-size: 14px;
+}
+
+.sb-stop-btn:hover {
+	background: var(--text-error);
+	color: var(--text-on-accent);
+}
+
+/* ============================================
+   Wiki 预览面板
+   ============================================ */
+
+.second-brain-wiki {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	background: var(--background-primary);
+}
+
+/* 工具栏 */
+.sb-wiki-toolbar {
+	display: flex;
+	gap: 8px;
+	padding: 10px 16px;
+	border-bottom: 1px solid var(--background-modifier-border);
+	flex-shrink: 0;
+	align-items: center;
+}
+
+.sb-wiki-search {
+	flex: 1;
+	padding: 8px 14px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	background: var(--background-secondary);
+	color: var(--text-normal);
+	font-size: 14px;
+	font-family: var(--font-text);
+}
+
+.sb-wiki-search:focus {
+	outline: none;
+	border-color: var(--interactive-accent);
+	background: var(--background-primary);
+}
+
+.sb-wiki-refresh {
+	padding: 8px 16px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	background: transparent;
+	color: var(--text-muted);
+	cursor: pointer;
+	font-size: 13px;
+	flex-shrink: 0;
+}
+
+.sb-wiki-refresh:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+/* 内容区 */
+.sb-wiki-body {
+	flex: 1;
+	overflow-y: auto;
+	padding: 20px 24px;
+}
+
+/* 统计栏 */
+.sb-wiki-stats {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 8px 20px;
+	background: var(--background-secondary);
+	border-radius: 20px;
+	margin-bottom: 24px;
+}
+
+.sb-stat-num {
+	font-size: 16px;
+	font-weight: 700;
+	color: var(--interactive-accent);
+}
+
+.sb-stat-label {
+	font-size: 12px;
+	color: var(--text-muted);
+}
+
+.sb-stat-sep {
+	color: var(--text-faint);
+	font-size: 14px;
+}
+
+/* 分区标题 */
+.sb-wiki-h2 {
+	font-size: 15px;
+	font-weight: 600;
+	color: var(--text-normal);
+	margin: 24px 0 4px;
+	padding: 6px 0;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.sb-wiki-h2:first-child {
+	margin-top: 0;
+}
+
+.sb-wiki-h3 {
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--text-muted);
+	margin: 16px 0 8px;
+	letter-spacing: 0.3px;
+}
+
+/* 卡片网格 */
+.sb-wiki-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+	gap: 6px;
+	margin-bottom: 8px;
+}
+
+.sb-wiki-card {
+	padding: 10px 14px;
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	cursor: pointer;
+	transition: border-color 0.15s, background 0.15s;
+}
+
+.sb-wiki-card:hover {
+	border-color: var(--interactive-accent);
+	background: var(--background-secondary-alt);
+}
+
+.sb-wiki-card-title {
+	font-size: 14px;
+	font-weight: 600;
+	color: var(--text-accent) !important;
+	text-decoration: none !important;
+	display: block;
+	margin-bottom: 2px;
+	line-height: 1.3;
+}
+
+.sb-wiki-card-title:hover {
+	text-decoration: underline !important;
+}
+
+.sb-wiki-card-desc {
+	font-size: 12px;
+	color: var(--text-muted);
+	line-height: 1.4;
+	margin: 0;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+.sb-wiki-card-tags {
+	display: flex;
+	gap: 4px;
+	margin-top: 6px;
+	flex-wrap: wrap;
+}
+
+.sb-wiki-tag {
+	font-size: 10px;
+	padding: 1px 6px;
+	background: var(--background-primary-alt);
+	color: var(--text-faint);
+	border-radius: 3px;
+}
+
+/* 面包屑导航 */
+.sb-wiki-breadcrumb {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-bottom: 16px;
+	padding-bottom: 12px;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.sb-wiki-back {
+	font-size: 12px;
+	padding: 4px 12px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: transparent;
+	color: var(--text-muted);
+	cursor: pointer;
+}
+
+.sb-wiki-back:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+.sb-wiki-breadcrumb-title {
+	font-size: 15px;
+	font-weight: 600;
+	color: var(--text-normal);
+}
+
+.sb-wiki-edit-btn {
+	font-size: 11px;
+	padding: 3px 10px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: transparent;
+	color: var(--text-muted);
+	cursor: pointer;
+	margin-left: auto;
+}
+
+.sb-wiki-edit-btn:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+/* 页面内容渲染 */
+.sb-wiki-page-content {
+	line-height: 1.7;
+	color: var(--text-normal);
+}
+
+.sb-wiki-page-content h1 {
+	font-size: 1.4em;
+	margin: 0 0 0.6em;
+	padding-bottom: 0.3em;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.sb-wiki-page-content h2 {
+	font-size: 1.2em;
+	margin: 1.2em 0 0.4em;
+	color: var(--text-normal);
+}
+
+.sb-wiki-page-content h3 {
+	font-size: 1.05em;
+	margin: 1em 0 0.3em;
+	color: var(--text-normal);
+}
+
+.sb-wiki-page-content p {
+	margin: 0.5em 0;
+}
+
+.sb-wiki-page-content ul,
+.sb-wiki-page-content ol {
+	margin: 0.4em 0;
+	padding-left: 1.8em;
+}
+
+.sb-wiki-page-content li {
+	margin: 0.15em 0;
+}
+
+.sb-wiki-page-content blockquote {
+	margin: 0.6em 0;
+	padding: 0.6em 1em;
+	border-left: 3px solid var(--interactive-accent);
+	background: var(--background-primary-alt);
+	border-radius: 0 4px 4px 0;
+}
+
+.sb-wiki-page-content pre {
+	margin: 0.6em 0;
+	border-radius: 6px;
+	overflow-x: auto;
+}
+
+.sb-wiki-page-content pre code {
+	display: block;
+	padding: 12px 16px;
+	font-family: var(--font-monospace);
+	font-size: 13px;
+	line-height: 1.5;
+	background: var(--background-primary-alt);
+	border-radius: 6px;
+}
+
+.sb-wiki-page-content code {
+	font-family: var(--font-monospace);
+	font-size: 0.88em;
+	padding: 2px 5px;
+	border-radius: 3px;
+	background: var(--background-primary-alt);
+}
+
+.sb-wiki-page-content a.internal-link {
+	color: var(--text-accent);
+	text-decoration: none;
+	cursor: pointer;
+}
+
+.sb-wiki-page-content a.internal-link:hover {
+	text-decoration: underline;
+}
+
+.sb-wiki-page-content table {
+	border-collapse: collapse;
+	width: 100%;
+	margin: 0.6em 0;
+}
+
+.sb-wiki-page-content th,
+.sb-wiki-page-content td {
+	border: 1px solid var(--background-modifier-border);
+	padding: 6px 10px;
+	text-align: left;
+}
+
+.sb-wiki-page-content th {
+	background: var(--background-primary-alt);
+	font-weight: 600;
+}
+
+/* 反向链接 */
+.sb-wiki-backlinks-title {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--text-muted);
+	margin: 24px 0 8px;
+	padding-top: 12px;
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+.sb-wiki-backlinks-grid {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.sb-wiki-backlink-chip {
+	font-size: 12px;
+	padding: 4px 12px;
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 14px;
+	color: var(--text-accent) !important;
+	text-decoration: none !important;
+	cursor: pointer;
+	transition: border-color 0.15s;
+}
+
+.sb-wiki-backlink-chip:hover {
+	border-color: var(--interactive-accent);
+	text-decoration: none !important;
+}
+
+/* 空状态 */
+.sb-wiki-empty {
+	text-align: center;
+	padding: 60px 24px;
+	color: var(--text-faint);
+	font-size: 14px;
+}
