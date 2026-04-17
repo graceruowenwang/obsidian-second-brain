@@ -166,6 +166,7 @@ export function emptyCache(): CompileCache {
 		analysisTime: null,
 		perFileAnalysis: {},
 		indexEntries: {},
+		failedPages: {},
 	};
 }
 

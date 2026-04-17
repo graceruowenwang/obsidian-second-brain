@@ -1,9 +1,10 @@
-// Wiki 预览视图 — 结构化浏览 + 内联页面预览 + 反向链接 + 思维导图
+// Wiki 预览视图 -- 结构化浏览 + 内联页面预览 + 反向链接 + 思维导图
 
 import { ItemView, WorkspaceLeaf, MarkdownRenderer, Component, Notice, TFile } from "obsidian";
 import type { SecondBrainPlugin } from "../types";
 import { readWikiFiles } from "../core/file-utils";
 import { t } from "../core/i18n";
+import { requirePro, showUpgradeNotice, createProBadge } from "../core/feature-gate";
 
 export const VIEW_TYPE_WIKI = "second-brain-wiki";
 
@@ -49,6 +50,7 @@ export class WikiView extends ItemView {
 	plugin: SecondBrainPlugin;
 	private bodyEl: HTMLElement;
 	private searchEl: HTMLInputElement;
+	private sortSelect: HTMLSelectElement;
 	private wikiPages: WikiPage[] = [];
 	private indexData: IndexSection[] = [];
 	private currentView: "index" | "page" | "graph" = "index";
@@ -58,6 +60,10 @@ export class WikiView extends ItemView {
 	private graphMode = false;
 	private indexBtn: HTMLButtonElement;
 	private graphBtn: HTMLButtonElement;
+	private sortMode: "name-asc" | "name-desc" | "type" | "level" = "name-asc";
+	private batchMode = false;
+	private selectedPages = new Set<string>();
+	private batchBar: HTMLElement | null = null;
 
 	constructor(leaf: WorkspaceLeaf, plugin: SecondBrainPlugin) {
 		super(leaf);
@@ -80,6 +86,10 @@ export class WikiView extends ItemView {
 		const toggle = toolbar.createDiv({ cls: "sb-wiki-view-toggle" });
 		this.indexBtn = toggle.createEl("button", { text: t("wiki.tabIndex", lang), cls: "sb-wiki-view-btn active" });
 		this.graphBtn = toggle.createEl("button", { text: t("wiki.tabGraph", lang), cls: "sb-wiki-view-btn" });
+		if (!requirePro(this.plugin.licenseInfo, "svg-mind-map")) {
+			createProBadge(this.graphBtn, lang);
+			this.graphBtn.classList.add("sb-pro-locked-btn");
+		}
 		this.indexBtn.addEventListener("click", () => this.showIndex());
 		this.graphBtn.addEventListener("click", () => this.showGraph());
 
@@ -88,8 +98,27 @@ export class WikiView extends ItemView {
 			cls: "sb-wiki-search",
 		});
 
+		// 排序下拉
+		this.sortSelect = toolbar.createEl("select", { cls: "sb-wiki-sort" });
+		const sortOptions: Array<{ value: string; key: string }> = [
+			{ value: "name-asc", key: "wiki.sortNameAsc" },
+			{ value: "name-desc", key: "wiki.sortNameDesc" },
+			{ value: "type", key: "wiki.sortType" },
+			{ value: "level", key: "wiki.sortLevel" },
+		];
+		for (const opt of sortOptions) {
+			this.sortSelect.createEl("option", { text: t(opt.key, lang), attr: { value: opt.value } });
+		}
+		this.sortSelect.addEventListener("change", () => {
+			this.sortMode = this.sortSelect.value as "name-asc" | "name-desc" | "type" | "level";
+			this.renderIndex();
+		});
+
 		const refreshBtn = toolbar.createEl("button", { text: t("wiki.refresh", lang), cls: "sb-wiki-refresh" });
 		refreshBtn.addEventListener("click", () => this.loadWiki());
+
+		const batchBtn = toolbar.createEl("button", { text: t("wiki.batchReview", lang), cls: "sb-wiki-batch-btn" });
+		batchBtn.addEventListener("click", () => this.toggleBatchReview(batchBtn));
 
 		this.bodyEl = container.createDiv({ cls: "sb-wiki-body" });
 		this.searchEl.addEventListener("input", () => {
@@ -133,6 +162,10 @@ export class WikiView extends ItemView {
 	}
 
 	private showGraph() {
+		if (!requirePro(this.plugin.licenseInfo, "svg-mind-map")) {
+			showUpgradeNotice(this.app, "svg-mind-map", this.plugin.settings.language);
+			return;
+		}
 		this.graphMode = true;
 		this.currentView = "graph";
 		this.currentName = "";
@@ -174,6 +207,49 @@ export class WikiView extends ItemView {
 		return sections;
 	}
 
+	private extractLevel(content: string): string {
+		const fmMatch = content.match(/^---\n[\s\S]*?\n---/);
+		if (!fmMatch) return "";
+		const levelMatch = fmMatch[0].match(/^level:\s*["']?(.+?)["']?\s*$/m);
+		return levelMatch ? levelMatch[1].trim() : "";
+	}
+
+	private extractType(content: string): string {
+		const fmMatch = content.match(/^---\n[\s\S]*?\n---/);
+		if (!fmMatch) return "";
+		const typeMatch = fmMatch[0].match(/^type:\s*["']?(.+?)["']?\s*$/m);
+		return typeMatch ? typeMatch[1].trim() : "";
+	}
+
+	private sortItems(items: IndexItem[]): IndexItem[] {
+		const sorted = [...items];
+		sorted.sort((a, b) => {
+			switch (this.sortMode) {
+				case "name-asc":
+					return a.display.localeCompare(b.display);
+				case "name-desc":
+					return b.display.localeCompare(a.display);
+				case "type": {
+					const pageA = this.findPage(a.name);
+					const pageB = this.findPage(b.name);
+					const typeA = pageA ? this.extractType(pageA.content) : "";
+					const typeB = pageB ? this.extractType(pageB.content) : "";
+					return typeA.localeCompare(typeB) || a.display.localeCompare(b.display);
+				}
+				case "level": {
+					const pageA = this.findPage(a.name);
+					const pageB = this.findPage(b.name);
+					const levelA = pageA ? this.extractLevel(pageA.content) : "";
+					const levelB = pageB ? this.extractLevel(pageB.content) : "";
+					return levelA.localeCompare(levelB) || a.display.localeCompare(b.display);
+				}
+				default:
+					return 0;
+			}
+		});
+		return sorted;
+	}
+
 	private renderIndex() {
 		const query = (this.searchEl?.value || "").toLowerCase();
 		const lang = this.plugin.settings.language;
@@ -189,6 +265,15 @@ export class WikiView extends ItemView {
 			`<span class="sb-stat-item"><span class="sb-stat-num">${ec}</span><span class="sb-stat-label">${t("wiki.entities", lang)}</span></span>` +
 			`<span class="sb-stat-item"><span class="sb-stat-num">${sc}</span><span class="sb-stat-label">${t("wiki.sources", lang)}</span></span>`;
 
+		// Pro 增强统计
+		if (requirePro(this.plugin.licenseInfo, "svg-mind-map")) {
+			const linkCount = this.wikiPages.reduce((sum, p) => {
+				const matches = p.content.match(/\[\[([^\]]+)\]\]/g);
+				return sum + (matches ? matches.length : 0);
+			}, 0);
+			stats.innerHTML += `<span class="sb-stat-item sb-stat-pro"><span class="sb-stat-num">${linkCount}</span><span class="sb-stat-label">${t("pro.stats.linkCount", lang, { n: linkCount })}</span></span>`;
+		}
+
 		for (const sec of this.indexData) {
 			let hasTitle = false;
 			for (const sub of sec.subs) {
@@ -201,6 +286,9 @@ export class WikiView extends ItemView {
 					);
 				}
 				if (query && items.length === 0) continue;
+
+				// 排序
+				items = this.sortItems(items);
 
 				if (!hasTitle) {
 					this.bodyEl.createEl("h2", { text: sec.title, cls: "sb-wiki-h2" });
@@ -215,6 +303,18 @@ export class WikiView extends ItemView {
 					const card = grid.createDiv({ cls: "sb-wiki-card" });
 					const page = this.findPage(item.name);
 					const tags = page ? this.extractTags(page.content) : [];
+
+					// Draft/Review badge
+					if (page) {
+						const status = this.extractStatus(page.content);
+						if (status === "draft") {
+							card.classList.add("sb-wiki-card-draft");
+							card.createEl("span", { text: t("wiki.statusDraft", lang), cls: "sb-wiki-status-badge sb-status-draft" });
+						} else if (status === "reviewed") {
+							card.classList.add("sb-wiki-card-reviewed");
+							card.createEl("span", { text: t("wiki.statusReviewed", lang), cls: "sb-wiki-status-badge sb-status-reviewed" });
+						}
+					}
 
 					card.createEl("a", { text: item.display, cls: "sb-wiki-card-title" })
 						.addEventListener("click", (ev) => {
@@ -262,9 +362,25 @@ export class WikiView extends ItemView {
 		}
 
 		if (this.wikiPages.length === 0) {
-			this.bodyEl.createDiv({ cls: "sb-wiki-empty", text: t("wiki.empty", lang) });
+				this.bodyEl.createDiv({ cls: "sb-wiki-empty" });
+			const guidance = this.bodyEl.createDiv({ cls: "sb-wiki-empty-guidance" });
+			guidance.createEl("h3", { text: t("empty.wikiTitle", lang) });
+			guidance.createEl("p", { text: t("empty.wikiDesc", lang) });
+			const btnRow = guidance.createDiv({ cls: "sb-empty-btn-row" });
+			const settingsBtn = btnRow.createEl("button", { text: t("empty.openSettings", lang), cls: "sb-empty-btn" });
+			settingsBtn.addEventListener("click", () => {
+				// @ts-ignore
+				this.app.setting.open();
+				// @ts-ignore
+				this.app.setting.openTabById("second-brain");
+			});
+			const compileBtn = btnRow.createEl("button", { text: t("empty.startCompile", lang), cls: "sb-empty-btn mod-cta" });
+			compileBtn.addEventListener("click", () => {
+				// @ts-ignore
+				this.plugin.activateView("second-brain-compile");
+			});
+			}
 		}
-	}
 
 	// --- Page ---
 
@@ -312,6 +428,27 @@ export class WikiView extends ItemView {
 		const editBtn = breadcrumb.createEl("button", { text: t("wiki.openEditor", lang), cls: "sb-wiki-edit-btn" });
 		editBtn.addEventListener("click", () => this.openInEditor(name));
 
+		// 页面元数据
+		const metaRow = this.bodyEl.createDiv({ cls: "sb-wiki-meta" });
+		const fmType = this.extractType(page.content);
+		const fmLevel = this.extractLevel(page.content);
+		const fmUpdated = this.extractUpdated(page.content);
+		if (fmType) {
+			const item = metaRow.createDiv({ cls: "sb-wiki-meta-item" });
+			item.createEl("span", { text: t("wiki.metaType", lang), cls: "sb-wiki-meta-label" });
+			item.createEl("span", { text: fmType });
+		}
+		if (fmLevel) {
+			const item = metaRow.createDiv({ cls: "sb-wiki-meta-item" });
+			item.createEl("span", { text: t("wiki.metaLevel", lang), cls: "sb-wiki-meta-label" });
+			item.createEl("span", { text: fmLevel });
+		}
+		if (fmUpdated) {
+			const item = metaRow.createDiv({ cls: "sb-wiki-meta-item" });
+			item.createEl("span", { text: t("wiki.metaUpdated", lang), cls: "sb-wiki-meta-label" });
+			item.createEl("span", { text: fmUpdated });
+		}
+
 		// 待审核横幅
 		const status = this.extractStatus(page.content);
 		if (status === "draft") {
@@ -353,6 +490,13 @@ export class WikiView extends ItemView {
 				chip.addEventListener("click", (ev) => { ev.preventDefault(); this.navigateTo(bl.name); });
 			}
 		}
+	}
+
+	private extractUpdated(content: string): string {
+		const fmMatch = content.match(/^---\n[\s\S]*?\n---/);
+		if (!fmMatch) return "";
+		const updatedMatch = fmMatch[0].match(/^last_updated:\s*["']?(.+?)["']?\s*$/m);
+		return updatedMatch ? updatedMatch[1].trim() : "";
 	}
 
 	private openInEditor(name: string) {
@@ -410,6 +554,8 @@ export class WikiView extends ItemView {
 		if (file instanceof TFile) {
 			await this.app.vault.modify(file, updated);
 			page.content = updated;
+			const { writeLogEntry } = await import("../core/file-utils");
+			await writeLogEntry(this.app, wf, "sync" as any, `Reviewed: ${name}`);
 		}
 	}
 
@@ -482,6 +628,15 @@ export class WikiView extends ItemView {
 			return;
 		}
 
+		// 计算总叶子数
+		const totalLeaves = tree.children.reduce((s, c) => s + c.children.length, 0);
+
+		// 超过 50 个叶子节点时，渲染简化视图
+		if (totalLeaves > 50) {
+			this.renderSimplifiedGraph(tree, lang);
+			return;
+		}
+
 		// 图例
 		const legend = this.bodyEl.createDiv({ cls: "sb-mmap-legend" });
 		for (const cat of CATEGORIES) {
@@ -496,7 +651,6 @@ export class WikiView extends ItemView {
 
 		requestAnimationFrame(() => {
 			const containerW = mmapContainer.clientWidth || 800;
-			const totalLeaves = tree.children.reduce((s, c) => s + c.children.length, 0);
 			const containerH = Math.max(400, Math.min(800, totalLeaves * 38 + 160));
 
 			layoutMindMap(tree, containerW, containerH);
@@ -531,6 +685,54 @@ export class WikiView extends ItemView {
 						() => this.resetHighlight(svg),
 					);
 				}
+			}
+
+			this.setupMindMapInteraction(svg, g);
+		});
+	}
+
+	private renderSimplifiedGraph(tree: MindMapNode, lang: string) {
+		// 简化视图：只渲染分类气泡 + 计数
+		const legend = this.bodyEl.createDiv({ cls: "sb-mmap-legend" });
+		for (const cat of CATEGORIES) {
+			if (!tree.children.some(c => c.id === cat.key)) continue;
+			const el = legend.createDiv({ cls: "sb-mmap-legend-item" });
+			el.createEl("span", { cls: "sb-mmap-legend-dot", attr: { style: `background:${cat.color}` } });
+			el.createEl("span", { text: this.getCatLabel(cat.key) });
+		}
+
+		const mmapContainer = this.bodyEl.createDiv({ cls: "sb-mmap-container" });
+
+		requestAnimationFrame(() => {
+			const containerW = mmapContainer.clientWidth || 800;
+			const containerH = 400;
+
+			const svg = document.createElementNS(SVG_NS, "svg");
+			svg.setAttribute("viewBox", `0 0 ${containerW} ${containerH}`);
+			svg.classList.add("sb-mmap-svg");
+			mmapContainer.appendChild(svg);
+
+			const g = document.createElementNS(SVG_NS, "g");
+			g.classList.add("sb-mmap-group");
+			svg.appendChild(g);
+
+			// 根节点
+			tree.x = containerW / 2;
+			tree.y = containerH / 2;
+			mmapDrawRoot(g, tree);
+
+			// 分类节点：只显示气泡 + 计数，等距分布
+			const cats = tree.children;
+			const angleStep = (2 * Math.PI) / cats.length;
+			const radius = Math.min(containerW, containerH) * 0.32;
+
+			for (let i = 0; i < cats.length; i++) {
+				const cat = cats[i];
+				cat.x = tree.x + radius * Math.cos(angleStep * i - Math.PI / 2);
+				cat.y = tree.y + radius * Math.sin(angleStep * i - Math.PI / 2);
+
+				mmapDrawBezier(g, tree.x, tree.y, cat.x, cat.y, cat.color, 2.5, cat.id);
+				mmapDrawCategory(g, cat);
 			}
 
 			this.setupMindMapInteraction(svg, g);
@@ -612,6 +814,53 @@ export class WikiView extends ItemView {
 		this.register(() => {
 			window.removeEventListener("mousemove", onMove);
 			window.removeEventListener("mouseup", onUp);
+		});
+	}
+
+	private toggleBatchReview(btn: HTMLButtonElement) {
+		const lang = this.plugin.settings.language;
+		if (this.batchMode) {
+			this.batchMode = false;
+			this.selectedPages.clear();
+			if (this.batchBar) { this.batchBar.remove(); this.batchBar = null; }
+			btn.textContent = t("wiki.batchReview", lang);
+			this.renderIndex();
+			return;
+		}
+		this.batchMode = true;
+		this.selectedPages.clear();
+		btn.textContent = t("wiki.batchReview", lang) + " *";
+		this.renderIndex();
+
+		if (this.batchBar) this.batchBar.remove();
+		this.batchBar = this.bodyEl.createDiv({ cls: "sb-batch-bar" });
+		const countEl = this.batchBar.createEl("span", { text: "0" });
+		const applyBtn = this.batchBar.createEl("button", { text: t("wiki.batchReviewBtn", lang, { n: 0 }), cls: "mod-cta" });
+		applyBtn.addEventListener("click", async () => {
+			for (const name of this.selectedPages) {
+				await this.markAsReviewed(name);
+			}
+			this.batchMode = false;
+			this.selectedPages.clear();
+			if (this.batchBar) { this.batchBar.remove(); this.batchBar = null; }
+			btn.textContent = t("wiki.batchReview", lang);
+			this.renderIndex();
+		});
+
+		this.bodyEl.querySelectorAll(".sb-wiki-card").forEach((cardEl: HTMLElement) => {
+			const titleLink = cardEl.querySelector(".sb-wiki-card-title") as HTMLAnchorElement;
+			if (!titleLink) return;
+			const name = titleLink.textContent || "";
+			const checkbox = cardEl.createEl("input", { cls: "sb-batch-checkbox", attr: { type: "checkbox" } });
+			checkbox.addEventListener("change", () => {
+				if ((checkbox as HTMLInputElement).checked) {
+					this.selectedPages.add(name);
+				} else {
+					this.selectedPages.delete(name);
+				}
+				countEl.textContent = `${this.selectedPages.size}`;
+				applyBtn.textContent = t("wiki.batchReviewBtn", lang, { n: this.selectedPages.size });
+			});
 		});
 	}
 

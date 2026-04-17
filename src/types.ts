@@ -17,6 +17,9 @@ export interface PluginSettings {
 	embeddingApiKey: string;
 	language: string;
 	templateFile: string;
+	setupCompleted: boolean;
+	licenseKey: string;
+	proWelcomeShown: boolean;
 }
 
 export const DEFAULT_SETTINGS: PluginSettings = {
@@ -36,6 +39,9 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	embeddingApiKey: "",
 	language: "zh-CN",
 	templateFile: "wiki/templates/prompt-config.json",
+	setupCompleted: false,
+	licenseKey: "",
+	proWelcomeShown: false,
 };
 
 export interface RawFile {
@@ -87,6 +93,40 @@ export interface CompileCache {
 	analysisTime: string | null;
 	perFileAnalysis: Record<string, Analysis>;
 	indexEntries: Record<string, { type: string; level: string; name: string; title: string; desc: string }>;
+	failedPages: Record<string, FailedPageEntry>;
+}
+
+export interface ValidationIssue {
+	field: string;
+	index: number;
+	issue: string;
+	value?: string;
+}
+
+export interface FailedPageEntry {
+	name: string;
+	path: string;
+	error: string;
+	failCount: number;
+	lastFailedAt: string;
+}
+
+export interface CompileReport {
+	newConcepts: Array<{ name: string; title: string; sourceFile: string }>;
+	modifiedConcepts: Array<{ name: string; title: string; changeSummary: string }>;
+	deletedConcepts: Array<{ name: string; title: string }>;
+	validationIssues: ValidationIssue[];
+	totalPages: number;
+	generatedPages: number;
+	skippedPages: number;
+	failedPages: number;
+	protectedPages: number;
+	durationMs: number;
+}
+
+export interface ChangeImpact {
+	rawFile: string;
+	affectedPages: Array<{ name: string; type: string }>;
 }
 
 export interface Fingerprint {
@@ -106,4 +146,25 @@ export interface ProgressEvent {
 
 // Plugin 类型带 settings（供 View 使用）
 import type { Plugin } from "obsidian";
-export type SecondBrainPlugin = Plugin & { settings: PluginSettings };
+export type SecondBrainPlugin = Plugin & { settings: PluginSettings; licenseInfo: LicenseInfo; getLicenseState(): LicenseInfo };
+
+// License 相关类型
+export interface LicenseInfo {
+	key: string;
+	status: "active" | "inactive" | "expired" | "invalid" | "grace" | "trial" | "none";
+	plan: "free" | "pro";
+	expiresAt: string | null;
+	lastValidated: string | null;
+	graceStart: string | null;
+	trialStart: string | null;
+}
+
+export const DEFAULT_LICENSE: LicenseInfo = {
+	key: "",
+	status: "none",
+	plan: "free",
+	expiresAt: null,
+	lastValidated: null,
+	graceStart: null,
+	trialStart: null,
+};

@@ -131,16 +131,26 @@ New/changed materials:
 ${changedMaterials}`;
 }
 
+function getMaterialTypeHint(sourceFile: string, tpl: TemplateConfig): string {
+	if (!sourceFile) return "";
+	if (sourceFile.includes("06-flash_notes")) {
+		return `\nIMPORTANT: These materials are from the user's own notes (flash_notes). You MUST mark any original user insights, personal opinions, or unique observations with > ${tpl.originalPrefix} as a blockquote prefix. This is the user's own thinking - distinguish it clearly from reference material.`;
+	}
+	return "";
+}
+
 export function buildConceptPrompt(concept: Concept, materials: string, allConcepts: Concept[], tpl: TemplateConfig): string {
 	const otherConcepts = allConcepts
 		.filter((c) => c.name !== concept.name)
 		.map((c) => `${c.name}(${c.title})`);
+	const materialHint = getMaterialTypeHint(concept.source_file, tpl);
 	return `Based on the following materials, write a complete wiki page for concept "${concept.name} (${concept.title})".
 
 ${buildPageRules(tpl)}
 - First line is a one-sentence definition of the concept
 - Then expand on the core content in 2-4 subsections, each with viewpoints and arguments
 - If the materials contain original user insights, mark those paragraphs with > ${tpl.originalPrefix}
+${materialHint}
 
 Existing concepts (must link to related ones using [[Name|Display]] in the text): ${otherConcepts.slice(0, 20).join(", ")}
 - You must link to at least 3 existing concepts to reduce orphan pages
@@ -164,6 +174,7 @@ ${materials}`;
 export function buildSourcePrompt(source: Source, materials: string, allConcepts: Concept[], tpl: TemplateConfig): string {
 	const conceptList = (allConcepts || []).map((c) => `${c.name}(${c.title})`).slice(0, 15).join(", ");
 	const linkHint = conceptList ? `\nExisting concepts (link related ones with [[Name|Display]]): ` + conceptList : "";
+	const materialHint = getMaterialTypeHint(source.source_file, tpl);
 	return `Write a summary wiki page for the following material.
 
 Source file: ${source.source_file}
@@ -171,6 +182,7 @@ Summary topic: ${source.desc}
 
 ${buildPageRules(tpl)}
 - Extract 3-5 key points, do not copy the original text${linkHint}
+${materialHint}
 
 Materials:
 ${materials}`;

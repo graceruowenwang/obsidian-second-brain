@@ -1,7 +1,7 @@
 // 编译引擎 — 从 compile-engine.js 移植
 // 文件操作改为 Vault API，LLM 调用改为 requestUrl
 
-import { App, Notice } from "obsidian";
+import { App, Notice, TFile } from "obsidian";
 import { callLLM } from "./llm";
 import {
 	readRawFiles, readWikiFiles, writeWikiFile, deleteWikiFile,
@@ -15,7 +15,7 @@ import {
 import { loadTemplateConfig } from "./templates";
 import type { TemplateConfig } from "./templates";
 import { t } from "./i18n";
-import type { PluginSettings, Analysis, CompileCache, ProgressEvent, Concept, Entity, Source } from "../types";
+import type { PluginSettings, Analysis, CompileCache, ProgressEvent, Concept, Entity, Source, ValidationIssue, CompileReport, ChangeImpact } from "../types";
 
 const MAX_CHARS = 60000;
 
@@ -64,13 +64,177 @@ export function parseAnalysisJSON(raw: string): Analysis {
 	}
 }
 
-// 合并同名数组：新条目覆盖旧条目，新名称追加
-function mergeByName<T extends { name: string }>(arr: T[], items: T[]): T[] {
+// === Phase 1a: Schema 校验 ===
+
+function toTitleCase(s: string): string {
+	return s.split(/[\s_-]+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join("");
+}
+
+function validateAnalysis(
+	analysis: Analysis,
+	rawFilePaths: Set<string>,
+	tpl: TemplateConfig,
+): { valid: Analysis; issues: ValidationIssue[] } {
+	const issues: ValidationIssue[] = [];
+	const validLevels = tpl.levels.map(l => l.key);
+	const titleCaseRe = /^[A-Z][a-zA-Z0-9]*$/;
+
+	const concepts = analysis.concepts.filter((c, i) => {
+		if (!c.name || !c.name.trim()) { issues.push({ field: "concepts.name", index: i, issue: "empty name" }); return false; }
+		if (!titleCaseRe.test(c.name)) {
+			const fixed = toTitleCase(c.name);
+			if (titleCaseRe.test(fixed)) {
+				issues.push({ field: "concepts.name", index: i, issue: "auto-fixed to TitleCase", value: c.name });
+				c.name = fixed;
+			} else {
+				issues.push({ field: "concepts.name", index: i, issue: "invalid TitleCase, skipped", value: c.name });
+				return false;
+			}
+		}
+		if (!c.title || !c.title.trim()) { c.title = c.name; }
+		if (!validLevels.includes(c.level)) {
+			issues.push({ field: "concepts.level", index: i, issue: `invalid level "${c.level}", defaulted`, value: c.level });
+			c.level = validLevels[validLevels.length - 1];
+		}
+		if (c.source_file && !rawFilePaths.has(c.source_file)) {
+			issues.push({ field: "concepts.source_file", index: i, issue: "source_file not found in raw/", value: c.source_file });
+		}
+		return true;
+	});
+
+	const entities = analysis.entities.filter((e, i) => {
+		if (!e.name || !e.name.trim()) { issues.push({ field: "entities.name", index: i, issue: "empty name" }); return false; }
+		return true;
+	});
+
+	const sources = analysis.sources.filter((s, i) => {
+		if (!s.name || !s.name.trim()) { issues.push({ field: "sources.name", index: i, issue: "empty name" }); return false; }
+		if (s.source_file && !rawFilePaths.has(s.source_file)) {
+			issues.push({ field: "sources.source_file", index: i, issue: "source_file not found in raw/", value: s.source_file });
+		}
+		return true;
+	});
+
+	const conceptNames = new Set(concepts.map(c => c.name));
+	const syntheses = analysis.syntheses.filter(syn => {
+		syn.concepts = syn.concepts.filter(c => conceptNames.has(c));
+		return syn.concepts.length >= 2;
+	});
+
+	return { valid: { concepts, entities, sources, syntheses }, issues };
+}
+
+// === Phase 1b: Wikilink 存在性校验 ===
+
+export function validateWikilinks(content: string, validPageNames: Set<string>): string {
+	return content.replace(/\[\[([^\]|#]+)(?:[|#][^\]]+)?\]\]/g, (match, pageName) => {
+		const trimmed = pageName.trim();
+		if (validPageNames.has(trimmed)) return match;
+		// 也尝试匹配 display name
+		for (const valid of validPageNames) {
+			if (valid === trimmed) return match;
+		}
+		// 无效链接，去掉括号保留文本
+		const displayMatch = match.match(/\[\[([^\]|]+)\|([^\]]+)\]\]/);
+		return displayMatch ? displayMatch[2] : trimmed;
+	});
+}
+
+// === Phase 1c: 确定性后处理 ===
+
+function postProcessPage(content: string, itemType: "concept" | "entity" | "source" | "synthesis", item: { name: string; title?: string; level?: string }, tpl: TemplateConfig, validPageNames: Set<string>): string {
+	// 1. 去掉 LLM 前缀废话
+	let page = content;
+	const firstFm = page.indexOf("---");
+	if (firstFm > 0) {
+		page = page.slice(firstFm);
+	}
+
+	// 2. 确保 frontmatter 存在
+	if (!page.startsWith("---")) {
+		const TODAY = new Date().toISOString().split("T")[0];
+		const fm = `---\ntitle: "${item.title || item.name}"\ntype: ${itemType}\nstatus: "draft"\nlast_updated: ${TODAY}\n---\n\n`;
+		page = fm + page;
+	}
+
+	// 3. 确保关键 frontmatter 字段
+	page = ensureDraftStatus(page);
+
+	// 如果是 concept 且缺少 level 字段，补充
+	if (itemType === "concept" && item.level) {
+		if (!/^level:/m.test(page.split("---")[1] || "")) {
+			page = page.replace(/^(---\n[\s\S]*?\n---)/, `$1\n`.replace("---", `---\nlevel: "${item.level}"`));
+			// 更简单的方式：在 frontmatter 中插入
+			const fmMatch = page.match(/^(---\n)([\s\S]*?)(\n---)/);
+			if (fmMatch && !/^level:/m.test(fmMatch[2])) {
+				page = `${fmMatch[1]}level: "${item.level}"\n${fmMatch[2]}${fmMatch[3]}` + page.slice(fmMatch[0].length);
+			}
+		}
+	}
+
+	// 4. 校验 wikilinks
+	page = validateWikilinks(page, validPageNames);
+
+	// 5. 确保 ## 关联连接 区块存在
+	const relatedHeader = `## ${tpl.relatedLinksHeader}`;
+	if (!page.includes(relatedHeader)) {
+		// 从正文中提取所有 wikilink 作为关联连接
+		const links = [...new Set([...page.matchAll(/\[\[([^\]|#]+)/g)].map(m => m[1].trim()))];
+		const linkSection = `\n\n${relatedHeader}\n${links.filter(n => n !== item.name).map(n => `- [[${n}]]`).join("\n")}`;
+		page = page.trimEnd() + linkSection + "\n";
+	}
+
+	return page;
+}
+
+// === Phase 2a: 模糊去重 ===
+
+function stringSimilarity(a: string, b: string): number {
+	if (a === b) return 1.0;
+	if (a.length === 0 || b.length === 0) return 0.0;
+	const maxLen = Math.max(a.length, b.length);
+	if (Math.abs(a.length - b.length) / maxLen > 0.4) return 0.0;
+	// Levenshtein distance
+	const matrix: number[][] = [];
+	for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+	for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+	for (let i = 1; i <= b.length; i++) {
+		for (let j = 1; j <= a.length; j++) {
+			const cost = b[i - 1] === a[j - 1] ? 0 : 1;
+			matrix[i][j] = Math.min(
+				matrix[i - 1][j] + 1,
+				matrix[i][j - 1] + 1,
+				matrix[i - 1][j - 1] + cost,
+			);
+		}
+	}
+	return 1 - matrix[b.length][a.length] / maxLen;
+}
+
+// 合并同名数组：新条目覆盖旧条目，新名称追加（支持模糊匹配）
+function mergeByName<T extends { name: string }>(arr: T[], items: T[], fuzzyThreshold = 0.8): T[] {
 	const result = [...arr];
 	for (const item of items) {
-		const idx = result.findIndex(e => e.name === item.name);
-		if (idx >= 0) result[idx] = item;
-		else result.push(item);
+		const exactIdx = result.findIndex(e => e.name === item.name);
+		if (exactIdx >= 0) {
+			result[exactIdx] = item;
+			continue;
+		}
+		// 模糊匹配
+		let bestIdx = -1;
+		let bestScore = 0;
+		for (let i = 0; i < result.length; i++) {
+			const score = stringSimilarity(result[i].name.toLowerCase(), item.name.toLowerCase());
+			if (score > bestScore && score >= fuzzyThreshold) {
+				bestScore = score;
+				bestIdx = i;
+			}
+		}
+		if (bestIdx >= 0) {
+			result[bestIdx] = { ...result[bestIdx], ...item, name: result[bestIdx].name };
+		} else {
+			result.push(item);
+		}
 	}
 	return result;
 }
@@ -116,7 +280,6 @@ function findRelevantMaterials(itemName: string, itemDesc: string, allFiles: Arr
 	if (uniqueKw.length === 0) uniqueKw.push(itemName);
 	const kwLower = uniqueKw.map(k => k.toLowerCase());
 
-	// 预计算每个 file 的 lowercase 信息，避免重复计算
 	const fileInfos = allFiles.map(f => ({
 		file: f,
 		titleLow: f.path.split("/").pop()!.replace(/\.md$/, "").toLowerCase(),
@@ -243,6 +406,11 @@ function checkAborted(signal?: AbortSignal) {
 
 // === 步骤 1-2：读取素材 + AI 分析 ===
 
+interface AnalysisResult {
+	analysis: Analysis;
+	validationIssues: ValidationIssue[];
+}
+
 async function runAnalysis(
 	allFiles: Array<{ path: string; content: string }>,
 	changedFiles: Array<{ path: string; content: string }>,
@@ -252,9 +420,10 @@ async function runAnalysis(
 	forceRecompile: boolean,
 	onProgress: (e: ProgressEvent) => void,
 	signal?: AbortSignal,
-): Promise<Analysis> {
+): Promise<AnalysisResult> {
 	checkAborted(signal);
 
+	const rawFilePaths = new Set(allFiles.map(f => f.path));
 	const canIncremental = !forceRecompile && Object.keys(cache.perFileAnalysis || {}).length > 0 && changedFiles.length > 0 && changedFiles.length < allFiles.length;
 
 	if (canIncremental) {
@@ -262,7 +431,7 @@ async function runAnalysis(
 		const existingNames = [...(cache.analysis?.concepts || []).map(c => c.name), ...(cache.analysis?.entities || []).map(e => e.name)];
 		const changedMaterials = changedFiles.filter(f => !f.path.includes("_usage")).map(f => `--- 文件: ${f.path} ---\n${f.content.slice(0, 3000)}`).join("\n\n");
 		if (!changedMaterials) {
-			return cache.analysis!;
+			return { analysis: cache.analysis!, validationIssues: [] };
 		}
 		checkAborted(signal);
 		const result = await callLLM(
@@ -272,9 +441,11 @@ async function runAnalysis(
 		const incrementalResult = parseAnalysisJSON(result);
 		if (incrementalResult.concepts.length === 0 && incrementalResult.entities.length === 0 && incrementalResult.sources.length === 0) {
 			new Notice(t("notice.badAnalysis", settings.language));
-			return cache.analysis!;
+			return { analysis: cache.analysis!, validationIssues: [] };
 		}
-		return mergeAnalysis(cache.analysis!, incrementalResult);
+		const merged = mergeAnalysis(cache.analysis!, incrementalResult);
+		const { valid, issues } = validateAnalysis(merged, rawFilePaths, tpl);
+		return { analysis: valid, validationIssues: issues };
 	}
 
 	onProgress({ step: 2, stepName: "AI 分析素材", detail: "正在提取概念...", percent: 30 });
@@ -284,11 +455,12 @@ async function runAnalysis(
 		[{ role: "system", content: tpl.analysisSystemPrompt }, { role: "user", content: buildAnalyzePrompt(analysisMaterials.slice(0, MAX_CHARS), tpl) }],
 		settings, { maxTokens: ANALYSIS_MAX_TOKENS, signal },
 	);
-	const newAnalysis = parseAnalysisJSON(result);
-	if (newAnalysis.concepts.length === 0 && newAnalysis.entities.length === 0 && newAnalysis.sources.length === 0) {
+	const parsed = parseAnalysisJSON(result);
+	if (parsed.concepts.length === 0 && parsed.entities.length === 0 && parsed.sources.length === 0) {
 		throw new Error("AI 分析返回格式异常，请重试");
 	}
-	return newAnalysis;
+	const { valid, issues } = validateAnalysis(parsed, rawFilePaths, tpl);
+	return { analysis: valid, validationIssues: issues };
 }
 
 // === 步骤 3：diff + 页面生成 ===
@@ -298,6 +470,7 @@ interface PageGenResult {
 	generated: number;
 	skippedByDiff: number;
 	removed: number;
+	protectedByReview: number;
 }
 
 async function generatePages(
@@ -319,6 +492,12 @@ async function generatePages(
 	const concepts = newAnalysis.concepts || [];
 	const totalPages = concepts.length + (newAnalysis.entities?.length || 0) + (newAnalysis.sources?.length || 0);
 
+	// 构建 validPageNames 用于 wikilink 校验
+	const validPageNames = new Set<string>();
+	for (const c of concepts) validPageNames.add(c.name);
+	for (const e of (newAnalysis.entities || [])) validPageNames.add(e.name);
+	for (const s of (newAnalysis.sources || [])) validPageNames.add(s.name);
+
 	// Diff 分析
 	const { regen, skip, remove } = diffAnalysis(oldAnalysis, newAnalysis, changedFiles);
 	onProgress({ step: 3, stepName: "增量分析", detail: `新增/变化 ${regen.length}，跳过 ${skip.length}，删除 ${remove.length}`, percent: 45 });
@@ -331,12 +510,57 @@ async function generatePages(
 			delete cache.pages[pagePath];
 		}
 		delete cache.indexEntries[pagePath];
+		delete cache.failedPages[pagePath];
+	}
+
+	// Phase 4b: 保护已审核页面 -- reviewed 页面如果 source 没变化，不重新生成
+	const changedPaths = new Set(changedFiles.map(f => f.path));
+
+	// 因为需要 async 读取文件，不能用 filter
+	const finalRegen: AnalysisItem[] = [];
+	const syncProtected: AnalysisItem[] = [];
+	for (const item of regen) {
+		const pagePath = getPagePath(item);
+		const existingFile = app.vault.getAbstractFileByPath(`${wikiFolder}/${pagePath}`);
+		if (existingFile instanceof TFile) {
+			try {
+				const head = (await app.vault.cachedRead(existingFile)).slice(0, 500);
+				if (/status:\s*["']?reviewed["']?/m.test(head)) {
+					if (item.source_file && !changedPaths.has(item.source_file)) {
+						syncProtected.push(item);
+						continue;
+					}
+				}
+			} catch {}
+		}
+		finalRegen.push(item);
+	}
+
+	// 重试失败页面 (Phase 2c)
+	if (cache.failedPages) {
+		for (const [path, entry] of Object.entries(cache.failedPages)) {
+			if (entry.failCount < 3) {
+				const existing = finalRegen.find(r => getPagePath(r as AnalysisItem) === path);
+				if (!existing) {
+					// 需要从 newAnalysis 中找到对应条目重试
+					const allItems: AnalysisItem[] = [
+						...(newAnalysis.concepts || []).map(c => ({ ...c, _type: "concept" as const })),
+						...(newAnalysis.entities || []).map(e => ({ ...e, _type: "entity" as const })),
+						...(newAnalysis.sources || []).map(s => ({ ...s, _type: "source" as const })),
+					];
+					const retryItem = allItems.find(i => getPagePath(i) === path);
+					if (retryItem) finalRegen.push(retryItem);
+				}
+			}
+		}
 	}
 
 	// 构建生成任务
-	const tasks = regen.map(item => buildTask(item, allFiles, concepts, tpl));
-	let pagesDone = skip.length;
+	const tasks = finalRegen.map(item => buildTask(item, allFiles, concepts, tpl));
+	let pagesDone = skip.length + syncProtected.length;
 	const errors: Array<{ name: string; path: string; error: string }> = [];
+
+	if (!cache.failedPages) cache.failedPages = {};
 
 	// 批量生成概念/实体/来源页面
 	for (let i = 0; i < tasks.length; i += BATCH) {
@@ -346,14 +570,25 @@ async function generatePages(
 
 		const results = await Promise.allSettled(batch.map(async (task) => {
 			const raw = await callLLM([{ role: "system", content: task.system }, { role: "user", content: task.prompt }], settings, { temperature: task.temp, signal });
-			const page = ensureDraftStatus(raw);
+			const page = postProcessPage(raw, task.item._type, task.item, tpl, validPageNames);
 			await writeWikiFile(app, wikiFolder, task.path, page);
 			cache.pages[task.path] = { key: task.item.name, generatedAt: new Date().toISOString() };
+			// 成功则清除失败记录
+			delete cache.failedPages[task.path];
 		}));
 
 		for (let j = 0; j < results.length; j++) {
 			if (results[j].status === "rejected") {
-				errors.push({ name: batch[j].name, path: batch[j].path, error: (results[j] as PromiseRejectedResult).reason?.message || "未知错误" });
+				const errMsg = (results[j] as PromiseRejectedResult).reason?.message || "未知错误";
+				errors.push({ name: batch[j].name, path: batch[j].path, error: errMsg });
+				// 记录失败 (Phase 2c)
+				cache.failedPages[batch[j].path] = {
+					name: batch[j].name,
+					path: batch[j].path,
+					error: errMsg,
+					failCount: (cache.failedPages[batch[j].path]?.failCount || 0) + 1,
+					lastFailedAt: new Date().toISOString(),
+				};
 			}
 		}
 		pagesDone += batch.length;
@@ -379,13 +614,22 @@ async function generatePages(
 					[{ role: "system", content: tpl.synthesisEditorPrompt }, { role: "user", content: synthPrompt }],
 					settings, { temperature: 0.5, signal },
 				);
-				const page = ensureDraftStatus(rawPage);
+				const page = postProcessPage(rawPage, "synthesis", { name: synth.name }, tpl, validPageNames);
 				await writeWikiFile(app, wikiFolder, `syntheses/${synth.name}.md`, page);
+				delete cache.failedPages[`syntheses/${synth.name}.md`];
 			}));
 			for (let j = 0; j < synthResults.length; j++) {
 				if (synthResults[j].status === "rejected") {
 					const synth = batch[j];
-					errors.push({ name: synth.name, path: `syntheses/${synth.name}.md`, error: (synthResults[j] as PromiseRejectedResult).reason?.message || "未知错误" });
+					const errMsg = (synthResults[j] as PromiseRejectedResult).reason?.message || "未知错误";
+					errors.push({ name: synth.name, path: `syntheses/${synth.name}.md`, error: errMsg });
+					cache.failedPages[`syntheses/${synth.name}.md`] = {
+						name: synth.name,
+						path: `syntheses/${synth.name}.md`,
+						error: errMsg,
+						failCount: (cache.failedPages[`syntheses/${synth.name}.md`]?.failCount || 0) + 1,
+						lastFailedAt: new Date().toISOString(),
+					};
 				}
 			}
 		}
@@ -394,9 +638,10 @@ async function generatePages(
 
 	return {
 		errors,
-		generated: regen.length - errors.length,
+		generated: finalRegen.length - errors.length,
 		skippedByDiff: skip.length,
 		removed: remove.length,
+		protectedByReview: syncProtected.length,
 	};
 }
 
@@ -476,6 +721,82 @@ async function buildIndex(
 	await writeWikiFile(app, wikiFolder, "index.md", indexContent);
 }
 
+// === Phase 3a: 编译报告构建 ===
+
+function buildCompileReport(
+	oldAnalysis: Analysis | null,
+	newAnalysis: Analysis,
+	genResult: PageGenResult,
+	validationIssues: ValidationIssue[],
+	startTime: number,
+): CompileReport {
+	const oldConceptMap = new Map((oldAnalysis?.concepts || []).map(c => [c.name, c]));
+	const newConceptMap = new Map((newAnalysis.concepts || []).map(c => [c.name, c]));
+
+	const newConcepts: CompileReport["newConcepts"] = [];
+	const modifiedConcepts: CompileReport["modifiedConcepts"] = [];
+	const deletedConcepts: CompileReport["deletedConcepts"] = [];
+
+	for (const [name, c] of newConceptMap) {
+		if (!oldConceptMap.has(name)) {
+			newConcepts.push({ name, title: c.title || name, sourceFile: c.source_file || "" });
+		} else {
+			const old = oldConceptMap.get(name)!;
+			const changes: string[] = [];
+			if (old.desc !== c.desc) changes.push("description changed");
+			if (old.level !== c.level) changes.push(`level: ${old.level} -> ${c.level}`);
+			if (old.title !== c.title) changes.push("title changed");
+			if (changes.length > 0) {
+				modifiedConcepts.push({ name, title: c.title || name, changeSummary: changes.join("; ") });
+			}
+		}
+	}
+
+	for (const [name, old] of oldConceptMap) {
+		if (!newConceptMap.has(name)) {
+			deletedConcepts.push({ name, title: old.title || name });
+		}
+	}
+
+	return {
+		newConcepts,
+		modifiedConcepts,
+		deletedConcepts,
+		validationIssues,
+		totalPages: (newAnalysis.concepts?.length || 0) + (newAnalysis.entities?.length || 0) + (newAnalysis.sources?.length || 0),
+		generatedPages: genResult.generated,
+		skippedPages: genResult.skippedByDiff,
+		failedPages: genResult.errors.length,
+		protectedPages: genResult.protectedByReview,
+		durationMs: Date.now() - startTime,
+	};
+}
+
+// === Phase 5: 变更影响映射 ===
+
+function buildChangeImpact(
+	changedFiles: Array<{ path: string; content: string }>,
+	analysis: Analysis,
+): ChangeImpact[] {
+	return changedFiles
+		.filter(f => !f.path.includes("_usage"))
+		.map(f => {
+			const affected: ChangeImpact["affectedPages"] = [];
+			for (const c of (analysis.concepts || [])) {
+				if (f.path === c.source_file || f.content.includes(c.name) || f.content.includes(c.title || "")) {
+					affected.push({ name: c.name, type: "concept" });
+				}
+			}
+			for (const e of (analysis.entities || [])) {
+				if (f.content.includes(e.name)) {
+					affected.push({ name: e.name, type: "entity" });
+				}
+			}
+			return { rawFile: f.path, affectedPages: affected };
+		})
+		.filter(imp => imp.affectedPages.length > 0);
+}
+
 // === 主编译流程（编排函数） ===
 
 export async function runCompile(
@@ -487,6 +808,7 @@ export async function runCompile(
 	signal?: AbortSignal,
 ) {
 	checkAborted(signal);
+	const startTime = Date.now();
 	const { rawFolder, wikiFolder } = settings;
 
 	// 加载模板配置
@@ -500,6 +822,7 @@ export async function runCompile(
 	// 加载缓存
 	let cache: CompileCache = (await getStorage(app, plugin).loadData()) as CompileCache || emptyCache();
 	if (!cache.fingerprints) cache = emptyCache();
+	if (!cache.failedPages) cache.failedPages = {};
 
 	const { changed: changedFiles } = diffFingerprints(allFiles, cache);
 	const hasChanges = changedFiles.length > 0;
@@ -513,10 +836,10 @@ export async function runCompile(
 
 	// 步骤 2：AI 分析
 	const oldAnalysis = forceRecompile ? null : cache.analysis;
-	const newAnalysis = await runAnalysis(allFiles, changedFiles, cache, tpl, settings, forceRecompile, onProgress, signal);
+	const analysisResult = await runAnalysis(allFiles, changedFiles, cache, tpl, settings, forceRecompile, onProgress, signal);
+	const newAnalysis = analysisResult.analysis;
+	const validationIssues = analysisResult.validationIssues;
 
-	cache.analysis = newAnalysis;
-	cache.analysisTime = new Date().toISOString();
 	const cc = newAnalysis.concepts?.length || 0;
 	const ce = newAnalysis.entities?.length || 0;
 	const cs = newAnalysis.sources?.length || 0;
@@ -524,6 +847,10 @@ export async function runCompile(
 
 	// 步骤 3：diff + 页面生成
 	const genResult = await generatePages(newAnalysis, oldAnalysis, changedFiles, allFiles, tpl, settings, cache, wikiFolder, app, onProgress, plugin, signal);
+
+	// Phase 2b: 页面生成成功后才更新 cache.analysis
+	cache.analysis = newAnalysis;
+	cache.analysisTime = new Date().toISOString();
 
 	// 步骤 4：生成索引
 	onProgress({ step: 4, stepName: "生成索引", detail: "更新 index.md...", percent: 95 });
@@ -535,5 +862,22 @@ export async function runCompile(
 
 	onProgress({ step: 4, stepName: "完成", detail: "编译完成", percent: 100 });
 
-	return { conceptsCount: cc, entitiesCount: ce, sourcesCount: cs, changed: changedFiles.length, skippedByDiff: genResult.skippedByDiff, generated: genResult.generated, removed: genResult.removed, errors: genResult.errors, reused: false };
+	// 构建编译报告
+	const report = buildCompileReport(oldAnalysis, newAnalysis, genResult, validationIssues, startTime);
+	const changeImpact = buildChangeImpact(changedFiles, newAnalysis);
+
+	return {
+		conceptsCount: cc,
+		entitiesCount: ce,
+		sourcesCount: cs,
+		changed: changedFiles.length,
+		skippedByDiff: genResult.skippedByDiff,
+		generated: genResult.generated,
+		removed: genResult.removed,
+		protectedByReview: genResult.protectedByReview,
+		errors: genResult.errors,
+		reused: false,
+		report,
+		changeImpact,
+	};
 }

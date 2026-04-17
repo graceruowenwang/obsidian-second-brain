@@ -1135,3 +1135,720 @@ pre:hover .sb-copy-btn {
 	border-radius: 50%;
 	flex-shrink: 0;
 }
+
+/* === Health Bar === */
+.sb-health-bar {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 8px 12px;
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	margin-bottom: 12px;
+	flex-wrap: wrap;
+}
+
+.sb-health-item {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	font-size: 12px;
+	color: var(--text-muted);
+}
+
+.sb-health-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+
+.sb-health-ok {
+	background: var(--text-success);
+}
+
+.sb-health-err {
+	background: var(--text-error);
+}
+
+.sb-health-refresh {
+	font-size: 11px;
+	padding: 3px 10px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: transparent;
+	color: var(--text-muted);
+	cursor: pointer;
+	margin-left: auto;
+	transition: all 0.15s;
+}
+
+.sb-health-refresh:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+/* === Settings Sections (details/summary) === */
+.sb-settings-section {
+	margin-bottom: 16px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	overflow: hidden;
+}
+
+.sb-settings-section summary {
+	padding: 12px 16px;
+	font-size: 14px;
+	font-weight: 600;
+	color: var(--text-normal);
+	cursor: pointer;
+	list-style: none;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	background: var(--background-secondary);
+	transition: background 0.15s;
+}
+
+.sb-settings-section summary:hover {
+	background: var(--background-modifier-hover);
+}
+
+.sb-settings-section summary::before {
+	content: "\25B6";
+	font-size: 10px;
+	transition: transform 0.2s;
+}
+
+.sb-settings-section[open] summary::before {
+	transform: rotate(90deg);
+}
+
+.sb-settings-section .sb-settings-section-body {
+	padding: 16px;
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+/* === Wiki Empty Guidance === */
+.sb-wiki-empty-guidance {
+	text-align: center;
+	padding: 32px 24px;
+}
+
+.sb-wiki-empty-guidance h3 {
+	color: var(--text-normal);
+	font-size: 16px;
+	margin-bottom: 8px;
+}
+
+.sb-wiki-empty-guidance p {
+	color: var(--text-muted);
+	font-size: 13px;
+	margin-bottom: 20px;
+}
+
+.sb-empty-btn-row {
+	display: flex;
+	justify-content: center;
+	gap: 8px;
+}
+
+.sb-empty-btn {
+	font-size: 13px;
+	padding: 8px 18px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	background: transparent;
+	color: var(--text-muted);
+	cursor: pointer;
+	transition: all 0.15s;
+}
+
+.sb-empty-btn:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+	border-color: var(--interactive-accent);
+}
+
+.sb-empty-btn.mod-cta {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border-color: var(--interactive-accent);
+}
+
+.sb-empty-btn.mod-cta:hover {
+	opacity: 0.9;
+}
+
+/* === Cancel Button === */
+.sb-cancel-btn {
+	font-size: 12px;
+	padding: 4px 14px;
+	border: 1px solid var(--text-error);
+	border-radius: 4px;
+	background: transparent;
+	color: var(--text-error);
+	cursor: pointer;
+	transition: all 0.15s;
+	font-family: inherit;
+	line-height: 1;
+	min-height: unset;
+	height: auto;
+}
+
+.sb-cancel-btn:hover {
+	background: var(--text-error);
+	color: var(--text-on-accent);
+}
+
+/* === Time Estimate === */
+.sb-time-estimate {
+	font-size: 11px;
+	color: var(--text-faint);
+	padding-top: 2px;
+}
+
+/* === Compile Summary === */
+.sb-compile-summary {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	padding: 10px 14px;
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	margin-bottom: 8px;
+	flex-wrap: wrap;
+}
+
+.sb-compile-summary-header {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--text-success);
+}
+
+.sb-compile-summary-stats {
+	display: flex;
+	gap: 12px;
+	font-size: 11px;
+	color: var(--text-muted);
+}
+
+.sb-retry-btn {
+	font-size: 11px;
+	padding: 3px 12px;
+	border: 1px solid var(--text-warning);
+	border-radius: 4px;
+	background: transparent;
+	color: var(--text-warning);
+	cursor: pointer;
+	transition: all 0.15s;
+	font-family: inherit;
+	line-height: 1;
+	min-height: unset;
+	height: auto;
+}
+
+.sb-retry-btn:hover {
+	background: var(--text-warning);
+	color: var(--background-primary);
+}
+
+/* === Wiki Sort Dropdown === */
+.sb-wiki-sort {
+	padding: 6px 10px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	background: var(--background-secondary);
+	color: var(--text-normal);
+	font-size: 12px;
+	cursor: pointer;
+	flex-shrink: 0;
+	transition: border-color 0.15s;
+}
+
+.sb-wiki-sort:focus {
+	outline: none;
+	border-color: var(--interactive-accent);
+}
+
+/* === Wiki Card Status Badges === */
+.sb-wiki-card-draft {
+	border-left: 3px solid var(--text-warning);
+}
+
+.sb-wiki-card-reviewed {
+	border-left: 3px solid var(--text-success);
+}
+
+/* === Wiki Page Metadata === */
+.sb-wiki-meta {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	padding: 8px 0;
+	margin-bottom: 12px;
+	border-bottom: 1px solid var(--background-modifier-border);
+	flex-wrap: wrap;
+}
+
+.sb-wiki-meta-item {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	font-size: 12px;
+	color: var(--text-muted);
+}
+
+.sb-wiki-meta-label {
+	font-weight: 600;
+	color: var(--text-faint);
+}
+
+/* === Context Indicator (Chat) === */
+.sb-context-indicator {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	padding: 4px 12px;
+	font-size: 11px;
+	color: var(--text-faint);
+	background: var(--background-primary);
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+.sb-context-clear {
+	font-size: 10px;
+	padding: 2px 8px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 3px;
+	background: transparent;
+	color: var(--text-faint);
+	cursor: pointer;
+	transition: all 0.15s;
+	font-family: inherit;
+	line-height: 1;
+	min-height: unset;
+	height: auto;
+}
+
+.sb-context-clear:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+/* === Source Score Badge === */
+.sb-source-score {
+	display: inline-block;
+	font-size: 10px;
+	padding: 1px 6px;
+	border-radius: 8px;
+	background: var(--background-primary-alt);
+	color: var(--text-faint);
+	margin-left: 4px;
+	vertical-align: middle;
+}
+
+/* === Wizard Buttons === */
+.sb-wizard-btn-row {
+	display: flex;
+	gap: 8px;
+	justify-content: center;
+	margin-top: 16px;
+}
+
+.sb-wizard-status {
+	font-size: 12px;
+	color: var(--text-muted);
+	text-align: center;
+	padding: 8px 0;
+}
+
+.sb-wizard-folder-created {
+	font-size: 12px;
+	color: var(--text-success);
+	text-align: center;
+	padding: 4px 0;
+}
+
+.sb-wizard-folder-exists {
+	font-size: 12px;
+	color: var(--text-faint);
+	text-align: center;
+	padding: 4px 0;
+}
+
+/* === Pro 功能门控 === */
+
+/* PRO 徽章 */
+.sb-pro-badge {
+	display: inline-block;
+	padding: 1px 7px;
+	margin-left: 6px;
+	font-size: 10px;
+	font-weight: 700;
+	letter-spacing: 0.5px;
+	color: #fff;
+	background: linear-gradient(135deg, #7c3aed, #a855f7);
+	border-radius: 10px;
+	vertical-align: middle;
+	line-height: 1.6;
+	text-transform: uppercase;
+}
+
+/* License 设置区域 */
+.sb-license-section {
+	padding: 8px 0;
+}
+
+.sb-license-status {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 12px;
+	font-size: 13px;
+}
+
+.sb-license-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+
+.sb-license-dot-ok { background: var(--text-success); }
+.sb-license-dot-warn { background: var(--text-warning); }
+.sb-license-dot-err { background: var(--text-muted); }
+
+.sb-license-status-text {
+	font-weight: 600;
+	color: var(--text-normal);
+}
+
+.sb-license-expires {
+	font-size: 11px;
+	color: var(--text-muted);
+}
+
+.sb-license-btns {
+	display: flex;
+	gap: 8px;
+	margin: 12px 0;
+}
+
+.sb-license-purchase {
+	margin-top: 8px;
+}
+
+.sb-license-purchase a {
+	color: var(--text-accent);
+	font-size: 13px;
+	text-decoration: none;
+}
+
+.sb-license-purchase a:hover {
+	text-decoration: underline;
+}
+
+/* Pro 锁定遮罩 */
+.sb-pro-locked-overlay {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+	padding: 40px;
+	text-align: center;
+	background: var(--background-primary);
+}
+
+.sb-pro-locked-overlay h2 {
+	font-size: 22px;
+	font-weight: 600;
+	color: var(--text-normal);
+	margin-bottom: 12px;
+}
+
+.sb-pro-locked-overlay p {
+	font-size: 14px;
+	color: var(--text-muted);
+	line-height: 1.6;
+	max-width: 400px;
+	margin-bottom: 24px;
+}
+
+.sb-pro-locked-btns {
+	display: flex;
+	gap: 10px;
+}
+
+/* 图谱按钮锁定态 */
+.sb-pro-locked-btn {
+	opacity: 0.6;
+}
+
+.sb-pro-locked-btn .sb-pro-badge {
+	margin-left: 4px;
+}
+
+/* 升级弹窗 */
+.sb-upgrade-modal h2 {
+	margin-bottom: 12px;
+}
+
+.sb-upgrade-modal p {
+	color: var(--text-muted);
+	line-height: 1.6;
+	margin-bottom: 16px;
+}
+
+.sb-upgrade-pricing {
+	display: flex;
+	gap: 12px;
+	align-items: center;
+	justify-content: center;
+	margin-bottom: 20px;
+}
+
+.sb-upgrade-price {
+	font-size: 18px;
+	font-weight: 700;
+	color: var(--interactive-accent);
+}
+
+.sb-upgrade-price-sep {
+	color: var(--text-faint);
+}
+
+.sb-upgrade-btns {
+	display: flex;
+	gap: 8px;
+	justify-content: flex-end;
+}
+
+/* === Pro 功能对比表 === */
+.sb-compare-table-wrap {
+	margin-bottom: 16px;
+}
+
+.sb-compare-title {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--text-muted);
+	margin-bottom: 8px;
+	letter-spacing: 0.3px;
+}
+
+.sb-compare-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 12px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	overflow: hidden;
+}
+
+.sb-compare-table th {
+	padding: 6px 12px;
+	text-align: center;
+	font-weight: 600;
+	background: var(--background-secondary);
+	border-bottom: 1px solid var(--background-modifier-border);
+	color: var(--text-muted);
+}
+
+.sb-compare-table td {
+	padding: 5px 12px;
+	border-bottom: 1px solid var(--background-modifier-border);
+	color: var(--text-normal);
+}
+
+.sb-compare-table td:first-child {
+	color: var(--text-muted);
+}
+
+.sb-compare-th-pro {
+	color: #7c3aed !important;
+}
+
+.sb-compare-check {
+	text-align: center;
+	color: var(--text-faint);
+	font-size: 14px;
+}
+
+.sb-compare-check-pro {
+	color: #7c3aed !important;
+	font-weight: 700;
+}
+
+.sb-compare-table tr:last-child td {
+	border-bottom: none;
+}
+
+/* === Pro 激活引导 Modal === */
+.sb-pro-welcome-modal h2 {
+	text-align: center;
+	color: var(--text-normal);
+	margin-bottom: 8px;
+}
+
+.sb-pro-welcome-desc {
+	text-align: center;
+	color: var(--text-muted);
+	margin-bottom: 20px;
+}
+
+.sb-pro-welcome-list {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin-bottom: 24px;
+}
+
+.sb-pro-welcome-item {
+	display: flex;
+	align-items: flex-start;
+	gap: 8px;
+	font-size: 13px;
+	color: var(--text-normal);
+	line-height: 1.5;
+}
+
+.sb-pro-welcome-check {
+	color: #7c3aed;
+	font-weight: 700;
+	flex-shrink: 0;
+}
+
+.sb-pro-welcome-btns {
+	display: flex;
+	justify-content: center;
+}
+
+/* === Chat Pro 增强信息 === */
+.sb-chat-title-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.sb-chat-pro-info {
+	display: flex;
+	gap: 6px;
+	margin-left: auto;
+}
+
+.sb-chat-pro-tag {
+	font-size: 10px;
+	padding: 2px 8px;
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 10px;
+	color: var(--text-faint);
+}
+
+/* === 功能亮点卡片 === */
+.sb-feature-highlights {
+	display: flex;
+	gap: 12px;
+	margin: 24px 0;
+	justify-content: center;
+	flex-wrap: wrap;
+}
+
+.sb-feature-card {
+	flex: 1;
+	min-width: 160px;
+	max-width: 220px;
+	padding: 16px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 10px;
+	background: var(--background-secondary);
+	text-align: center;
+}
+
+.sb-feature-card h4 {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--text-normal);
+	margin: 0 0 6px;
+}
+
+.sb-feature-card p {
+	font-size: 11px;
+	color: var(--text-muted);
+	margin: 0;
+	line-height: 1.5;
+}
+
+/* Pro 统计增强 */
+.sb-stat-pro .sb-stat-num {
+	color: #7c3aed;
+}
+
+/* 试用提示 */
+.sb-trial-notice {
+	background: rgba(124, 58, 237, 0.08);
+	border: 1px solid rgba(124, 58, 237, 0.2);
+	border-radius: 6px;
+	padding: 8px 12px;
+	margin-top: 8px;
+	font-size: 13px;
+	color: #7c3aed;
+}
+
+.sb-trial-hint {
+	background: rgba(234, 179, 8, 0.08);
+	border: 1px solid rgba(234, 179, 8, 0.2);
+	border-radius: 6px;
+	padding: 8px 12px;
+	margin-top: 8px;
+	font-size: 13px;
+	color: #a16207;
+}
+
+/* === 审核状态角标 === */
+.sb-wiki-status-badge {
+	position: absolute;
+	top: 6px;
+	right: 6px;
+	font-size: 10px;
+	font-weight: 600;
+	padding: 2px 6px;
+	border-radius: 8px;
+	pointer-events: none;
+}
+.sb-status-draft {
+	background: rgba(217, 119, 6, 0.15);
+	color: #b45309;
+	border: 1px solid rgba(217, 119, 6, 0.3);
+}
+.sb-status-reviewed {
+	background: rgba(5, 150, 105, 0.12);
+	color: #059669;
+	border: 1px solid rgba(5, 150, 105, 0.25);
+}
+.sb-wiki-card {
+	position: relative;
+}
+
+/* === 批量审核 === */
+.sb-batch-bar {
+	position: sticky;
+	bottom: 0;
+	background: var(--background-primary);
+	border-top: 1px solid var(--background-modifier-border);
+	padding: 8px 12px;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	z-index: 10;
+}
+.sb-batch-checkbox {
+	margin-right: 6px;
+	accent-color: var(--interactive-accent);
+}
