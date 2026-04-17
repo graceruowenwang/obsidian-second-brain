@@ -19,7 +19,9 @@
 
 ### 第一步：安装插件
 
-下载 release 中的 `main.js`、`manifest.json`、`styles.css`，放入 Vault 的 `.obsidian/plugins/second-brain/` 目录，重启 Obsidian 并启用插件。
+1. 在 [Releases](https://gitee.com/grinningGrace/obsidian-second-brain/releases) 页面下载最新版的 `second-brain.zip`
+2. 解压到 Vault 的 `.obsidian/plugins/second-brain/` 目录
+3. 重启 Obsidian，在设置中启用「Second Brain」插件
 
 ### 第二步：申请 API Key
 
@@ -109,10 +111,10 @@ svn export https://gitee.com/grinningGrace/obsidian-second-brain/raw-sample /你
 
 ```bash
 npm install
-npm run build
+npm run release
 ```
 
-产物为 `main.js`，和 `manifest.json`、`styles.css` 一起复制到插件目录。
+会在项目根目录生成 `second-brain.zip`，包含 `main.js`、`manifest.json`、`styles.css`。解压到 `.obsidian/plugins/second-brain/` 即可。
 
 ## 注意事项
 

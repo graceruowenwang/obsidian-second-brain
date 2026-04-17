@@ -5,7 +5,8 @@
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
-		"build": "node esbuild.config.mjs production"
+		"build": "node esbuild.config.mjs production",
+		"release": "npm run build && cd /tmp && rm -rf second-brain second-brain.zip && mkdir second-brain && cp $OLDPWD/main.js $OLDPWD/manifest.json $OLDPWD/styles.css second-brain/ && zip -r second-brain.zip second-brain && mv second-brain.zip $OLDPWD/ && rm -rf second-brain && echo 'Done: second-brain.zip'"
 	},
 	"devDependencies": {
 		"@types/node": "^16.11.6",
