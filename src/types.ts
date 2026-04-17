@@ -129,6 +129,21 @@ export interface ChangeImpact {
 	affectedPages: Array<{ name: string; type: string }>;
 }
 
+export interface CompileResult {
+	conceptsCount: number;
+	entitiesCount: number;
+	sourcesCount: number;
+	changed: number;
+	skippedByDiff: number;
+	generated: number;
+	removed: number;
+	protectedByReview: number;
+	errors: Array<{ name: string; error: string }>;
+	reused: boolean;
+	report?: CompileReport;
+	changeImpact?: ChangeImpact[];
+}
+
 export interface Fingerprint {
 	m: number;
 	s: number;
@@ -145,8 +160,13 @@ export interface ProgressEvent {
 }
 
 // Plugin 类型带 settings（供 View 使用）
-import type { Plugin } from "obsidian";
-export type SecondBrainPlugin = Plugin & { settings: PluginSettings; licenseInfo: LicenseInfo; getLicenseState(): LicenseInfo };
+import type { Plugin, App } from "obsidian";
+export type SecondBrainPlugin = Plugin & { settings: PluginSettings; licenseInfo: LicenseInfo; getLicenseState(): LicenseInfo; activateView(viewType: string): Promise<void>; saveLicenseInfo(): Promise<void> };
+
+export function openPluginSettings(app: App) {
+	(app as any).setting.open();
+	(app as any).setting.openTabById("second-brain");
+}
 
 // License 相关类型
 export interface LicenseInfo {

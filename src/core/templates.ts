@@ -1,6 +1,7 @@
 // 模板系统 -- 多语言支持 + 用户自定义 prompt 模板
 
 import { App, TFile, Notice } from "obsidian";
+import { ensureFolder } from "./file-utils";
 
 // === 模板配置接口 ===
 
@@ -133,14 +134,7 @@ export async function generateTemplateFile(
 	// 确保目录存在
 	const folderPath = templatePath.substring(0, templatePath.lastIndexOf("/"));
 	if (folderPath) {
-		const parts = folderPath.split("/");
-		let current = "";
-		for (const part of parts) {
-			current = current ? `${current}/${part}` : part;
-			if (!app.vault.getAbstractFileByPath(current)) {
-				await app.vault.createFolder(current);
-			}
-		}
+		await ensureFolder(app, folderPath);
 	}
 
 	const existing = app.vault.getAbstractFileByPath(templatePath);

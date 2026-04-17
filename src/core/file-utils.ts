@@ -70,7 +70,7 @@ export async function deleteWikiFile(app: App, wikiFolder: string, filePath: str
 }
 
 // 确保目录存在
-async function ensureFolder(app: App, folderPath: string): Promise<void> {
+export async function ensureFolder(app: App, folderPath: string): Promise<void> {
 	const parts = folderPath.split("/");
 	let current = "";
 	for (const part of parts) {
@@ -237,7 +237,7 @@ export async function writeLogEntry(
 }
 
 // 统计分析条目总数
-export function totalAnalysisCount(analysis: any): number {
+export function totalAnalysisCount(analysis: { concepts?: unknown[]; entities?: unknown[]; sources?: unknown[] } | null): number {
 	if (!analysis) return 0;
 	return (analysis.concepts?.length || 0) +
 		(analysis.entities?.length || 0) +

@@ -91,9 +91,9 @@ export async function callLLM(
 	for (let attempt = 0; attempt <= maxRetries; attempt++) {
 		try {
 			return await adapter(messages, options, settings);
-		} catch (e: any) {
+		} catch (e: unknown) {
 			lastError = e;
-			const isAuthError = e.message?.includes("401") || e.message?.includes("403");
+			const isAuthError = (e instanceof Error ? e.message : String(e))?.includes("401") || (e instanceof Error ? e.message : String(e))?.includes("403");
 			if (attempt < maxRetries && !isAuthError) {
 				await new Promise((r) => setTimeout(r, 3000 * (attempt + 1)));
 				continue;
