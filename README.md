@@ -10,18 +10,20 @@
 |------|------|
 | 插件本身 | 免费、开源 |
 | Obsidian | 免费 |
-| DeepSeek API | 每月 5 亿 token 免费额度，个人使用基本用不完 |
+| DeepSeek API（推荐） | 充值 10 元可用很久。deepseek-chat 输入 ¥2/百万 token，输出 ¥3/百万 token |
 | 其他 LLM（可选） | 按 token 计费，插件的增量编译只处理变化文件，成本很低 |
 
-推荐使用 DeepSeek（deepseek-chat），注册即送每月免费额度，覆盖日常编译和对话完全够用。
+首次全量编译消耗较多 token，后续增量编译只处理变化文件。日常使用（每月几十篇素材 + 偶尔对话），10 元余额够用几个月。
 
 ## 快速开始
 
-### 第一步：安装插件
+### 第一步：下载并打开
 
-1. 在 [Releases](https://gitee.com/grinningGrace/obsidian-second-brain/releases) 页面下载最新版的 `second-brain.zip`
-2. 解压到 Vault 的 `.obsidian/plugins/second-brain/` 目录
-3. 重启 Obsidian，在设置中启用「Second Brain」插件
+1. 在 [Releases](https://gitee.com/grinningGrace/obsidian-second-brain/releases) 下载最新版 `second-brain.zip`
+2. 解压到任意位置
+3. 用 Obsidian 打开解压出来的文件夹（作为 Vault 打开）
+
+解压后目录里已经包含插件和样例素材目录 `raw/`，开箱即用。
 
 ### 第二步：申请 API Key
 
@@ -33,7 +35,7 @@ API Key 保存在本地，不会上传到任何服务器。
 
 ### 第三步：放入素材
 
-在 Vault 根目录创建 `raw/` 文件夹，把你的笔记放进去：
+解压后的 `raw/` 目录已经包含样例素材和每个文件夹的 `_usage.md` 说明，可以直接试用编译。把你自己的素材放进去即可：
 
 ```
 raw/
@@ -46,12 +48,7 @@ raw/
     inbox/          # 暂存区（编译时自动整理）
 ```
 
-仓库中提供了 `raw-sample/` 样例目录，每个文件夹都有 `_usage.md` 说明该放什么，可以直接复制使用：
-
-```bash
-# 下载样例目录到你的 Vault
-svn export https://gitee.com/grinningGrace/obsidian-second-brain/raw-sample /你的Vault路径/raw
-```
+每个子目录下都有 `_usage.md` 说明该放什么、怎么命名。放到大致合适的目录即可，不要求分类精确。
 
 ### 第四步：编译
 

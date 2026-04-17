@@ -6,7 +6,7 @@
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
 		"build": "node esbuild.config.mjs production",
-		"release": "npm run build && cd /tmp && rm -rf second-brain second-brain.zip && mkdir second-brain && cp $OLDPWD/main.js $OLDPWD/manifest.json $OLDPWD/styles.css second-brain/ && zip -r second-brain.zip second-brain && mv second-brain.zip $OLDPWD/ && rm -rf second-brain && echo 'Done: second-brain.zip'"
+		"release": "npm run build && rm -f second-brain.zip && BUILD_DIR=$(pwd) && cd /tmp && rm -rf second-brain second-brain.zip && mkdir -p second-brain/.obsidian/plugins/second-brain && cp \"$BUILD_DIR\"/main.js \"$BUILD_DIR\"/manifest.json \"$BUILD_DIR\"/styles.css second-brain/.obsidian/plugins/second-brain/ && cp -r \"$BUILD_DIR\"/raw-sample second-brain/raw && cd second-brain && zip -r \"$BUILD_DIR\"/second-brain.zip . && cd /tmp && rm -rf second-brain && echo \"Done: $BUILD_DIR/second-brain.zip\""
 	},
 	"devDependencies": {
 		"@types/node": "^16.11.6",
