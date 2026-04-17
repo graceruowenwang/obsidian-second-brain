@@ -8,7 +8,7 @@ import { DEFAULT_SETTINGS, type PluginSettings, type SecondBrainPlugin } from ".
 import { CompileView, VIEW_TYPE_COMPILE } from "./views/compile-view";
 import { ChatView, VIEW_TYPE_CHAT } from "./views/chat-view";
 import { WikiView, VIEW_TYPE_WIKI } from "./views/wiki-view";
-import { runCompile } from "./core/compile";
+import { runCompile, ensureDraftStatus, parseAnalysisJSON } from "./core/compile";
 import { readRawFiles, readWikiFiles, writeWikiFile, diffFingerprints, emptyCache, filesToMap, clearEmbeddingCache } from "./core/file-utils";
 import { callLLM } from "./core/llm";
 import {
@@ -195,10 +195,6 @@ export default class SecondBrain extends Plugin {
 		new Notice(t("notice.compiling", this.settings.language, { path: file.path }));
 
 		try {
-			const wikiFiles = await readWikiFiles(this.app, this.settings.wikiFolder);
-			const wikiMap: Record<string, string> = {};
-			for (const f of wikiFiles) wikiMap[f.path] = f.content;
-
 			const result = await this.quickIngest(targetFile);
 			new Notice(t("notice.compileDone", this.settings.language, { n: result.generated.length }));
 		} catch (e: any) {
@@ -207,7 +203,6 @@ export default class SecondBrain extends Plugin {
 	}
 
 	private async quickIngest(targetFile: { path: string; content: string }) {
-		const allFiles = await readRawFiles(this.app, this.settings.rawFolder);
 		const wikiFiles = await readWikiFiles(this.app, this.settings.wikiFolder);
 		const existingNames = Object.keys(filesToMap(wikiFiles)).map(p => p.split("/").pop()!.replace(/\.md$/, ""));
 
@@ -222,10 +217,7 @@ export default class SecondBrain extends Plugin {
 			{ maxTokens: 4000 }
 		);
 
-		const jsonMatch = analysisResult.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim().match(/\{[\s\S]*\}/);
-		if (!jsonMatch) throw new Error("分析结果格式异常");
-		const analysis = JSON.parse(jsonMatch[0]);
-
+		const analysis = parseAnalysisJSON(analysisResult);
 		const concepts = analysis.concepts || [];
 		const generated: string[] = [];
 		const errors: Array<{ name: string; error: string }> = [];
@@ -245,24 +237,13 @@ export default class SecondBrain extends Plugin {
 
 		for (const task of tasks) {
 			let genPrompt: string;
-			let system: string;
-			if (task.type === "concept") { genPrompt = buildConceptPrompt(task.item, task.materials, concepts, tpl); system = tpl.editorSystemPrompt; }
-			else if (task.type === "entity") { genPrompt = buildEntityPrompt(task.item, task.materials, concepts, tpl); system = tpl.editorSystemPrompt; }
-			else { genPrompt = buildSourcePrompt(task.item, task.materials, concepts, tpl); system = tpl.editorSystemPrompt; }
+			if (task.type === "concept") genPrompt = buildConceptPrompt(task.item, task.materials, concepts, tpl);
+			else if (task.type === "entity") genPrompt = buildEntityPrompt(task.item, task.materials, concepts, tpl);
+			else genPrompt = buildSourcePrompt(task.item, task.materials, concepts, tpl);
 
 			try {
-				const raw = await callLLM([{ role: "system", content: system }, { role: "user", content: genPrompt }], this.settings, { temperature: 0.3 });
-				let page = raw;
-				const fmMatch = raw.match(/^(---\n)([\s\S]*?)(\n---\n*)/);
-				if (fmMatch) {
-					if (!/^status:/m.test(fmMatch[2])) {
-						page = `${fmMatch[1]}status: "draft"\n${fmMatch[2]}${fmMatch[3]}`;
-					} else {
-						page = raw.replace(/^(status:\s*).*$/m, '$1"draft"');
-					}
-				} else {
-					page = `---\nstatus: "draft"\n---\n\n${raw}`;
-				}
+				const raw = await callLLM([{ role: "system", content: tpl.editorSystemPrompt }, { role: "user", content: genPrompt }], this.settings, { temperature: 0.3 });
+				const page = ensureDraftStatus(raw);
 				await writeWikiFile(this.app, this.settings.wikiFolder, task.path, page);
 				generated.push(task.path);
 			} catch (e: any) {

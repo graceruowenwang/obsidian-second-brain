@@ -16,6 +16,7 @@ export class CompileView extends ItemView {
 	private compileBtn: HTMLButtonElement;
 	private statusEl: HTMLElement;
 	private compiling = false;
+	private abortController: AbortController | null = null;
 
 	constructor(leaf: WorkspaceLeaf, plugin: SecondBrainPlugin) {
 		super(leaf);
@@ -69,8 +70,18 @@ export class CompileView extends ItemView {
 		}
 	}
 
+	private cancelCompile() {
+		if (this.abortController) {
+			this.abortController.abort();
+			this.abortController = null;
+		}
+	}
+
 	private async startCompile(force = false) {
-		if (this.compiling) return;
+		if (this.compiling) {
+			this.cancelCompile();
+			return;
+		}
 		const settings = this.plugin.settings;
 		const lang = settings.language;
 		if (!settings.apiKey) {
@@ -79,7 +90,7 @@ export class CompileView extends ItemView {
 		}
 
 		this.compiling = true;
-		this.compileBtn.disabled = true;
+		this.abortController = new AbortController();
 		this.compileBtn.textContent = t("compile.compiling", lang);
 		this.logEl.empty();
 		this.progressFill.style.width = "0%";
@@ -90,7 +101,7 @@ export class CompileView extends ItemView {
 		};
 
 		try {
-			const result = await runCompile(this.app, settings, onProgress, force);
+			const result = await runCompile(this.app, settings, onProgress, force, undefined, this.abortController.signal);
 			this.addLog(t("compile.done", lang, { c: result.conceptsCount, e: result.entitiesCount, s: result.sourcesCount }), "ok");
 			if (result.reused) this.addLog(t("compile.noChange", lang), "");
 			if (result.errors.length > 0) {
@@ -99,10 +110,15 @@ export class CompileView extends ItemView {
 			}
 			new Notice(t("compile.complete", lang));
 		} catch (e: any) {
-			this.addLog(t("compile.fail", lang, { msg: e.message }), "err");
-			new Notice(t("compile.fail", lang, { msg: e.message }));
+			if (e.message === "编译已取消") {
+				this.addLog(t("compile.compiling", lang) + " — 已取消", "");
+			} else {
+				this.addLog(t("compile.fail", lang, { msg: e.message }), "err");
+				new Notice(t("compile.fail", lang, { msg: e.message }));
+			}
 		} finally {
 			this.compiling = false;
+			this.abortController = null;
 			this.compileBtn.disabled = false;
 			this.compileBtn.textContent = t("compile.start", lang);
 		}
@@ -113,5 +129,7 @@ export class CompileView extends ItemView {
 		this.logEl.scrollTop = this.logEl.scrollHeight;
 	}
 
-	async onClose() {}
+	async onClose() {
+		this.cancelCompile();
+	}
 }

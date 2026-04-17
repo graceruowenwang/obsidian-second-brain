@@ -1,7 +1,7 @@
 // 文件操作适配层 — Vault API 替代 Node.js fs
 // 从 file-utils.js 移植
 
-import { App, TFile, TFolder, TAbstractFile, Vault } from "obsidian";
+import { App, TFile, TFolder, TAbstractFile } from "obsidian";
 import type { CompileCache, Fingerprint } from "../types";
 
 // 递归获取文件夹下所有 .md 文件
@@ -141,23 +141,6 @@ export function filesToMap(files: Array<{ path: string; content: string }>): Rec
 		map[f.path] = f.content;
 	}
 	return map;
-}
-
-// 内容哈希（用 Web Crypto API 替代 Node crypto）
-export async function fileHash(content: string): Promise<string> {
-	const data = new TextEncoder().encode(content);
-	const hashBuffer = await crypto.subtle.digest("MD5", data).catch(() => null);
-	// Web Crypto 不支持 MD5，fallback 到简单哈希
-	if (!hashBuffer) {
-		let hash = 0;
-		for (let i = 0; i < content.length; i++) {
-			const char = content.charCodeAt(i);
-			hash = ((hash << 5) - hash) + char;
-			hash |= 0;
-		}
-		return Math.abs(hash).toString(16);
-	}
-	return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
 // 简单同步哈希（Obsidian 环境没有 Node crypto）

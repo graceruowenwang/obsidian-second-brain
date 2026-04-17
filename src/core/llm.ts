@@ -60,7 +60,8 @@ async function callAnthropic(
 		body: JSON.stringify({
 			model: settings.model,
 			max_tokens: options.maxTokens ?? settings.maxTokens,
-			...(systemMsg ? { system: systemMsg.content } : {}),
+				temperature: options.temperature ?? settings.temperature,
+				...(systemMsg ? { system: systemMsg.content } : {}),
 			messages: chatMsgs,
 		}),
 	});
@@ -86,10 +87,12 @@ export async function callLLM(
 	}
 
 	const maxRetries = options.maxRetries ?? 1;
+	let lastError: any;
 	for (let attempt = 0; attempt <= maxRetries; attempt++) {
 		try {
 			return await adapter(messages, options, settings);
 		} catch (e: any) {
+			lastError = e;
 			const isAuthError = e.message?.includes("401") || e.message?.includes("403");
 			if (attempt < maxRetries && !isAuthError) {
 				await new Promise((r) => setTimeout(r, 3000 * (attempt + 1)));
@@ -98,7 +101,7 @@ export async function callLLM(
 			throw e;
 		}
 	}
-	throw new Error("LLM 调用失败");
+	throw lastError;
 }
 
 // 流式调用（对话面板用，桌面端 fetch 可用）
