@@ -1,6 +1,6 @@
 // 首次使用设置向导
 
-import { App, Modal, Notice, Setting } from "obsidian";
+import { App, Modal, Setting } from "obsidian";
 import type { SecondBrainPlugin } from "../types";
 import { callLLM } from "../core/llm";
 import { PROVIDER_PRESETS } from "../core/presets";
@@ -53,7 +53,7 @@ export class SetupWizardModal extends Modal {
 						this.plugin.settings.provider = v;
 						this.plugin.settings.baseUrl = preset.baseUrl;
 						this.plugin.settings.model = preset.models[0];
-						await this.plugin.saveData(this.plugin.settings);
+						await this.plugin.saveSettings();
 					}
 				});
 			});
@@ -65,7 +65,7 @@ export class SetupWizardModal extends Modal {
 				t2.inputEl.type = "password";
 				t2.onChange(async (v) => {
 					this.plugin.settings.apiKey = v;
-					await this.plugin.saveData(this.plugin.settings);
+					await this.plugin.saveSettings();
 				});
 			});
 
@@ -152,7 +152,7 @@ export class SetupWizardModal extends Modal {
 
 	private async finish() {
 		this.plugin.settings.setupCompleted = true;
-		await this.plugin.saveData(this.plugin.settings);
+		await this.plugin.saveSettings();
 		this.close();
 	}
 

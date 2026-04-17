@@ -16,7 +16,7 @@ import { validateLicense, isPro, needsRevalidation, enterGraceIfNeeded, checkGra
 import { requirePro, showUpgradeNotice } from "./core/feature-gate";
 import { quickIngest } from "./core/quick-ingest";
 
-export default class SecondBrain extends Plugin implements SecondBrainPlugin {
+export default class SecondBrain extends Plugin {
 	settings!: PluginSettings;
 	licenseInfo: LicenseInfo = getDefaultLicense();
 	private autoCompileTimer: ReturnType<typeof setTimeout> | null = null;
@@ -48,9 +48,9 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 		}
 
 		// 注册 View
-		this.registerView(VIEW_TYPE_COMPILE, (leaf) => new CompileView(leaf, this));
-		this.registerView(VIEW_TYPE_CHAT, (leaf) => new ChatView(leaf, this));
-		this.registerView(VIEW_TYPE_WIKI, (leaf) => new WikiView(leaf, this));
+		this.registerView(VIEW_TYPE_COMPILE, (leaf) => new CompileView(leaf, this as unknown as SecondBrainPlugin));
+		this.registerView(VIEW_TYPE_CHAT, (leaf) => new ChatView(leaf, this as unknown as SecondBrainPlugin));
+		this.registerView(VIEW_TYPE_WIKI, (leaf) => new WikiView(leaf, this as unknown as SecondBrainPlugin));
 
 		// 左侧栏图标
 		const ribbonCompile = this.addRibbonIcon("zap", t("cmd.compileWiki", lang), () => this.activateView(VIEW_TYPE_COMPILE));

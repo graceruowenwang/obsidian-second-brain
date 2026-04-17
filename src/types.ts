@@ -161,7 +161,14 @@ export interface ProgressEvent {
 
 // Plugin 类型带 settings（供 View 使用）
 import type { Plugin, App } from "obsidian";
-export type SecondBrainPlugin = Plugin & { settings: PluginSettings; licenseInfo: LicenseInfo; getLicenseState(): LicenseInfo; activateView(viewType: string): Promise<void>; saveLicenseInfo(): Promise<void> };
+export type SecondBrainPlugin = Plugin & {
+	settings: PluginSettings;
+	licenseInfo: LicenseInfo;
+	getLicenseState(): LicenseInfo;
+	activateView(viewType: string): Promise<void>;
+	saveLicenseInfo(): Promise<void>;
+	saveSettings(): Promise<void>;
+};
 
 export function openPluginSettings(app: App) {
 	(app as any).setting.open();

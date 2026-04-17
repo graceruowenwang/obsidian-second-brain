@@ -2,7 +2,7 @@
 
 import { App, TFile } from "obsidian";
 import { callLLM } from "./llm";
-import { readWikiFiles, writeWikiFile, deleteWikiFile } from "./file-utils";
+import { readWikiFiles, writeWikiFile, deleteWikiFile, vectorSearch, buildEmbeddingCache, filesToMap } from "./file-utils";
 import {
 	buildConceptPrompt, buildEntityPrompt, buildSourcePrompt, buildSynthesisPrompt,
 } from "./wiki-schema";
@@ -255,7 +255,34 @@ export function getPagePath(item: AnalysisItem): string {
 	}
 }
 
-export function findRelevantMaterials(itemName: string, itemDesc: string, allFiles: Array<{ path: string; content: string }>, maxChars = 10000): string {
+export async function findRelevantMaterials(itemName: string, itemDesc: string, allFiles: Array<{ path: string; content: string }>, settings: PluginSettings, maxChars = 10000): Promise<string> {
+	// 尝试向量检索
+	if (settings.embeddingApiKey || settings.apiKey) {
+		try {
+			const query = `${itemName} ${itemDesc || ""}`;
+			const filesMap = filesToMap(allFiles);
+			await buildEmbeddingCache(filesMap, settings);
+			const results = await vectorSearch(query, filesMap, settings, 8);
+			if (results.length > 0) {
+				let result = "";
+				for (const r of results) {
+					if (result.length >= maxChars) break;
+					const path = r.filePath;
+					const content = r.content || filesMap[path] || "";
+					result += `--- 文件: ${path} ---\n${content.slice(0, 3000)}\n\n`;
+				}
+				if (result) return result.slice(0, maxChars);
+			}
+		} catch {
+			// 向量检索失败，降级到关键词匹配
+		}
+	}
+
+	// 关键词匹配 fallback
+	return findRelevantMaterialsByKeyword(itemName, itemDesc, allFiles, maxChars);
+}
+
+function findRelevantMaterialsByKeyword(itemName: string, itemDesc: string, allFiles: Array<{ path: string; content: string }>, maxChars = 10000): string {
 	const keywords: string[] = [];
 	const titleWords = itemName.match(/[A-Z][a-z]+/g) || [];
 	keywords.push(...titleWords);
@@ -308,16 +335,16 @@ export interface Task {
 	item: AnalysisItem;
 }
 
-export function buildTask(item: AnalysisItem, allFiles: Array<{ path: string; content: string }>, concepts: Concept[], tpl: TemplateConfig): Task {
+export async function buildTask(item: AnalysisItem, allFiles: Array<{ path: string; content: string }>, concepts: Concept[], tpl: TemplateConfig, settings: PluginSettings): Promise<Task> {
 	const pagePath = getPagePath(item);
 	const desc = item.desc || "";
 	if (item._type === "concept") {
 		const c = item as Concept;
-		const materials = findRelevantMaterials(c.name, desc || c.title, allFiles, 10000);
+		const materials = await findRelevantMaterials(c.name, desc || c.title, allFiles, settings, 10000);
 		return { name: c.title || c.name, path: pagePath, prompt: buildConceptPrompt(c, materials, concepts, tpl), system: tpl.editorSystemPrompt, temp: 0.4, item };
 	} else if (item._type === "entity") {
 		const e = item as Entity;
-		const materials = findRelevantMaterials(e.name, desc, allFiles, 8000);
+		const materials = await findRelevantMaterials(e.name, desc, allFiles, settings, 8000);
 		return { name: e.name, path: pagePath, prompt: buildEntityPrompt(e, materials, concepts, tpl), system: tpl.editorSystemPrompt, temp: 0.3, item };
 	} else {
 		const s = item as Source;
@@ -326,7 +353,7 @@ export function buildTask(item: AnalysisItem, allFiles: Array<{ path: string; co
 			const sourceFile = allFiles.find(f => f.path.includes(s.source_file));
 			if (sourceFile) sourceContent = sourceFile.content.slice(0, 10000);
 		}
-		if (!sourceContent) sourceContent = findRelevantMaterials(s.name, desc, allFiles, 8000);
+		if (!sourceContent) sourceContent = await findRelevantMaterials(s.name, desc, allFiles, settings, 8000);
 		return { name: s.name, path: pagePath, prompt: buildSourcePrompt(s, sourceContent, concepts, tpl), system: tpl.editorSystemPrompt, temp: 0.3, item };
 	}
 }
@@ -443,17 +470,28 @@ export async function generatePages(
 	// 因为需要 async 读取文件，不能用 filter
 	const finalRegen: AnalysisItem[] = [];
 	const syncProtected: AnalysisItem[] = [];
+	const conflictCheckNeeded: Array<{ item: AnalysisItem; oldContent: string }> = [];
 	for (const item of regen) {
 		const pagePath = getPagePath(item);
 		const existingFile = app.vault.getAbstractFileByPath(`${wikiFolder}/${pagePath}`);
 		if (existingFile instanceof TFile) {
 			try {
-				const head = (await app.vault.cachedRead(existingFile)).slice(0, 500);
+				const existingContent = await app.vault.cachedRead(existingFile);
+				const head = existingContent.slice(0, 500);
+				// MOC pages are never overwritten by compilation
+				if (/^type:\s*["']?moc["']?/m.test(head)) {
+					syncProtected.push(item);
+					continue;
+				}
 				if (/status:\s*["']?reviewed["']?/m.test(head)) {
 					if (item.source_file && !changedPaths.has(item.source_file)) {
 						syncProtected.push(item);
 						continue;
 					}
+					// reviewed but source changed -> conflict check
+					conflictCheckNeeded.push({ item, oldContent: existingContent });
+					finalRegen.push(item);
+					continue;
 				}
 			} catch {}
 		}
@@ -480,7 +518,7 @@ export async function generatePages(
 	}
 
 	// 构建生成任务
-	const tasks = finalRegen.map(item => buildTask(item, allFiles, concepts, tpl));
+	const tasks = await Promise.all(finalRegen.map(item => buildTask(item, allFiles, concepts, tpl, settings)));
 	let pagesDone = skip.length + syncProtected.length;
 	const errors: Array<{ name: string; path: string; error: string }> = [];
 
@@ -558,6 +596,51 @@ export async function generatePages(
 			}
 		}
 		await getStorage(app, plugin).saveData(cache);
+	}
+
+	// Phase 6: Conflict detection for reviewed pages with changed sources
+	if (conflictCheckNeeded.length > 0) {
+		checkAborted(signal);
+		onProgress({ step: 3, stepName: "Conflict check", detail: `Checking ${conflictCheckNeeded.length} pages for conflicts...`, percent: 92 });
+		const tplConflictHeader = tpl.conflictHeader;
+
+		for (const { item, oldContent } of conflictCheckNeeded) {
+			const pagePath = getPagePath(item);
+			const newFile = app.vault.getAbstractFileByPath(`${wikiFolder}/${pagePath}`);
+			if (!(newFile instanceof TFile)) continue;
+
+			try {
+				const newContent = await app.vault.cachedRead(newFile);
+				const oldStripped = oldContent.replace(/^---\n[\s\S]*?\n---\n*/, "").trim();
+				const newStripped = newContent.replace(/^---\n[\s\S]*?\n---\n*/, "").trim();
+
+				const conflictResult = await callLLM([
+					{ role: "system", content: "Knowledge management expert. Detect factual contradictions between old and new wiki page versions." },
+					{ role: "user", content: `Compare old vs new page "${item.name}".
+
+OLD:
+${oldStripped.slice(0, 3000)}
+
+NEW:
+${newStripped.slice(0, 3000)}
+
+Contradictions? JSON only: {"has_conflict":bool,"description":"...","old_view":"...","new_view":"..."}` },
+				], settings, { maxTokens: 500, temperature: 0.1, signal });
+
+				const jsonMatch = conflictResult.match(/\{[\s\S]*\}/);
+				if (jsonMatch) {
+					const parsed = JSON.parse(jsonMatch[0]);
+					if (parsed.has_conflict) {
+						const section = `\n\n## ${tplConflictHeader}\n> ${parsed.description || ""}\n> **Old**: ${parsed.old_view || ""}\n> **New**: ${parsed.new_view || ""}`;
+						const updated = newContent.replace(/\n*$/, "") + section + "\n";
+						const withStatus = updated.replace(/^status:\s*["']?\w+["']?\s*$/m, 'status: "conflict"');
+						await app.vault.modify(newFile, withStatus);
+					}
+				}
+			} catch {
+				// conflict check failure should not block main flow
+			}
+		}
 	}
 
 	return {

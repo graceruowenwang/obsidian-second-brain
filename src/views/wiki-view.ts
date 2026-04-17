@@ -67,12 +67,14 @@ export class WikiView extends ItemView {
 
 		const toggle = toolbar.createDiv({ cls: "sb-wiki-view-toggle" });
 		this.indexBtn = toggle.createEl("button", { text: t("wiki.tabIndex", lang), cls: "sb-wiki-view-btn active" });
+		const mocBtn = toggle.createEl("button", { text: "MOC", cls: "sb-wiki-view-btn" });
 		this.graphBtn = toggle.createEl("button", { text: t("wiki.tabGraph", lang), cls: "sb-wiki-view-btn" });
 		if (!requirePro(this.plugin.licenseInfo, "svg-mind-map")) {
 			createProBadge(this.graphBtn, lang);
 			this.graphBtn.classList.add("sb-pro-locked-btn");
 		}
 		this.indexBtn.addEventListener("click", () => this.showIndex());
+		mocBtn.addEventListener("click", () => this.showMoc());
 		this.graphBtn.addEventListener("click", () => this.showGraph());
 
 		this.searchEl = toolbar.createEl("input", {
@@ -126,6 +128,56 @@ export class WikiView extends ItemView {
 		} else {
 			this.currentView = "index";
 			this.renderIndex();
+		}
+	}
+
+	private async showMoc() {
+		this.graphMode = false;
+		this.currentView = "index";
+		this.currentName = "";
+		this.navHistory = [];
+		this.indexBtn.classList.remove("active");
+		this.indexBtn.parentElement?.querySelectorAll(".sb-wiki-view-btn").forEach(b => b.classList.remove("active"));
+		this.bodyEl.empty();
+
+		const lang = this.plugin.settings.language;
+		const wf = this.plugin.settings.wikiFolder;
+		const mocPages = this.wikiPages.filter(f => {
+			const fmMatch = f.content.match(/^---\n[\s\S]*?\n---/);
+			return fmMatch && /^type:\s*["']?moc["']?/m.test(fmMatch[0]);
+		});
+
+		this.bodyEl.createEl("h2", { text: "MOC — Map of Content", cls: "sb-wiki-h2" });
+		this.bodyEl.createEl("p", { text: "MOC 是主题导航页，编译时不会被覆盖。你可以手动编辑它们来组织知识结构。", cls: "sb-wiki-card-desc" });
+
+		const createBtn = this.bodyEl.createEl("button", { text: "+ 新建 MOC", cls: "sb-empty-btn mod-cta" });
+		createBtn.style.marginBottom = "16px";
+		createBtn.addEventListener("click", async () => {
+			const name = "moc-" + Date.now();
+			const today = new Date().toISOString().split("T")[0];
+			const content = `---\ntitle: "New MOC"\ntype: moc\nstatus: "reviewed"\nlast_updated: ${today}\n---\n\n# New MOC\n\n> 在这里组织你的主题导航。使用 [[PageName]] 链接到相关页面。\n\n## 主题\n\n- [[ExamplePage]]\n`;
+			const { writeWikiFile } = await import("../core/file-utils");
+			await writeWikiFile(this.app, wf, `concepts/MOC/${name}.md`, content);
+			new Notice("MOC 已创建");
+			await this.loadWiki();
+			this.showMoc();
+		});
+
+		if (mocPages.length === 0) {
+			this.bodyEl.createEl("p", { text: "还没有 MOC 页面。点击上方按钮创建一个。", cls: "sb-wiki-empty" });
+			return;
+		}
+
+		const grid = this.bodyEl.createDiv({ cls: "sb-wiki-grid" });
+		for (const page of mocPages) {
+			const name = page.path.split("/").pop()!.replace(".md", "");
+			const card = grid.createDiv({ cls: "sb-wiki-card sb-wiki-card-reviewed" });
+			const fmTitle = page.content.match(/^title:\s*["']?(.+?)["']?\s*$/m);
+			card.createEl("a", { text: fmTitle ? fmTitle[1] : name, cls: "sb-wiki-card-title" })
+				.addEventListener("click", (ev) => { ev.preventDefault(); this.navigateTo(name); });
+			const stripped = page.content.replace(/^---\n[\s\S]*?\n---\n*/, "");
+			const firstLine = stripped.split("\n").find(l => l.trim() && !l.startsWith("#") && !l.startsWith(">")) || "";
+			if (firstLine) card.createEl("p", { text: firstLine.slice(0, 120), cls: "sb-wiki-card-desc" });
 		}
 	}
 
@@ -402,6 +454,30 @@ export class WikiView extends ItemView {
 		const editBtn = breadcrumb.createEl("button", { text: t("wiki.openEditor", lang), cls: "sb-wiki-edit-btn" });
 		editBtn.addEventListener("click", () => this.openInEditor(name));
 
+		const expressBtn = breadcrumb.createEl("button", { text: "\u751f\u6210\u6587\u7ae0", cls: "sb-wiki-edit-btn" });
+		expressBtn.addEventListener("click", async () => {
+			expressBtn.textContent = "...";
+			try {
+				const { callLLM } = await import("../core/llm");
+				const { ensureFolder } = await import("../core/file-utils");
+				const strippedContent = this.stripFrontmatter(page.content);
+				const today = new Date().toISOString().split("T")[0];
+				const result = await callLLM([
+					{ role: "system", content: "Writer. Transform wiki page into a polished article. Same language as source. Keep wikilinks [[PageName]]." },
+					{ role: "user", content: `Write an article from this wiki page:\n${strippedContent.slice(0, 6000)}` },
+				], this.plugin.settings, { maxTokens: 3000, temperature: 0.5 });
+				const article = `---\ntitle: "${name}"\ntype: article\nsource_wiki: "${page.path}"\nlast_updated: ${today}\n---\n\n${result.trim()}\n`;
+				await ensureFolder(this.app, "blog");
+				const blogPath = `blog/${name}-${today}.md`;
+				const existing = this.app.vault.getAbstractFileByPath(blogPath);
+				if (existing instanceof TFile) await this.app.vault.modify(existing, article);
+				else await this.app.vault.create(blogPath, article);
+				expressBtn.textContent = "\u5df2\u751f\u6210";
+			} catch (e) {
+				expressBtn.textContent = "\u751f\u6210\u6587\u7ae0";
+			}
+		});
+
 		// 页面元数据
 		const metaRow = this.bodyEl.createDiv({ cls: "sb-wiki-meta" });
 		const fmType = this.extractType(page.content);
@@ -436,6 +512,39 @@ export class WikiView extends ItemView {
 				banner.classList.add("sb-reviewed-banner");
 				const label = banner.querySelector(".sb-draft-label");
 				if (label) label.textContent = t("wiki.reviewed", lang);
+			});
+		} else if (status === "reviewed") {
+			const banner = this.bodyEl.createDiv({ cls: "sb-reviewed-banner" });
+			banner.createEl("span", { text: t("wiki.reviewed", lang), cls: "sb-draft-label" });
+			const summaryBtn = banner.createEl("button", { text: "\u63d0\u70bc\u6458\u8981", cls: "sb-draft-review-btn" });
+			summaryBtn.addEventListener("click", async () => {
+				summaryBtn.textContent = "...";
+				try {
+					const { callLLM } = await import("../core/llm");
+					const strippedContent = this.stripFrontmatter(page.content);
+					const result = await callLLM([
+						{ role: "system", content: "Knowledge distiller. 2-3 sentence executive summary in the page's language." },
+						{ role: "user", content: `Summarize key insight in 2-3 sentences:\n\n${strippedContent.slice(0, 4000)}` },
+					], this.plugin.settings, { maxTokens: 200, temperature: 0.2 });
+					const summary = result.trim();
+					let updated = page.content;
+					if (/^executive_summary:/m.test(updated)) {
+						updated = updated.replace(/^executive_summary:.*$/m, `executive_summary: "${summary.replace(/"/g, '\\"')}"`);
+					} else {
+						updated = updated.replace(/^(---\n)/, `$1executive_summary: "${summary.replace(/"/g, '\\"')}"\n`);
+					}
+					const wf = this.plugin.settings.wikiFolder;
+					const fullPath = `${wf}/${page.path}`;
+					const file = this.app.vault.getAbstractFileByPath(fullPath);
+					if (file instanceof TFile) {
+						await this.app.vault.modify(file, updated);
+						page.content = updated;
+					}
+					summaryBtn.textContent = "\u5df2\u63d0\u70bc";
+					summaryBtn.classList.add("mod-cta");
+				} catch (e) {
+					summaryBtn.textContent = "\u63d0\u70bc\u6458\u8981";
+				}
 			});
 		}
 
