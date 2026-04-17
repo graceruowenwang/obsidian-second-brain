@@ -1,10 +1,12 @@
-// 对话面板 — 主编辑区 View，全宽聊天界面 + Markdown 渲染
+// 对话面板 -- 主编辑区 View，全宽聊天界面 + Markdown 渲染
 
 import { ItemView, WorkspaceLeaf, Notice, MarkdownRenderer, Component } from "obsidian";
 import { callLLMStream } from "../core/llm";
 import { readWikiFiles, findRelevantPages, filesToMap, vectorSearch, buildEmbeddingCache } from "../core/file-utils";
 import type { SecondBrainPlugin } from "../types";
+import { openPluginSettings } from "../types";
 import { t, LANG_INSTRUCTION } from "../core/i18n";
+import { requirePro, showUpgradeNotice } from "../core/feature-gate";
 
 export const VIEW_TYPE_CHAT = "second-brain-chat";
 
@@ -17,6 +19,7 @@ export class ChatView extends ItemView {
 	private sending = false;
 	private abortController: AbortController | null = null;
 	private component: Component;
+	private contextIndicator: HTMLElement;
 
 	constructor(leaf: WorkspaceLeaf, plugin: SecondBrainPlugin) {
 		super(leaf);
@@ -34,19 +37,46 @@ export class ChatView extends ItemView {
 		container.classList.add("second-brain-chat");
 		const lang = this.plugin.settings.language;
 
+		// Pro 门控
+		if (!requirePro(this.plugin.licenseInfo, "ai-chat")) {
+			const overlay = container.createDiv({ cls: "sb-pro-locked-overlay" });
+			overlay.createEl("h2", { text: t("license.upgradeTitle", lang) });
+			overlay.createEl("p", { text: t("license.feature.ai-chat", lang) + " -- " + t("license.upgradeDesc", lang, { feature: t("license.feature.ai-chat", lang) }) });
+			const btnRow = overlay.createDiv({ cls: "sb-pro-locked-btns" });
+			const upgradeBtn = btnRow.createEl("button", { text: t("license.upgradeBtn", lang), cls: "mod-cta" });
+			upgradeBtn.addEventListener("click", () => {
+				(window as any).open(t("license.purchaseUrl", lang));
+			});
+			const keyBtn = btnRow.createEl("button", { text: t("license.enterKey", lang) });
+			keyBtn.addEventListener("click", () => {
+				openPluginSettings(this.app);
+			});
+			return;
+		}
+
 		// 头部
 		const header = container.createDiv({ cls: "sb-chat-header" });
-		header.createEl("span", { text: t("chat.title", lang), cls: "sb-chat-title" });
+		const titleRow = header.createDiv({ cls: "sb-chat-title-row" });
+		titleRow.createEl("span", { text: t("chat.title", lang), cls: "sb-chat-title" });
+		// Pro 增强信息：模型 + 索引状态
+		const proInfo = titleRow.createDiv({ cls: "sb-chat-pro-info" });
+		proInfo.createEl("span", { text: t("pro.chat.model", lang, { model: this.plugin.settings.model }), cls: "sb-chat-pro-tag" });
 		const clearBtn = header.createEl("button", { text: t("chat.clear", lang), cls: "sb-chat-clear-btn" });
 		clearBtn.addEventListener("click", () => {
 			this.chatHistory = [];
 			this.messagesEl.empty();
+			this.contextIndicator.style.display = "none";
 			this.addWelcome();
 		});
 
 		// 消息区
 		this.messagesEl = container.createDiv({ cls: "sb-messages" });
 		this.addWelcome();
+
+		// 上下文指示器
+		this.contextIndicator = container.createDiv({ cls: "sb-context-indicator" });
+		this.contextIndicator.style.display = "none";
+		this.updateContextIndicator();
 
 		// 输入区
 		const inputArea = container.createDiv({ cls: "sb-input-area" });
@@ -72,39 +102,56 @@ export class ChatView extends ItemView {
 			this.inputEl.style.height = Math.min(this.inputEl.scrollHeight, 150) + "px";
 		});
 
-	// 内部链接点击：拦截 AI 回复中的 [[wikilink]] 和 <a> 链接
-				this.messagesEl.addEventListener("click", (e) => {
-					const target = e.target as HTMLElement;
-					const anchor = target.closest("a") as HTMLAnchorElement | null;
-					if (!anchor) return;
+		// 内部链接点击
+		this.messagesEl.addEventListener("click", (e) => {
+			const target = e.target as HTMLElement;
+			const anchor = target.closest("a") as HTMLAnchorElement | null;
+			if (!anchor) return;
 
-					const href = anchor.getAttribute("data-href") || anchor.getAttribute("href") || "";
-					if (href.startsWith("http") || anchor.classList.contains("sb-source-link")) return;
+			const href = anchor.getAttribute("data-href") || anchor.getAttribute("href") || "";
+			if (href.startsWith("http") || anchor.classList.contains("sb-source-link")) return;
 
-					e.preventDefault();
-					const wikiFolder = this.plugin.settings.wikiFolder;
-					const candidates = [
-						`${wikiFolder}/${href}.md`,
-						`${wikiFolder}/${href}`,
-						`${wikiFolder}/concepts/核心概念/${href}.md`,
-						`${wikiFolder}/concepts/方法框架/${href}.md`,
-						`${wikiFolder}/concepts/实践经验/${href}.md`,
-						`${wikiFolder}/entities/${href}.md`,
-						`${wikiFolder}/sources/${href}.md`,
-					];
-					for (const p of candidates) {
-						const file = this.app.vault.getAbstractFileByPath(p);
-						if (file) {
-							const leaf = this.app.workspace.getLeaf(true);
-							leaf.openFile(file as any);
-							return;
-						}
-					}
-					new Notice(t("chat.pageNotFound", this.plugin.settings.language, { name: href }));
-				});
+			e.preventDefault();
+			const wikiFolder = this.plugin.settings.wikiFolder;
+			const candidates = [
+				`${wikiFolder}/${href}.md`,
+				`${wikiFolder}/${href}`,
+				`${wikiFolder}/concepts/核心概念/${href}.md`,
+				`${wikiFolder}/concepts/方法框架/${href}.md`,
+				`${wikiFolder}/concepts/实践经验/${href}.md`,
+				`${wikiFolder}/entities/${href}.md`,
+				`${wikiFolder}/sources/${href}.md`,
+			];
+			for (const p of candidates) {
+				const file = this.app.vault.getAbstractFileByPath(p);
+				if (file) {
+					const leaf = this.app.workspace.getLeaf(true);
+					leaf.openFile(file as any);
+					return;
+				}
+			}
+			new Notice(t("chat.pageNotFound", this.plugin.settings.language, { name: href }));
+		});
 
-						// 加载 wiki
-			await this.loadWiki();
+		// 加载 wiki
+		await this.loadWiki();
+	}
+
+	private updateContextIndicator() {
+		const rounds = Math.floor(this.chatHistory.length / 2);
+		if (rounds > 0) {
+			const lang = this.plugin.settings.language;
+			this.contextIndicator.empty();
+			this.contextIndicator.createEl("span", { text: t("chat.contextInfo", lang, { n: rounds }) });
+			const clearCtxBtn = this.contextIndicator.createEl("button", { text: t("chat.clearContext", lang), cls: "sb-context-clear" });
+			clearCtxBtn.addEventListener("click", () => {
+				this.chatHistory = [];
+				this.contextIndicator.style.display = "none";
+			});
+			this.contextIndicator.style.display = "";
+		} else {
+			this.contextIndicator.style.display = "none";
+		}
 	}
 
 	private addWelcome() {
@@ -119,6 +166,20 @@ export class ChatView extends ItemView {
 			chip.addEventListener("click", () => {
 				this.inputEl.value = ex;
 				this.send();
+			});
+		}
+		// Imp 3: conditional guidance buttons
+		const actionRow = welcome.createDiv({ cls: "sb-empty-btn-row" });
+		if (!this.plugin.settings.apiKey) {
+			const apiKeyBtn = actionRow.createEl("button", { text: t("empty.openSettings", lang), cls: "sb-empty-btn" });
+			apiKeyBtn.addEventListener("click", () => {
+				openPluginSettings(this.app);
+			});
+		}
+		if (Object.keys(this.wikiMap).length === 0) {
+			const compileBtn = actionRow.createEl("button", { text: t("empty.startCompile", lang), cls: "sb-empty-btn mod-cta" });
+			compileBtn.addEventListener("click", () => {
+				this.plugin.activateView("second-brain-compile");
 			});
 		}
 	}
@@ -170,7 +231,6 @@ export class ChatView extends ItemView {
 			{ role: "user", content: q },
 		];
 
-		const sources = pages.length > 0 ? pages.map(p => p.filePath).join(", ") : "";
 		const aiMsgEl = this.addAiMessagePlaceholder();
 
 		try {
@@ -191,6 +251,9 @@ export class ChatView extends ItemView {
 			this.chatHistory.push({ role: "user", content: q });
 			this.chatHistory.push({ role: "assistant", content: fullText });
 
+			// 更新上下文指示器
+			this.updateContextIndicator();
+
 			// 最终渲染（确保完整）
 			msgContentEl.empty();
 			MarkdownRenderer.render(this.app, fullText, msgContentEl, "", this.component);
@@ -200,6 +263,9 @@ export class ChatView extends ItemView {
 					srcEl.createEl("span", { text: t("chat.refLabel", lang) });
 					for (const p of pages) {
 						const link = srcEl.createEl("a", { text: p.filePath, cls: "sb-source-link" });
+						// 分数标签
+						const scorePct = Math.round(p.score * 100);
+						const scoreBadge = link.createEl("span", { text: `${scorePct}%`, cls: "sb-source-score" });
 						link.addEventListener("click", (e) => {
 							e.preventDefault();
 							const fullPath = this.plugin.settings.wikiFolder + "/" + p.filePath;
@@ -216,17 +282,17 @@ export class ChatView extends ItemView {
 
 			// 为代码块添加复制按钮
 			this.addInteractiveElements(msgContentEl);
-		} catch (e: any) {
+		} catch (e: unknown) {
 				const typing = aiMsgEl.querySelector(".sb-typing");
 				if (typing) typing.remove();
-				if (e.name === "AbortError") {
+				if (e instanceof DOMException && e.name === "AbortError") {
 					const el = aiMsgEl.querySelector(".sb-ai-content") as HTMLElement;
 					el.empty();
 					MarkdownRenderer.render(this.app, t("chat.stopped", lang), el, "", this.component);
 				} else {
 				const msgContentEl = aiMsgEl.querySelector(".sb-ai-content") as HTMLElement;
 				msgContentEl.empty();
-				msgContentEl.createEl("p", { text: t("chat.error", lang, { msg: e.message }), cls: "sb-error" });
+				msgContentEl.createEl("p", { text: t("chat.error", lang, { msg: (e instanceof Error ? e.message : String(e)) }), cls: "sb-error" });
 				}
 		} finally {
 			this.sending = false;

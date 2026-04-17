@@ -1,45 +1,76 @@
 // 第二大脑 — Obsidian 插件入口
 
 import {
-	App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab,
-	Setting, TFile, TFolder, ItemView, WorkspaceLeaf,
+	Editor, MarkdownView, Modal, Notice, Plugin,
+	TFile, TFolder,
 } from "obsidian";
-import { DEFAULT_SETTINGS, type PluginSettings, type SecondBrainPlugin } from "./types";
+import { DEFAULT_SETTINGS, type PluginSettings, type LicenseInfo, type SecondBrainPlugin, type CompileCache } from "./types";
 import { CompileView, VIEW_TYPE_COMPILE } from "./views/compile-view";
 import { ChatView, VIEW_TYPE_CHAT } from "./views/chat-view";
 import { WikiView, VIEW_TYPE_WIKI } from "./views/wiki-view";
-import { runCompile, ensureDraftStatus, parseAnalysisJSON } from "./core/compile";
-import { readRawFiles, readWikiFiles, writeWikiFile, diffFingerprints, emptyCache, filesToMap, clearEmbeddingCache } from "./core/file-utils";
-import { callLLM } from "./core/llm";
-import {
-	buildIncrementalAnalyzePrompt, buildConceptPrompt, buildEntityPrompt, buildSourcePrompt,
-} from "./core/wiki-schema";
-import { loadTemplateConfig } from "./core/templates";
+import { runCompile } from "./core/compile";
+import { readRawFiles, diffFingerprints, emptyCache } from "./core/file-utils";
 import { t } from "./core/i18n";
+import { SetupWizardModal } from "./ui/setup-wizard";
+import { validateLicense, isPro, needsRevalidation, enterGraceIfNeeded, checkGraceExpiry, checkTrialExpiry, getDefaultLicense, getTrialLicense } from "./core/license";
+import { requirePro, showUpgradeNotice } from "./core/feature-gate";
+import { quickIngest } from "./core/quick-ingest";
 
-export default class SecondBrain extends Plugin {
+export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 	settings!: PluginSettings;
+	licenseInfo: LicenseInfo = getDefaultLicense();
 	private autoCompileTimer: ReturnType<typeof setTimeout> | null = null;
 	private isCompiling = false;
+	private statusBarItem: HTMLElement | null = null;
+	private settingsTab: SecondBrainSettingTab | null = null;
+
+	getLicenseState(): LicenseInfo {
+		return this.licenseInfo;
+	}
 
 	async onload() {
 		await this.loadSettings();
+		await this.loadLicenseInfo();
 		const lang = this.settings.language;
 
+		// 老用户兼容：已有 setup 但无 license → 14 天 Pro 试用
+		if (this.settings.setupCompleted && !this.settings.licenseKey && this.licenseInfo.plan === "free") {
+			this.licenseInfo = getTrialLicense();
+			await this.saveLicenseInfo();
+			new Notice(t("license.trialNotice", lang));
+		}
+
+		// Pro 激活引导（仅首次）
+		if (isPro(this.licenseInfo) && !this.settings.proWelcomeShown) {
+			this.settings.proWelcomeShown = true;
+			await this.saveSettings();
+			this.showProWelcome(lang);
+		}
+
 		// 注册 View
-		this.registerView(VIEW_TYPE_COMPILE, (leaf) => new CompileView(leaf, this as SecondBrainPlugin));
-		this.registerView(VIEW_TYPE_CHAT, (leaf) => new ChatView(leaf, this as SecondBrainPlugin));
-		this.registerView(VIEW_TYPE_WIKI, (leaf) => new WikiView(leaf, this as SecondBrainPlugin));
+		this.registerView(VIEW_TYPE_COMPILE, (leaf) => new CompileView(leaf, this));
+		this.registerView(VIEW_TYPE_CHAT, (leaf) => new ChatView(leaf, this));
+		this.registerView(VIEW_TYPE_WIKI, (leaf) => new WikiView(leaf, this));
 
 		// 左侧栏图标
-		this.addRibbonIcon("zap", t("cmd.compileWiki", lang), () => this.activateView(VIEW_TYPE_COMPILE));
-		this.addRibbonIcon("message-circle", t("cmd.wikiChat", lang), () => this.activateView(VIEW_TYPE_CHAT));
-		this.addRibbonIcon("globe", t("cmd.wikiPreview", lang), () => this.activateView(VIEW_TYPE_WIKI));
+		const ribbonCompile = this.addRibbonIcon("zap", t("cmd.compileWiki", lang), () => this.activateView(VIEW_TYPE_COMPILE));
+		ribbonCompile.setAttribute("aria-label", t("cmd.compileWiki", lang));
+		const ribbonChat = this.addRibbonIcon("message-circle", t("cmd.wikiChat", lang), () => {
+			if (!requirePro(this.licenseInfo, "ai-chat")) {
+				showUpgradeNotice(this.app, "ai-chat", lang);
+				return;
+			}
+			this.activateView(VIEW_TYPE_CHAT);
+		});
+		ribbonChat.setAttribute("aria-label", t("cmd.wikiChat", lang));
+		const ribbonWiki = this.addRibbonIcon("globe", t("cmd.wikiPreview", lang), () => this.activateView(VIEW_TYPE_WIKI));
+		ribbonWiki.setAttribute("aria-label", t("cmd.wikiPreview", lang));
 
 		// 命令：编译全部
 		this.addCommand({
 			id: "compile-all",
 			name: t("cmd.compileAll", lang),
+			hotkeys: [{ modifiers: ["Mod", "Shift"], key: "c" }],
 			callback: () => this.activateView(VIEW_TYPE_COMPILE),
 		});
 
@@ -47,34 +78,63 @@ export default class SecondBrain extends Plugin {
 		this.addCommand({
 			id: "compile-current",
 			name: t("cmd.compileCurrent", lang),
-			editorCallback: (editor: Editor, view: MarkdownView) => this.compileCurrentFile(view),
+			hotkeys: [{ modifiers: ["Mod", "Shift"], key: "x" }],
+			editorCallback: (_editor: Editor, view: MarkdownView) => this.compileCurrentFile(view),
 		});
 
-		// 命令：打开对话
+		// 命令：打开对话（Pro）
 		this.addCommand({
 			id: "open-chat",
 			name: t("cmd.openChat", lang),
-			callback: () => this.activateView(VIEW_TYPE_CHAT),
+			hotkeys: [{ modifiers: ["Mod", "Shift"], key: "d" }],
+			callback: () => {
+				if (!requirePro(this.licenseInfo, "ai-chat")) {
+					showUpgradeNotice(this.app, "ai-chat", lang);
+					return;
+				}
+				this.activateView(VIEW_TYPE_CHAT);
+			},
 		});
 
 		// 命令：打开 Wiki 预览
 		this.addCommand({
 			id: "open-wiki",
 			name: t("cmd.openWiki", lang),
+			hotkeys: [{ modifiers: ["Mod", "Shift"], key: "w" }],
 			callback: () => this.activateView(VIEW_TYPE_WIKI),
 		});
 
 		// 设置面板
-		this.addSettingTab(new SecondBrainSettingTab(this.app, this));
+		this.settingsTab = new SecondBrainSettingTab(this.app, this);
+		this.addSettingTab(this.settingsTab);
 
-		// 自动编译：监听 raw/ 目录文件变化
-		this.registerEvent(this.app.vault.on("create", (file) => this.onRawFileChange(file as TFile | TFolder)));
-		this.registerEvent(this.app.vault.on("modify", (file) => this.onRawFileChange(file as TFile | TFolder)));
+		// 自动编译：仅 Pro 用户
+		if (requirePro(this.licenseInfo, "auto-compile")) {
+			this.registerEvent(this.app.vault.on("create", (file) => this.onRawFileChange(file as TFile | TFolder)));
+			this.registerEvent(this.app.vault.on("modify", (file) => this.onRawFileChange(file as TFile | TFolder)));
+		}
 
-		// 启动时自动检查是否有新素材需要编译
-		if (this.settings.autoCompile && this.settings.apiKey) {
+		// 状态栏
+		this.statusBarItem = this.addStatusBarItem();
+		this.updateStatusBar("ready");
+
+		// 首次使用向导
+		if (!this.settings.setupCompleted) {
+			new SetupWizardModal(this.app, this).open();
+		}
+
+		// 启动时自动检查是否有新素材需要编译（Pro only）
+		if (requirePro(this.licenseInfo, "auto-compile") && this.settings.autoCompile && this.settings.apiKey) {
 			this.startupAutoCompile();
 		}
+
+		// 后台定期重新验证 License
+		if (this.settings.licenseKey && needsRevalidation(this.licenseInfo)) {
+			this.backgroundRevalidate();
+		}
+		this.registerInterval(
+			window.setInterval(() => this.backgroundRevalidate(), 24 * 60 * 60 * 1000)
+		);
 
 		console.log("Second Brain plugin loaded");
 	}
@@ -89,9 +149,71 @@ export default class SecondBrain extends Plugin {
 		this.app.workspace.detachLeavesOfType(VIEW_TYPE_WIKI);
 	}
 
+	// --- 数据持久化 ---
+
+	private async loadPluginData(): Promise<Record<string, unknown>> {
+		return (await this.loadData()) as Record<string, unknown> || {};
+	}
+
+	private async savePluginData(data: Record<string, unknown>): Promise<void> {
+		await this.saveData(data);
+	}
+
+	// --- License ---
+
+	async loadLicenseInfo() {
+		const data = await this.loadPluginData();
+		if (data._licenseInfo) {
+			this.licenseInfo = checkTrialExpiry(checkGraceExpiry(data._licenseInfo as LicenseInfo));
+		} else {
+			this.licenseInfo = getDefaultLicense();
+		}
+	}
+
+	async saveLicenseInfo() {
+		const data = await this.loadPluginData();
+		data._licenseInfo = this.licenseInfo as unknown;
+		await this.savePluginData(data);
+	}
+
+	private async backgroundRevalidate() {
+		if (!this.settings.licenseKey) return;
+		try {
+			const result = await validateLicense(this.settings.licenseKey);
+			this.licenseInfo = result;
+			await this.saveLicenseInfo();
+		} catch {
+			this.licenseInfo = enterGraceIfNeeded(this.licenseInfo);
+			this.licenseInfo = checkGraceExpiry(this.licenseInfo);
+			await this.saveLicenseInfo();
+		}
+	}
+
+	refreshSettingsTab() {
+		if (this.settingsTab) this.settingsTab.display();
+	}
+
+	private showProWelcome(lang: string) {
+		new Notice(t("pro.trialStarted", lang));
+	}
+
+	// --- 状态栏 ---
+
+	updateStatusBar(state: "ready" | "compiling" | "pending", count?: number) {
+		if (!this.statusBarItem) return;
+		const lang = this.settings.language;
+		const pro = isPro(this.licenseInfo);
+		if (state === "ready") {
+			this.statusBarItem.setText(pro ? t("pro.statusReady", lang) : t("sb.ready", lang));
+		} else if (state === "compiling") {
+			this.statusBarItem.setText(pro ? t("pro.statusCompiling", lang) : t("sb.compiling", lang));
+		} else if (state === "pending") {
+			this.statusBarItem.setText(pro ? t("pro.statusPending", lang) : t("sb.pending", lang, { n: count || 0 }));
+		}
+	}
+
 	async loadSettings() {
-		const saved = (await this.loadData()) as any || {};
-		// 迁移：outputLanguage → language
+		const saved = await this.loadPluginData();
 		if (saved.outputLanguage && !saved.language) {
 			saved.language = saved.outputLanguage;
 			delete saved.outputLanguage;
@@ -100,7 +222,10 @@ export default class SecondBrain extends Plugin {
 	}
 
 	async saveSettings() {
-		await this.saveData(this.settings);
+		const data = await this.loadPluginData();
+		Object.assign(data, this.settings);
+		data._licenseInfo = this.licenseInfo as unknown;
+		await this.savePluginData(data);
 	}
 
 	// --- 自动编译 ---
@@ -114,10 +239,11 @@ export default class SecondBrain extends Plugin {
 
 	private onRawFileChange(file: TFile | TFolder) {
 		if (!this.settings.autoCompile || !this.settings.apiKey) return;
+		if (!requirePro(this.licenseInfo, "auto-compile")) return;
 		if (!this.isRawFile(file)) return;
 
-		// 防抖：delay 秒内只触发一次
 		if (this.autoCompileTimer) clearTimeout(this.autoCompileTimer);
+		this.updateStatusBar("pending", 1);
 		this.autoCompileTimer = setTimeout(() => {
 			this.autoCompileTimer = null;
 			this.triggerAutoCompile();
@@ -129,14 +255,13 @@ export default class SecondBrain extends Plugin {
 			const allFiles = await readRawFiles(this.app, this.settings.rawFolder);
 			if (allFiles.length === 0) return;
 
-			const cache = (await this.loadData()) as any || emptyCache();
+			const cache = (await this.loadData()) as CompileCache || emptyCache();
 			const { changed } = diffFingerprints(allFiles, cache);
 			if (changed.length > 0) {
 				new Notice(t("notice.detectNew", this.settings.language, { n: changed.length }));
 				this.triggerAutoCompile();
 			}
 		} catch {
-			// 启动时静默失败
 		}
 	}
 
@@ -145,16 +270,18 @@ export default class SecondBrain extends Plugin {
 		if (!this.settings.apiKey) return;
 
 		this.isCompiling = true;
+		this.updateStatusBar("compiling");
 		try {
 			const result = await runCompile(this.app, this.settings, undefined, false, this);
 			const total = result.conceptsCount + result.entitiesCount + result.sourcesCount;
 			if (!result.reused) {
 				new Notice(t("notice.autoDone", this.settings.language, { n: total }));
 			}
-		} catch (e: any) {
-			console.error("Auto compile failed:", e.message);
+		} catch (e: unknown) {
+			console.error("Auto compile failed:", (e instanceof Error ? e.message : String(e)));
 		} finally {
 			this.isCompiling = false;
+			this.updateStatusBar("ready");
 		}
 	}
 
@@ -189,255 +316,34 @@ export default class SecondBrain extends Plugin {
 			return;
 		}
 
-		const content = await this.app.vault.read(file);
-		const targetFile = { path: file.path, content };
+		const lang = this.settings.language;
+		const modal = new Modal(this.app);
+		modal.contentEl.createEl("h3", { text: t("set.compileFileTitle", lang) });
+		modal.contentEl.createEl("p", { text: t("set.compileFileDesc", lang, { path: file.path }) });
 
-		new Notice(t("notice.compiling", this.settings.language, { path: file.path }));
+		const btnRow = modal.contentEl.createDiv();
+		btnRow.style.display = "flex";
+		btnRow.style.gap = "8px";
+		btnRow.style.justifyContent = "flex-end";
 
-		try {
-			const result = await this.quickIngest(targetFile);
-			new Notice(t("notice.compileDone", this.settings.language, { n: result.generated.length }));
-		} catch (e: any) {
-			new Notice(t("notice.compileFail", this.settings.language, { msg: e.message }));
-		}
-	}
+		const cancelBtn = btnRow.createEl("button", { text: t("set.cancel", lang) });
+		cancelBtn.addEventListener("click", () => modal.close());
 
-	private async quickIngest(targetFile: { path: string; content: string }) {
-		const wikiFiles = await readWikiFiles(this.app, this.settings.wikiFolder);
-		const existingNames = Object.keys(filesToMap(wikiFiles)).map(p => p.split("/").pop()!.replace(/\.md$/, ""));
-
-		const tpl = await loadTemplateConfig(this.app, this.settings.templateFile, this.settings.language);
-
-		const changedMaterials = `--- 文件: ${targetFile.path} ---\n${targetFile.content.slice(0, 4000)}`;
-		const prompt = buildIncrementalAnalyzePrompt(changedMaterials, existingNames, tpl);
-
-		const analysisResult = await callLLM(
-			[{ role: "system", content: tpl.analysisSystemPrompt }, { role: "user", content: prompt }],
-			this.settings,
-			{ maxTokens: 4000 }
-		);
-
-		const analysis = parseAnalysisJSON(analysisResult);
-		const concepts = analysis.concepts || [];
-		const generated: string[] = [];
-		const errors: Array<{ name: string; error: string }> = [];
-
-		const tasks: Array<{ name: string; path: string; type: string; item: any; materials: string }> = [];
-		for (const c of concepts) {
-			const levelDir = c.level === "核心概念" ? "核心概念" : c.level === "实践经验" ? "实践经验" : "方法框架";
-			const pagePath = `concepts/${levelDir}/${c.name}.md`;
-			tasks.push({ name: c.title || c.name, path: pagePath, type: "concept", item: c, materials: targetFile.content.slice(0, 10000) });
-		}
-		for (const e of (analysis.entities || [])) {
-			tasks.push({ name: e.name, path: `entities/${e.name}.md`, type: "entity", item: e, materials: targetFile.content.slice(0, 8000) });
-		}
-		for (const s of (analysis.sources || [])) {
-			tasks.push({ name: s.name, path: `sources/${s.name}.md`, type: "source", item: s, materials: targetFile.content.slice(0, 10000) });
-		}
-
-		for (const task of tasks) {
-			let genPrompt: string;
-			if (task.type === "concept") genPrompt = buildConceptPrompt(task.item, task.materials, concepts, tpl);
-			else if (task.type === "entity") genPrompt = buildEntityPrompt(task.item, task.materials, concepts, tpl);
-			else genPrompt = buildSourcePrompt(task.item, task.materials, concepts, tpl);
-
+		const confirmBtn = btnRow.createEl("button", { text: t("compile.start", lang), cls: "mod-cta" });
+		confirmBtn.addEventListener("click", async () => {
+			modal.close();
+			new Notice(t("notice.compiling", lang, { path: file.path }));
 			try {
-				const raw = await callLLM([{ role: "system", content: tpl.editorSystemPrompt }, { role: "user", content: genPrompt }], this.settings, { temperature: 0.3 });
-				const page = ensureDraftStatus(raw);
-				await writeWikiFile(this.app, this.settings.wikiFolder, task.path, page);
-				generated.push(task.path);
-			} catch (e: any) {
-				errors.push({ name: task.name, error: e.message });
+				const content = await this.app.vault.read(file);
+				const targetFile = { path: file.path, content };
+				const result = await quickIngest(this.app, this.settings, targetFile);
+				new Notice(t("notice.compileDone", lang, { n: result.generated.length }));
+			} catch (e: unknown) {
+				new Notice(t("notice.compileFail", lang, { msg: (e instanceof Error ? e.message : String(e)) }));
 			}
-		}
-
-		return { generated, errors };
+		});
+		modal.open();
 	}
 }
 
-class SecondBrainSettingTab extends PluginSettingTab {
-	plugin: SecondBrain;
-
-	constructor(app: App, plugin: SecondBrain) {
-		super(app, plugin);
-		this.plugin = plugin;
-	}
-
-	display(): void {
-		const { containerEl } = this;
-		containerEl.empty();
-		const lang = this.plugin.settings.language;
-
-		containerEl.createEl("h2", { text: t("set.title", lang) });
-
-		new Setting(containerEl)
-			.setName(t("set.provider", lang))
-			.addDropdown((dd) => dd
-				.addOptions({ deepseek: "DeepSeek", openai: "OpenAI", anthropic: "Anthropic (Claude)", openrouter: "OpenRouter", custom: "Custom" })
-				.setValue(this.plugin.settings.provider)
-				.onChange(async (v) => { this.plugin.settings.provider = v; await this.plugin.saveSettings(); }));
-
-		new Setting(containerEl)
-			.setName(t("set.model", lang))
-			.addText((t2) => t2.setPlaceholder(t("set.modelPh", lang)).setValue(this.plugin.settings.model).onChange(async (v) => { this.plugin.settings.model = v; await this.plugin.saveSettings(); }));
-
-		const apiKeySetting = new Setting(containerEl)
-			.setName(t("set.apiKey", lang))
-			.setDesc(t("set.apiKeyDesc", lang))
-			.addText((t2) => { t2.setPlaceholder("sk-...").setValue(this.plugin.settings.apiKey).onChange(async (v) => { this.plugin.settings.apiKey = v; await this.plugin.saveSettings(); }); t2.inputEl.type = "password"; });
-		apiKeySetting.descEl.createEl("a", { text: t("set.getApiKey", lang), href: "https://platform.deepseek.com/api_keys" });
-
-		new Setting(containerEl)
-			.setName(t("set.baseUrl", lang))
-			.addText((t2) => t2.setPlaceholder(t("set.baseUrlPh", lang)).setValue(this.plugin.settings.baseUrl).onChange(async (v) => { this.plugin.settings.baseUrl = v; await this.plugin.saveSettings(); }));
-
-		new Setting(containerEl)
-			.setName(t("set.testConn", lang))
-			.addButton((btn) => btn.setButtonText(t("set.test", lang)).onClick(async () => {
-				try {
-					const reply = await callLLM([{ role: "user", content: "Hi" }], this.plugin.settings, { maxTokens: 10, temperature: 0 });
-					new Notice(t("notice.connOk", lang, { msg: reply }));
-				} catch (e: any) {
-					new Notice(t("notice.connFail", lang, { msg: e.message }));
-				}
-			}));
-
-		containerEl.createEl("h3", { text: t("set.autoSection", lang) });
-
-		new Setting(containerEl)
-			.setName(t("set.autoCompile", lang))
-			.setDesc(t("set.autoCompileDesc", lang))
-			.addToggle((toggle) => toggle
-				.setValue(this.plugin.settings.autoCompile)
-				.onChange(async (v) => { this.plugin.settings.autoCompile = v; await this.plugin.saveSettings(); }));
-
-		new Setting(containerEl)
-			.setName(t("set.delay", lang))
-			.setDesc(t("set.delayDesc", lang))
-			.addSlider((slider) => slider
-				.setLimits(10, 120, 5)
-				.setValue(this.plugin.settings.autoCompileDelay)
-				.setDynamicTooltip()
-				.onChange(async (v) => { this.plugin.settings.autoCompileDelay = v; await this.plugin.saveSettings(); }));
-
-
-				containerEl.createEl("h3", { text: t("set.embedSection", lang) });
-
-				new Setting(containerEl)
-					.setName(t("set.embedModel", lang))
-					.setDesc(t("set.embedModelDesc", lang))
-					.addText((t2) => t2.setPlaceholder(t("set.embedModelPh", lang)).setValue(this.plugin.settings.embeddingModel).onChange(async (v) => { this.plugin.settings.embeddingModel = v; await this.plugin.saveSettings(); }));
-
-				new Setting(containerEl)
-					.setName(t("set.embedUrl", lang))
-					.setDesc(t("set.embedUrlDesc", lang))
-					.addText((t2) => t2.setPlaceholder(t("set.embedUrlPh", lang)).setValue(this.plugin.settings.embeddingBaseUrl).onChange(async (v) => { this.plugin.settings.embeddingBaseUrl = v; await this.plugin.saveSettings(); }));
-
-				new Setting(containerEl)
-					.setName(t("set.embedKey", lang))
-					.setDesc(t("set.embedKeyDesc", lang))
-					.addText((t2) => { t2.setPlaceholder("sk-...").setValue(this.plugin.settings.embeddingApiKey).onChange(async (v) => { this.plugin.settings.embeddingApiKey = v; await this.plugin.saveSettings(); }); t2.inputEl.type = "password"; });
-
-			containerEl.createEl("h3", { text: t("set.langSection", lang) });
-
-			new Setting(containerEl)
-				.setName(t("set.language", lang))
-				.setDesc(t("set.languageDesc", lang))
-				.addDropdown((dd) => dd
-					.addOptions({ "zh-CN": "简体中文", "en": "English", "ja": "日本語" })
-					.setValue(this.plugin.settings.language)
-					.onChange(async (v) => { this.plugin.settings.language = v; await this.plugin.saveSettings(); this.display(); }));
-
-			new Setting(containerEl)
-				.setName(t("set.tplFile", lang))
-				.setDesc(t("set.tplFileDesc", lang))
-				.addText((t2) => t2.setPlaceholder(t("set.tplFilePh", lang)).setValue(this.plugin.settings.templateFile).onChange(async (v) => { this.plugin.settings.templateFile = v; await this.plugin.saveSettings(); }));
-
-			new Setting(containerEl)
-				.setName(t("set.genTpl", lang))
-				.setDesc(t("set.genTplDesc", lang))
-				.addButton((btn) => btn.setButtonText(t("set.gen", lang)).onClick(async () => {
-					try {
-						const { generateTemplateFile } = await import("./core/templates");
-						await generateTemplateFile(this.app, this.plugin.settings.templateFile, this.plugin.settings.language);
-						new Notice(t("notice.tplGenerated", lang, { path: this.plugin.settings.templateFile }));
-					} catch (e: any) {
-						new Notice(t("notice.tplFail", lang, { msg: e.message }));
-					}
-				}));
-
-			containerEl.createEl("h3", { text: t("set.folderSection", lang) });
-
-			new Setting(containerEl)
-				.setName(t("set.rawFolder", lang))
-				.setDesc(t("set.rawFolderDesc", lang))
-				.addText((t2) => t2.setPlaceholder(t("set.rawFolderPh", lang)).setValue(this.plugin.settings.rawFolder).onChange(async (v) => { this.plugin.settings.rawFolder = v; await this.plugin.saveSettings(); }));
-
-			new Setting(containerEl)
-				.setName(t("set.wikiFolder", lang))
-				.setDesc(t("set.wikiFolderDesc", lang))
-				.addText((t2) => t2.setPlaceholder(t("set.wikiFolderPh", lang)).setValue(this.plugin.settings.wikiFolder).onChange(async (v) => { this.plugin.settings.wikiFolder = v; await this.plugin.saveSettings(); }));
-
-				// --- 数据管理 ---
-				containerEl.createEl("h3", { text: t("set.dataSection", lang) });
-
-				new Setting(containerEl)
-					.setName(t("set.cleanWiki", lang))
-					.setDesc(t("set.cleanWikiDesc", lang))
-					.addButton((btn) => btn.setButtonText(t("set.cleanWikiBtn", lang)).setWarning().onClick(async () => {
-						const modal = new Modal(this.app);
-						modal.contentEl.createEl("h3", { text: t("set.confirmTitle", lang) });
-						modal.contentEl.createEl("p", { text: t("set.confirmDesc", lang) });
-						modal.contentEl.createEl("p", { text: t("set.confirmHint", lang) });
-						const input = modal.contentEl.createEl("input", { type: "text", placeholder: t("set.confirmPh", lang) });
-
-						const btnRow = modal.contentEl.createDiv();
-						btnRow.style.display = "flex";
-						btnRow.style.gap = "8px";
-						btnRow.style.justifyContent = "flex-end";
-
-						const cancelBtn = btnRow.createEl("button", { text: t("set.cancel", lang) });
-						cancelBtn.addEventListener("click", () => modal.close());
-
-						const confirmBtn = btnRow.createEl("button", { text: t("set.confirmBtn", lang), cls: "mod-warning" });
-						confirmBtn.addEventListener("click", async () => {
-							if (input.value !== "CONFIRM") {
-								new Notice(t("notice.pleaseConfirm", lang));
-								return;
-							}
-							confirmBtn.disabled = true;
-							confirmBtn.textContent = t("set.cleaning", lang);
-							try {
-								const wikiFolder = this.plugin.settings.wikiFolder;
-								const wikiFiles = await readWikiFiles(this.app, wikiFolder);
-								for (const f of wikiFiles) {
-									const fullPath = `${wikiFolder}/${f.path}`;
-									const file = this.app.vault.getAbstractFileByPath(fullPath);
-									if (file instanceof TFile) {
-										await this.app.vault.delete(file);
-									}
-								}
-								this.plugin.settings = Object.assign({}, DEFAULT_SETTINGS, emptyCache());
-								await this.plugin.saveData(this.plugin.settings);
-								new Notice(t("notice.wikiCleaned", lang, { n: wikiFiles.length }));
-								modal.close();
-							} catch (e: any) {
-								new Notice(t("notice.cleanFail", lang, { msg: e.message }));
-								confirmBtn.disabled = false;
-								confirmBtn.textContent = t("set.confirmBtn", lang);
-							}
-						});
-						modal.open();
-					}));
-
-				new Setting(containerEl)
-					.setName(t("set.cleanCache", lang))
-					.setDesc(t("set.cleanCacheDesc", lang))
-					.addButton((btn) => btn.setButtonText(t("set.cleanCacheBtn", lang)).setWarning().onClick(async () => {
-						this.plugin.settings = Object.assign({}, this.plugin.settings, emptyCache());
-						await this.plugin.saveData(this.plugin.settings);
-						clearEmbeddingCache();
-						new Notice(t("notice.cacheCleaned", lang));
-					}));
-	}
-}
+import { SecondBrainSettingTab } from "./ui/settings-tab";

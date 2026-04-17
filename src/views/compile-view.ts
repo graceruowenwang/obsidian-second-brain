@@ -5,7 +5,7 @@ import { runCompile } from "../core/compile";
 import { readRawFiles } from "../core/file-utils";
 import type { SecondBrainPlugin, ProgressEvent } from "../types";
 import { t } from "../core/i18n";
-import { isPro, getCompileTrialLicense, isTrialActive, checkTrialExpiry } from "../core/license";
+import { isPro, getCompileTrialLicense } from "../core/license";
 
 export const VIEW_TYPE_COMPILE = "second-brain-compile";
 
@@ -25,7 +25,6 @@ export class CompileView extends ItemView {
 	private progressLabel: HTMLElement;
 	private compileBtn: HTMLButtonElement;
 	private cancelBtn: HTMLButtonElement;
-	private statusEl: HTMLElement;
 	private compiling = false;
 	private abortController: AbortController | null = null;
 	private compileStartTime = 0;
@@ -59,7 +58,7 @@ export class CompileView extends ItemView {
 		this.cancelBtn.addEventListener("click", () => this.cancelCompile());
 
 		// 状态
-		this.statusEl = container.createDiv({ cls: "sb-status" });
+		container.createDiv({ cls: "sb-status" });
 
 		// 进度条
 		const progressWrap = container.createDiv({ cls: "sb-progress-wrap" });
@@ -76,10 +75,10 @@ export class CompileView extends ItemView {
 		this.addLog(t("compile.clickToStart", lang), "");
 
 		// 加载 raw 文件列表
-		this.loadRawFileList(container);
+		this.loadRawFileList();
 	}
 
-	private async loadRawFileList(container: HTMLElement) {
+	private async loadRawFileList() {
 		const { rawFolder } = this.plugin.settings;
 		const lang = this.plugin.settings.language;
 		const files = await readRawFiles(this.app, rawFolder);
@@ -194,16 +193,16 @@ export class CompileView extends ItemView {
 			// 首次编译成功 → 触发 3 天 Pro 试用
 			if (!isPro(this.plugin.licenseInfo) && !this.plugin.settings.licenseKey) {
 				this.plugin.licenseInfo = getCompileTrialLicense();
-				await (this.plugin as any).saveLicenseInfo();
+				await this.plugin.saveLicenseInfo();
 				new Notice(t("pro.trialStarted", lang));
 			}
 
 			new Notice(t("compile.complete", lang));
-		} catch (e: any) {
-			if (e.message === "编译已取消") {
+		} catch (e: unknown) {
+			if ((e instanceof Error ? e.message : String(e)) === "编译已取消") {
 				this.addLog(t("compile.compiling", lang) + " -- 已取消", "");
 			} else {
-				const friendlyMsg = userFriendlyError(e.message || String(e), lang);
+				const friendlyMsg = userFriendlyError((e instanceof Error ? e.message : String(e)) || String(e), lang);
 				this.addLog(t("compile.fail", lang, { msg: friendlyMsg }), "err");
 				new Notice(t("compile.fail", lang, { msg: friendlyMsg }));
 			}
@@ -241,7 +240,7 @@ export class CompileView extends ItemView {
 	}
 
 	addLog(text: string, cls: string) {
-		const line = this.logEl.createDiv({ cls: `sb-log-line ${cls}`, text });
+		this.logEl.createDiv({ cls: `sb-log-line ${cls}`, text });
 		this.logEl.scrollTop = this.logEl.scrollHeight;
 	}
 
