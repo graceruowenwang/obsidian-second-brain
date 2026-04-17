@@ -94,6 +94,7 @@ export interface CompileCache {
 	perFileAnalysis: Record<string, Analysis>;
 	indexEntries: Record<string, { type: string; level: string; name: string; title: string; desc: string }>;
 	failedPages: Record<string, FailedPageEntry>;
+	embeddings: Record<string, number[]>;
 }
 
 export interface ValidationIssue {

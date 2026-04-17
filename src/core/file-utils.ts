@@ -4,6 +4,16 @@
 import { App, TFile, TFolder, TAbstractFile } from "obsidian";
 import type { CompileCache, Fingerprint } from "../types";
 
+export type StorageLike = { loadData: () => Promise<any>; saveData: (data: any) => Promise<void> };
+
+export function getStorage(app: App, plugin?: StorageLike): StorageLike {
+	if (plugin) return plugin;
+	return {
+		loadData: () => (app as any).loadData(),
+		saveData: (data: any) => (app as any).saveData(data),
+	};
+}
+
 // 递归获取文件夹下所有 .md 文件
 export function getAllMdFiles(folder: TFolder): TFile[] {
 	const files: TFile[] = [];
@@ -167,6 +177,7 @@ export function emptyCache(): CompileCache {
 		perFileAnalysis: {},
 		indexEntries: {},
 		failedPages: {},
+		embeddings: {},
 	};
 }
 
@@ -249,9 +260,22 @@ export function totalAnalysisCount(analysis: { concepts?: unknown[]; entities?: 
 import { requestUrl } from "obsidian";
 import type { PluginSettings } from "../types";
 
-// 向量缓存，存储在内存中（每次启动重新计算）
+// 向量缓存：内存 Map + CompileCache 持久化
 let embeddingCache: Map<string, number[]> = new Map();
 let cacheBuilt = false;
+
+// 从 CompileCache 恢复 embedding 缓存（启动时调用）
+export function restoreEmbeddingCache(cache: { embeddings?: Record<string, number[]> }): void {
+	if (cache.embeddings && Object.keys(cache.embeddings).length > 0) {
+		embeddingCache = new Map(Object.entries(cache.embeddings));
+		cacheBuilt = true;
+	}
+}
+
+// 将内存缓存写回 CompileCache（编译完成后调用）
+export function flushEmbeddingCache(): Record<string, number[]> {
+	return Object.fromEntries(embeddingCache);
+}
 
 // 余弦相似度
 function cosineSimilarity(a: number[], b: number[]): number {

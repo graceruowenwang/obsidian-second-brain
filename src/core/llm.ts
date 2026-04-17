@@ -86,16 +86,21 @@ export async function callLLM(
 		throw new Error(`不支持的 provider: ${settings.provider}`);
 	}
 
-	const maxRetries = options.maxRetries ?? 1;
-	let lastError: any;
+	const maxRetries = options.maxRetries ?? 2;
+	let lastError: Error | undefined;
 	for (let attempt = 0; attempt <= maxRetries; attempt++) {
 		try {
 			return await adapter(messages, options, settings);
 		} catch (e: unknown) {
-			lastError = e;
-			const isAuthError = (e instanceof Error ? e.message : String(e))?.includes("401") || (e instanceof Error ? e.message : String(e))?.includes("403");
-			if (attempt < maxRetries && !isAuthError) {
-				await new Promise((r) => setTimeout(r, 3000 * (attempt + 1)));
+			lastError = e instanceof Error ? e : new Error(String(e));
+			const msg = lastError.message;
+			if (msg.includes("401") || msg.includes("403")) throw e;
+			if (msg.includes("429") && attempt < maxRetries) {
+				await new Promise(r => setTimeout(r, Math.min(5000 * Math.pow(2, attempt), 60000)));
+				continue;
+			}
+			if (attempt < maxRetries) {
+				await new Promise(r => setTimeout(r, Math.min(1000 * Math.pow(2, attempt), 30000)));
 				continue;
 			}
 			throw e;

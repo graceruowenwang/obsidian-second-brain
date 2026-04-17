@@ -42,10 +42,11 @@ export class WikiView extends ItemView {
 	private graphMode = false;
 	private indexBtn: HTMLButtonElement;
 	private graphBtn: HTMLButtonElement;
-	private sortMode: "name-asc" | "name-desc" | "type" | "level" = "name-asc";
+	private sortMode: "name-asc" | "name-desc" | "type" | "level" | "recent" = "name-asc";
 	private batchMode = false;
 	private selectedPages = new Set<string>();
 	private batchBar: HTMLElement | null = null;
+	private pageLimit = 50;
 
 	constructor(leaf: WorkspaceLeaf, plugin: SecondBrainPlugin) {
 		super(leaf);
@@ -89,18 +90,21 @@ export class WikiView extends ItemView {
 			{ value: "name-desc", key: "wiki.sortNameDesc" },
 			{ value: "type", key: "wiki.sortType" },
 			{ value: "level", key: "wiki.sortLevel" },
+			{ value: "recent", key: "wiki.sortRecent" },
 		];
 		for (const opt of sortOptions) {
 			this.sortSelect.createEl("option", { text: t(opt.key, lang), attr: { value: opt.value } });
 		}
 		this.sortSelect.addEventListener("change", () => {
-			this.sortMode = this.sortSelect.value as "name-asc" | "name-desc" | "type" | "level";
+			this.sortMode = this.sortSelect.value as typeof this.sortMode;
 			this.renderIndex();
 		});
 
 		const refreshBtn = toolbar.createEl("button", { text: t("wiki.refresh", lang), cls: "sb-wiki-refresh" });
 		refreshBtn.addEventListener("click", () => this.loadWiki());
 
+		const synthBtn = toolbar.createEl("button", { text: "\u7efc\u5408\u5206\u6790", cls: "sb-wiki-batch-btn" });
+		synthBtn.addEventListener("click", () => this.openSynthesisDialog());
 		const batchBtn = toolbar.createEl("button", { text: t("wiki.batchReview", lang), cls: "sb-wiki-batch-btn" });
 		batchBtn.addEventListener("click", () => this.toggleBatchReview(batchBtn));
 
@@ -304,6 +308,23 @@ export class WikiView extends ItemView {
 			stats.innerHTML += `<span class="sb-stat-item sb-stat-pro"><span class="sb-stat-num">${linkCount}</span><span class="sb-stat-label">${t("pro.stats.linkCount", lang, { n: linkCount })}</span></span>`;
 		}
 
+		// Recent updates timeline
+		const recentPages = this.wikiPages
+			.map(f => ({ name: f.path.split("/").pop()!.replace(".md", ""), date: this.extractUpdated(f.content) }))
+			.filter(f => f.date)
+			.sort((a, b) => b.date.localeCompare(a.date))
+			.slice(0, 8);
+		if (recentPages.length > 0) {
+			const timeline = this.bodyEl.createDiv({ cls: "sb-wiki-timeline" });
+			timeline.createEl("h3", { text: "\u6700\u8fd1\u66f4\u65b0", cls: "sb-wiki-h3" });
+			for (const rp of recentPages) {
+				const row = timeline.createDiv({ cls: "sb-wiki-timeline-row" });
+				row.createEl("span", { text: rp.date, cls: "sb-wiki-timeline-date" });
+				const link = row.createEl("a", { text: rp.name, cls: "sb-wiki-timeline-link" });
+				link.addEventListener("click", (ev: Event) => { ev.preventDefault(); this.navigateTo(rp.name); });
+			}
+		}
+
 		for (const sec of this.indexData) {
 			let hasTitle = false;
 			for (const sub of sec.subs) {
@@ -406,9 +427,21 @@ export class WikiView extends ItemView {
 				this.plugin.activateView("second-brain-compile");
 			});
 			}
+
+		// Load more button for large wikis
+			if (this.wikiPages.length > this.pageLimit) {
+				const loadMoreBtn = this.bodyEl.createEl("button", {
+					text: `\u663e\u793a\u66f4\u591a (${this.wikiPages.length - this.pageLimit}+)`,
+					cls: "sb-wiki-load-more"
+				});
+				loadMoreBtn.addEventListener("click", () => {
+					this.pageLimit += 50;
+					this.renderIndex();
+				});
+			}
 		}
 
-	// --- Page ---
+		// --- Page ---
 
 	private async navigateTo(name: string) {
 		const marker = this.currentView === "graph" ? "__graph__" : this.currentName;
@@ -655,6 +688,56 @@ export class WikiView extends ItemView {
 			}
 		}
 		return results;
+	}
+
+	private async openSynthesisDialog() {
+		const lang = this.plugin.settings.language;
+		const concepts = this.wikiPages
+			.filter(f => f.path.includes("concepts/"))
+			.map(f => ({ name: f.path.split("/").pop()!.replace(".md", ""), content: f.content }));
+
+		const { Modal } = await import("obsidian");
+		const modal = new Modal(this.app);
+		modal.titleEl.setText("\u9009\u62e9 2-3 \u4e2a\u6982\u5ff5\u8fdb\u884c\u7efc\u5408\u5206\u6790");
+		const container = modal.contentEl.createDiv();
+		const checkboxes: Array<{ name: string; el: HTMLInputElement }> = [];
+
+		for (const c of concepts.slice(0, 50)) {
+			const label = container.createEl("label", { cls: "sb-synth-checkbox" });
+			const cb = label.createEl("input", { attr: { type: "checkbox", value: c.name } });
+			label.createSpan({ text: c.name });
+			checkboxes.push({ name: c.name, el: cb });
+		}
+
+		const btnRow = container.createDiv({ cls: "sb-wizard-btn-row" });
+		const genBtn = btnRow.createEl("button", { text: "\u751f\u6210", cls: "mod-cta" });
+		genBtn.addEventListener("click", async () => {
+			const selected = checkboxes.filter(c => c.el.checked).map(c => c.name);
+			if (selected.length < 2) { genBtn.textContent = "\u81f3\u5c11\u9009 2 \u4e2a"; return; }
+			genBtn.textContent = "...";
+			try {
+				const { callLLM } = await import("../core/llm");
+				const { writeWikiFile } = await import("../core/file-utils");
+				const relatedContent = selected.map(n => {
+					const page = concepts.find(c => c.name === n);
+					return page ? `=== ${n} ===\n${page.content.slice(0, 1500)}` : "";
+				}).join("\n\n");
+				const today = new Date().toISOString().split("T")[0];
+				const result = await callLLM([
+					{ role: "system", content: "Knowledge synthesis expert. Write a cross-concept analysis in the same language as the source material." },
+					{ role: "user", content: `Analyze the deep connections between these concepts: ${selected.join(", ")}\n\n${relatedContent.slice(0, 12000)}\n\nWrite a synthesis page answering: How do these concepts relate, complement, or contradict each other?` },
+				], this.plugin.settings, { maxTokens: 3000, temperature: 0.5 });
+				const slug = selected.join("-").slice(0, 60);
+				const page = `---\ntitle: "${slug}"\ntype: synthesis\nstatus: "draft"\nlast_updated: ${today}\n---\n\n${result.trim()}\n`;
+				await writeWikiFile(this.app, this.plugin.settings.wikiFolder, `syntheses/${slug}.md`, page);
+				modal.close();
+				new Notice("\u7efc\u5408\u5206\u6790\u5df2\u751f\u6210");
+				await this.loadWiki();
+			} catch (e) {
+				genBtn.textContent = "\u751f\u6210\u5931\u8d25";
+			}
+		});
+		modal.open();
 	}
 
 	private toggleBatchReview(btn: HTMLButtonElement) {

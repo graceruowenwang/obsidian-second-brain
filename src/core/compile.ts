@@ -6,8 +6,10 @@ import { callLLM } from "./llm";
 import {
 	readRawFiles, writeWikiFile,
 	diffFingerprints, updateFingerprints,
-	totalAnalysisCount, emptyCache,
+	totalAnalysisCount, emptyCache, getStorage,
+	restoreEmbeddingCache, flushEmbeddingCache,
 } from "./file-utils";
+import type { StorageLike } from "./file-utils";
 import {
 	buildAnalyzePrompt, buildIncrementalAnalyzePrompt,
 } from "./wiki-schema";
@@ -18,15 +20,7 @@ import type { PluginSettings, Analysis, CompileCache, ProgressEvent, ValidationI
 
 const MAX_CHARS = 60000;
 
-type StorageLike = { loadData: () => Promise<any>; saveData: (data: any) => Promise<void> };
 
-function getStorage(app: App, plugin?: StorageLike): StorageLike {
-	if (plugin) return plugin;
-	return {
-		loadData: () => (app as any).loadData(),
-		saveData: (data: any) => (app as any).saveData(data),
-	};
-}
 const ANALYSIS_MAX_TOKENS = 4000;
 import { parseAnalysisJSON, getPagePath, generatePages, checkAborted, PageGenResult, validateAnalysis, mergeAnalysis } from "./compile-pages";
 
@@ -267,6 +261,8 @@ export async function runCompile(
 	let cache: CompileCache = (await getStorage(app, plugin).loadData()) as CompileCache || emptyCache();
 	if (!cache.fingerprints) cache = emptyCache();
 	if (!cache.failedPages) cache.failedPages = {};
+	if (!cache.embeddings) cache.embeddings = {};
+	restoreEmbeddingCache(cache);
 
 	const { changed: changedFiles } = diffFingerprints(allFiles, cache);
 	const hasChanges = changedFiles.length > 0;
@@ -302,6 +298,7 @@ export async function runCompile(
 
 	// 更新指纹 + 保存
 	updateFingerprints(allFiles, cache);
+	cache.embeddings = flushEmbeddingCache();
 	await getStorage(app, plugin).saveData(cache);
 
 	onProgress({ step: 4, stepName: "完成", detail: "编译完成", percent: 100 });

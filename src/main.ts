@@ -104,6 +104,39 @@ export default class SecondBrain extends Plugin {
 			callback: () => this.activateView(VIEW_TYPE_WIKI),
 		});
 
+		// 命令：捕获当前笔记到 inbox
+		this.addCommand({
+			id: "capture-to-inbox",
+			name: "Capture current note to inbox",
+			hotkeys: [{ modifiers: ["Mod", "Shift"], key: "i" }],
+			editorCallback: async (editor: Editor, view: MarkdownView) => {
+				const file = view.file;
+				if (!file) return;
+				const content = editor.getValue();
+				if (!content.trim()) { new Notice("Empty note"); return; }
+				const today = new Date().toISOString().split("T")[0];
+				const title = file.basename || today;
+				const inboxPath = `${this.settings.rawFolder}/06-flash_notes/inbox/${today}-${title}.md`;
+				const existing = this.app.vault.getAbstractFileByPath(inboxPath);
+				if (existing instanceof TFile) {
+					const merged = (await this.app.vault.read(existing)) + "\n\n---\n\n" + content;
+					await this.app.vault.modify(existing, merged);
+				} else {
+					const folderPath = inboxPath.substring(0, inboxPath.lastIndexOf("/"));
+					const parts = folderPath.split("/");
+					let current = "";
+					for (const part of parts) {
+						current = current ? `${current}/${part}` : part;
+						if (!this.app.vault.getAbstractFileByPath(current)) {
+							await this.app.vault.createFolder(current);
+						}
+					}
+					await this.app.vault.create(inboxPath, content);
+				}
+				new Notice(`Captured to ${inboxPath}`);
+			},
+		});
+
 		// 设置面板
 		this.settingsTab = new SecondBrainSettingTab(this.app, this);
 		this.addSettingTab(this.settingsTab);

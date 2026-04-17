@@ -2,7 +2,8 @@
 
 import { App, TFile } from "obsidian";
 import { callLLM } from "./llm";
-import { readWikiFiles, writeWikiFile, deleteWikiFile, vectorSearch, buildEmbeddingCache, filesToMap } from "./file-utils";
+import { readWikiFiles, writeWikiFile, deleteWikiFile, vectorSearch, buildEmbeddingCache, filesToMap, getStorage } from "./file-utils";
+import type { StorageLike } from "./file-utils";
 import {
 	buildConceptPrompt, buildEntityPrompt, buildSourcePrompt, buildSynthesisPrompt,
 } from "./wiki-schema";
@@ -11,15 +12,7 @@ import type { Analysis, CompileCache, ProgressEvent, Concept, Entity, Source, Va
 
 const BATCH = 5;
 
-type StorageLike = { loadData: () => Promise<any>; saveData: (data: any) => Promise<void> };
 
-function getStorage(app: App, plugin?: StorageLike): StorageLike {
-	if (plugin) return plugin;
-	return {
-		loadData: () => (app as any).loadData(),
-		saveData: (data: any) => (app as any).saveData(data),
-	};
-}
 
 // 确保页面 frontmatter 中包含 status: "draft"
 export function ensureDraftStatus(content: string): string {
@@ -147,13 +140,9 @@ export function postProcessPage(content: string, itemType: "concept" | "entity" 
 
 	// 如果是 concept 且缺少 level 字段，补充
 	if (itemType === "concept" && item.level) {
-		if (!/^level:/m.test(page.split("---")[1] || "")) {
-			page = page.replace(/^(---\n[\s\S]*?\n---)/, `$1\n`.replace("---", `---\nlevel: "${item.level}"`));
-			// 更简单的方式：在 frontmatter 中插入
-			const fmMatch = page.match(/^(---\n)([\s\S]*?)(\n---)/);
-			if (fmMatch && !/^level:/m.test(fmMatch[2])) {
-				page = `${fmMatch[1]}level: "${item.level}"\n${fmMatch[2]}${fmMatch[3]}` + page.slice(fmMatch[0].length);
-			}
+		const fmMatch = page.match(/^(---\n)([\s\S]*?)(\n---)/);
+		if (fmMatch && !/^level:/m.test(fmMatch[2])) {
+			page = `${fmMatch[1]}level: "${item.level}"\n${fmMatch[2]}${fmMatch[3]}` + page.slice(fmMatch[0].length);
 		}
 	}
 
@@ -435,7 +424,7 @@ export async function generatePages(
 	wikiFolder: string,
 	app: App,
 	onProgress: (e: ProgressEvent) => void,
-	plugin?: { loadData: () => Promise<any>; saveData: (data: any) => Promise<void> },
+	plugin?: StorageLike,
 	signal?: AbortSignal,
 ): Promise<PageGenResult> {
 	checkAborted(signal);
@@ -452,6 +441,24 @@ export async function generatePages(
 	// Diff 分析
 	const { regen, skip, remove } = diffAnalysis(oldAnalysis, newAnalysis, changedFiles);
 	onProgress({ step: 3, stepName: "增量分析", detail: `新增/变化 ${regen.length}，跳过 ${skip.length}，删除 ${remove.length}`, percent: 45 });
+
+	// Mark skipped pages as outdated if their source file changed
+	const changedPathsSet = new Set(changedFiles.map(f => f.path));
+	for (const item of skip) {
+		if (item.source_file && changedPathsSet.has(item.source_file)) {
+			const pagePath = getPagePath(item);
+			const existingFile = app.vault.getAbstractFileByPath(`${wikiFolder}/${pagePath}`);
+			if (existingFile instanceof TFile) {
+				try {
+					const existingContent = await app.vault.cachedRead(existingFile);
+					if (!/^status:\s*["']?reviewed["']?/m.test(existingContent)) {
+						const updated = existingContent.replace(/^status:\s*["']?\w+["']?\s*$/m, 'status: "outdated"');
+						await app.vault.modify(existingFile, updated);
+					}
+				} catch {}
+			}
+		}
+	}
 
 	// 删除不再存在的页面，同步清理 indexEntries
 	for (const item of remove) {
