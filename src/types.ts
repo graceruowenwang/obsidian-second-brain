@@ -34,7 +34,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	embeddingModel: "text-embedding-3-small",
 	embeddingBaseUrl: "https://api.openai.com/v1",
 	embeddingApiKey: "",
-	language: "zh-CN",
+	language: "auto",
 	templateFile: "wiki/templates/prompt-config.json",
 };
 

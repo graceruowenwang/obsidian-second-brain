@@ -363,7 +363,7 @@ class SecondBrainSettingTab extends PluginSettingTab {
 				.setName(t("set.language", lang))
 				.setDesc(t("set.languageDesc", lang))
 				.addDropdown((dd) => dd
-					.addOptions({ "zh-CN": "简体中文", "en": "English", "ja": "日本語" })
+					.addOptions({ "auto": "Auto (Obsidian)", "zh-CN": "简体中文", "en": "English", "ja": "日本語" })
 					.setValue(this.plugin.settings.language)
 					.onChange(async (v) => { this.plugin.settings.language = v; await this.plugin.saveSettings(); this.display(); }));
 

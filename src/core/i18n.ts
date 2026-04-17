@@ -2,6 +2,24 @@
 
 type Params = Record<string, string | number>;
 
+/**
+ * 检测 Obsidian 当前语言设置，映射到插件支持的语言代码。
+ * 中文 (zh/zh-CN/zh-TW/zh-HK) -> "zh-CN"，日文 -> "ja"，其他 -> "en"
+ */
+export function detectObsidianLanguage(): string {
+	// Obsidian 通过 moment.js 管理语言；全局可访问
+	const m = (window as any).moment;
+	const locale = m ? String(m.locale()).toLowerCase() : "";
+	if (locale.startsWith("zh")) return "zh-CN";
+	if (locale.startsWith("ja")) return "ja";
+	return "en";
+}
+
+/** 将设置中的 language 解析为实际语言代码（处理 "auto" 值） */
+export function resolveLang(lang: string): string {
+	return lang === "auto" ? detectObsidianLanguage() : lang;
+}
+
 // LLM prompt 中的语言指令
 export const LANG_INSTRUCTION: Record<string, string> = {
 	"zh-CN": "用简体中文",
@@ -448,7 +466,8 @@ const T: Record<string, Record<string, string>> = {
 };
 
 export function t(key: string, lang: string, params?: Params): string {
-	let text = (T[lang] as Record<string, string>)?.[key]
+	const resolved = lang === "auto" ? detectObsidianLanguage() : lang;
+	let text = (T[resolved] as Record<string, string>)?.[key]
 		|| (T["en"] as Record<string, string>)?.[key]
 		|| key;
 	if (params) {
