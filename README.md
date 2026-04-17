@@ -55,14 +55,33 @@ npm run build
 
 ### 2. 准备素材
 
-在 Vault 根目录创建 `raw/`，按类型分文件夹放入 Markdown 素材：
+在 Vault 根目录创建 `raw/`，按类型分文件夹放入 Markdown 素材。仓库中提供了 `raw-sample/` 样例目录，包含完整的目录结构和每个文件夹的 `_usage.md` 说明：
+
+```bash
+# 从仓库下载 raw-sample（二选一）
+
+# 方式一：下载整个仓库后复制
+git clone https://gitee.com/grinningGrace/obsidian-second-brain.git
+cp -r obsidian-second-brain/raw-sample/  /你的Vault路径/raw/
+
+# 方式二：只下载 raw-sample 目录（需要 svn）
+svn export https://gitee.com/grinningGrace/obsidian-second-brain/raw-sample /你的Vault路径/raw
+```
+
+目录结构：
 
 ```
 raw/
-  01-articles/    # 网页剪藏、文章
-  05-tweets/      # 推文线程
-  06-flash_notes/ # 闪念笔记
+  01-articles/      # 网页剪藏、文章
+  02-books/         # 读书笔记、书评
+  03-podcasts/      # 播客笔记、访谈摘要
+  04-videos/        # 视频笔记、演讲整理
+  05-tweets/        # 推文线程、社交媒体长文
+  06-flash_notes/   # 闪念笔记、原创思考
+    inbox/          # 暂存区（编译时自动整理）
 ```
+
+每个目录下都有 `_usage.md` 说明该放什么、怎么命名。把你的素材放到大致合适的目录即可，不要求分类精确。
 
 ### 3. 编译
 
