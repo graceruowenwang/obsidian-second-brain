@@ -6,12 +6,9 @@ import type { CompileCache, Fingerprint } from "../types";
 
 export type StorageLike = { loadData: () => Promise<any>; saveData: (data: any) => Promise<void> };
 
-export function getStorage(app: App, plugin?: StorageLike): StorageLike {
-	if (plugin) return plugin;
-	return {
-		loadData: () => (app as any).loadData(),
-		saveData: (data: any) => (app as any).saveData(data),
-	};
+export function getStorage(_app: App, plugin?: StorageLike): StorageLike {
+	if (plugin && typeof plugin.loadData === "function") return plugin;
+	throw new Error("Plugin instance required for data storage");
 }
 
 // 递归获取文件夹下所有 .md 文件
