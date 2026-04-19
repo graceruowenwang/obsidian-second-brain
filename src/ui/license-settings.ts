@@ -4,7 +4,7 @@ import { Notice, Setting } from "obsidian";
 import type SecondBrain from "../main";
 import { DEFAULT_LICENSE, type LicenseInfo } from "../types";
 import { t } from "../core/i18n";
-import { validateLicense, deactivateLicense, isPro, getTrialDaysLeft, isTrialActive } from "../core/license";
+import { validateLicense, activateLicense, deactivateLicense, isPro, getTrialDaysLeft, isTrialActive } from "../core/license";
 
 const COMPARE_FEATURES = [
 	"manualCompile", "wikiBrowse", "deepseek",
@@ -68,7 +68,7 @@ export function renderLicenseSettings(containerEl: HTMLElement, plugin: SecondBr
 		}
 		activateBtn.disabled = true;
 		try {
-			const result = await validateLicense(key);
+			const result = await activateLicense(key);
 			plugin.licenseInfo = result;
 			await plugin.saveLicenseInfo();
 			new Notice(t("license.activationSuccess", lang));
@@ -87,7 +87,7 @@ export function renderLicenseSettings(containerEl: HTMLElement, plugin: SecondBr
 	if (isPro(state)) {
 		const deactivateBtn = btnRow.createEl("button", { text: t("license.deactivate", lang) });
 		deactivateBtn.addEventListener("click", async () => {
-			await deactivateLicense(state.key);
+			await deactivateLicense(state.key, state.instanceId);
 			plugin.licenseInfo = { ...DEFAULT_LICENSE };
 			plugin.settings.licenseKey = "";
 			await plugin.saveSettings();
@@ -100,7 +100,7 @@ export function renderLicenseSettings(containerEl: HTMLElement, plugin: SecondBr
 		validateBtn.addEventListener("click", async () => {
 			validateBtn.disabled = true;
 			try {
-				const result = await validateLicense(state.key);
+				const result = await validateLicense(state.key, state.instanceId);
 				plugin.licenseInfo = result;
 				await plugin.saveLicenseInfo();
 				new Notice(t("license.statusActive", lang));

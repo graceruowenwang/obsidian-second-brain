@@ -224,6 +224,7 @@ export interface LicenseInfo {
 	lastValidated: string | null;
 	graceStart: string | null;
 	trialStart: string | null;
+	instanceId: string | null;
 	freeChatUsed: number;
 	freeChatMonth: string;
 }
@@ -236,6 +237,7 @@ export const DEFAULT_LICENSE: LicenseInfo = {
 	lastValidated: null,
 	graceStart: null,
 	trialStart: null,
+	instanceId: null,
 	freeChatUsed: 0,
 	freeChatMonth: "",
 };

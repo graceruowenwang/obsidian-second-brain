@@ -5,10 +5,10 @@ import type { LicenseInfo } from "../types";
 import { DEFAULT_LICENSE } from "../types";
 
 const LEMON_API = "https://api.lemonsqueezy.com/v1/licenses";
-const VALIDATE_INTERVAL = 7 * 24 * 60 * 60 * 1000; // 7 天
-const GRACE_PERIOD = 14 * 24 * 60 * 60 * 1000; // 14 天
-const TRIAL_PERIOD = 3 * 24 * 60 * 60 * 1000; // 3 天
-const RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 小时
+const VALIDATE_INTERVAL = 7 * 24 * 60 * 60 * 1000;
+const GRACE_PERIOD = 14 * 24 * 60 * 60 * 1000;
+const TRIAL_PERIOD = 3 * 24 * 60 * 60 * 1000;
+const RATE_LIMIT_WINDOW = 60 * 60 * 1000;
 const MAX_ATTEMPTS_PER_HOUR = 5;
 
 let attemptTimestamps: number[] = [];
@@ -21,23 +21,84 @@ function checkRateLimit(): boolean {
 	return true;
 }
 
-export async function validateLicense(key: string): Promise<LicenseInfo> {
+function formEncode(data: Record<string, string>): string {
+	return Object.entries(data)
+		.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+		.join("&");
+}
+
+function getInstanceName(): string {
+	// 用 vault 路径的 hash 作为 instance 标识
+	return "obsidian-second-brain";
+}
+
+// 激活 License（首次输入 key 时调用）
+export async function activateLicense(key: string): Promise<LicenseInfo> {
 	if (!checkRateLimit()) {
 		throw new Error("Rate limit exceeded. Please try again later.");
 	}
 
 	try {
 		const resp = await requestUrl({
+			url: `${LEMON_API}/activate`,
+			method: "POST",
+			headers: { "Accept": "application/json" },
+			body: formEncode({ license_key: key, instance_name: getInstanceName() }),
+		});
+
+		const data = resp.json;
+		const activated = data?.activated === true;
+		const status = data?.license_key?.status || "inactive";
+		const expiresAt = data?.license_key?.expires_at || null;
+		const instanceId = data?.instance?.id || null;
+
+		if (activated && status === "active") {
+			return {
+				key,
+				status: "active",
+				plan: "pro",
+				expiresAt,
+				lastValidated: new Date().toISOString(),
+				graceStart: null,
+				trialStart: null,
+				instanceId,
+				freeChatUsed: 0,
+				freeChatMonth: "",
+			};
+		}
+
+		if (status === "expired") {
+			return { ...DEFAULT_LICENSE, key, status: "expired" };
+		}
+
+		return { ...DEFAULT_LICENSE, key, status: "inactive" };
+	} catch (e: unknown) {
+		throw e;
+	}
+}
+
+// 验证 License（定期后台调用）
+export async function validateLicense(key: string, instanceId?: string | null): Promise<LicenseInfo> {
+	if (!checkRateLimit()) {
+		throw new Error("Rate limit exceeded. Please try again later.");
+	}
+
+	try {
+		const params: Record<string, string> = { license_key: key };
+		if (instanceId) params.instance_id = instanceId;
+
+		const resp = await requestUrl({
 			url: `${LEMON_API}/validate`,
 			method: "POST",
-			headers: { "Content-Type": "application/json", "Accept": "application/json" },
-			body: JSON.stringify({ license_key: key }),
+			headers: { "Accept": "application/json" },
+			body: formEncode(params),
 		});
 
 		const data = resp.json;
 		const valid = data?.valid === true;
 		const status = data?.license_key?.status || "inactive";
 		const expiresAt = data?.license_key?.expires_at || null;
+		const respInstanceId = data?.instance?.id || instanceId || null;
 
 		if (valid && status === "active") {
 			return {
@@ -48,33 +109,34 @@ export async function validateLicense(key: string): Promise<LicenseInfo> {
 				lastValidated: new Date().toISOString(),
 				graceStart: null,
 				trialStart: null,
+				instanceId: respInstanceId,
 				freeChatUsed: 0,
 				freeChatMonth: "",
 			};
 		}
 
 		if (status === "expired") {
-			return { ...DEFAULT_LICENSE, key, status: "expired", plan: "free" };
+			return { ...DEFAULT_LICENSE, key, status: "expired", instanceId: respInstanceId };
 		}
 
-		return { ...DEFAULT_LICENSE, key, status: "inactive", plan: "free" };
+		return { ...DEFAULT_LICENSE, key, status: "inactive", instanceId: respInstanceId };
 	} catch (e: unknown) {
-		// 网络错误 — 不改变 plan，进入宽限期
 		throw e;
 	}
 }
 
-export async function deactivateLicense(key: string): Promise<void> {
+// 停用 License（用户主动停用或切换设备）
+export async function deactivateLicense(key: string, instanceId: string | null): Promise<void> {
+	if (!instanceId) return;
 	try {
 		await requestUrl({
 			url: `${LEMON_API}/deactivate`,
 			method: "POST",
-			headers: { "Content-Type": "application/json", "Accept": "application/json" },
-			body: JSON.stringify({ license_key: key }),
+			headers: { "Accept": "application/json" },
+			body: formEncode({ license_key: key, instance_id: instanceId }),
 		});
 	} catch (e) {
 		console.warn("license: deactivate failed:", e);
-		// 即使 deactivate API 失败也继续清理本地状态
 	}
 }
 
@@ -127,6 +189,9 @@ export function getTrialLicense(): LicenseInfo {
 		lastValidated: new Date().toISOString(),
 		graceStart: new Date().toISOString(),
 		trialStart: null,
+		instanceId: null,
+		freeChatUsed: 0,
+		freeChatMonth: "",
 	};
 }
 
@@ -139,6 +204,9 @@ export function getCompileTrialLicense(): LicenseInfo {
 		lastValidated: new Date().toISOString(),
 		graceStart: null,
 		trialStart: new Date().toISOString(),
+		instanceId: null,
+		freeChatUsed: 0,
+		freeChatMonth: "",
 	};
 }
 

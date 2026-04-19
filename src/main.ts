@@ -12,7 +12,7 @@ import { runCompile } from "./core/compile";
 import { readRawFiles, diffFingerprints, emptyCache } from "./core/file-utils";
 import { t } from "./core/i18n";
 import { SetupWizardModal } from "./ui/setup-wizard";
-import { validateLicense, isPro, needsRevalidation, enterGraceIfNeeded, checkGraceExpiry, checkTrialExpiry, getDefaultLicense, getTrialLicense, getTrialDaysLeft } from "./core/license";
+import { validateLicense, activateLicense, deactivateLicense, isPro, needsRevalidation, enterGraceIfNeeded, checkGraceExpiry, checkTrialExpiry, getDefaultLicense, getTrialLicense, getTrialDaysLeft } from "./core/license";
 import { requirePro, showUpgradeNotice } from "./core/feature-gate";
 import { quickIngest } from "./core/quick-ingest";
 import { computeWikiHealth } from "./core/health";
@@ -239,7 +239,7 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 	private async backgroundRevalidate() {
 		if (!this.settings.licenseKey) return;
 		try {
-			const result = await validateLicense(this.settings.licenseKey);
+			const result = await validateLicense(this.settings.licenseKey, this.licenseInfo.instanceId);
 			this.licenseInfo = result;
 			await this.saveLicenseInfo();
 		} catch {
