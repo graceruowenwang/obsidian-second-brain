@@ -814,17 +814,11 @@ ${strippedContent.slice(0, 6000)}` },
 	}
 
 	private openInEditor(name: string) {
-		const wf = this.plugin.settings.wikiFolder;
-		const paths = [
-			`${wf}/${name}.md`,
-			`${wf}/concepts/核心概念/${name}.md`,
-			`${wf}/concepts/方法框架/${name}.md`,
-			`${wf}/concepts/实践经验/${name}.md`,
-			`${wf}/entities/${name}.md`,
-			`${wf}/sources/${name}.md`,
-		];
-		for (const p of paths) {
-			const file = this.app.vault.getAbstractFileByPath(p);
+		const page = this.findPage(name);
+		if (page) {
+			const wf = this.plugin.settings.wikiFolder;
+			const fullPath = `${wf}/${page.path}`;
+			const file = this.app.vault.getAbstractFileByPath(fullPath);
 			if (file instanceof TFile) {
 				this.app.workspace.getLeaf(false).openFile(file);
 				return;

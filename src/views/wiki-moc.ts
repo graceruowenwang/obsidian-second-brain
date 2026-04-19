@@ -1,6 +1,6 @@
 // MOC (Map of Content) 管理 -- 从 wiki-view.ts 拆分
 
-import { Notice, TFile } from "obsidian";
+import { Notice } from "obsidian";
 import { callLLM } from "../core/llm";
 import { writeWikiFile } from "../core/file-utils";
 import { t } from "../core/i18n";
@@ -16,7 +16,6 @@ export async function showMoc(ctx: WikiViewCtx): Promise<void> {
 	ctx.bodyEl.empty();
 
 	const lang = ctx.plugin.settings.language;
-	const wf = ctx.plugin.settings.wikiFolder;
 	const mocPages = ctx.wikiPages.filter(f => {
 		const fmMatch = f.content.match(/^---\n[\s\S]*?\n---/);
 		return fmMatch && /^type:\s*["']?moc["']?/m.test(fmMatch[0]);
@@ -45,19 +44,6 @@ export async function showMoc(ctx: WikiViewCtx): Promise<void> {
 			aiBtn.removeAttribute("disabled");
 			new Notice(t("wiki.mocGenerateFail", lang) + ": " + (e instanceof Error ? e.message : String(e)));
 		}
-	});
-
-	const createBtn = btnRow.createEl("button", { text: t("wiki.mocCreate", lang), cls: "sb-empty-btn" });
-	createBtn.addEventListener("click", async () => {
-		const now = new Date();
-		const dateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
-		const name = "moc-" + dateStr;
-		const today = new Date().toISOString().split("T")[0];
-		const content = `---\ntitle: "New MOC"\ntype: moc\nstatus: "reviewed"\nlast_updated: ${today}\n---\n\n# New MOC\n\n> 在这里组织你的主题导航。使用 [[PageName]] 链接到相关页面。\n\n## 主题\n\n- [[ExamplePage]]\n`;
-		await writeWikiFile(ctx.app, wf, `concepts/MOC/${name}.md`, content);
-		new Notice(t("wiki.mocCreated", lang));
-		await ctx.loadWiki();
-		showMoc(ctx);
 	});
 
 	if (mocPages.length === 0) {
