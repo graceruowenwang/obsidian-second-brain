@@ -1,123 +1,163 @@
-# Second Brain -- Obsidian 知识编译插件
+# Second Brain
 
-碎片化笔记太多，找不到、连不上、用不起来？
+An AI-powered knowledge compiler for Obsidian. Drop in scattered notes, get back a structured wiki with bidirectional links, semantic search, and an AI chat that cites your own knowledge.
 
-这个插件帮你把它们编译成结构化的 Wiki 知识库。放进去的是散乱素材，得到的是带双向链接和分类索引的知识网络。
-
-## 费用
-
-| 项目 | 费用 |
-|------|------|
-| 插件本身 | 免费、开源 |
-| Obsidian | 免费 |
-| DeepSeek API（推荐） | 充值 10 元可用很久。deepseek-chat 输入 ¥2/百万 token，输出 ¥3/百万 token |
-| 其他 LLM（可选） | 按 token 计费，插件的增量编译只处理变化文件，成本很低 |
-
-首次全量编译消耗较多 token，后续增量编译只处理变化文件。日常使用（每月几十篇素材 + 偶尔对话），10 元余额够用几个月。
-
-## 快速开始
-
-### 第一步：下载并打开
-
-1. 在 [Releases](https://gitee.com/grinningGrace/obsidian-second-brain/releases) 下载最新版 `second-brain.zip`
-2. 解压到任意位置
-3. 用 Obsidian 打开解压出来的文件夹（作为 Vault 打开）
-
-解压后目录里已经包含插件和样例素材目录 `raw/`，开箱即用。
-
-### 第二步：申请 API Key
-
-1. 访问 [platform.deepseek.com](https://platform.deepseek.com)，注册并创建 API Key
-2. 在插件设置页填入 Provider（DeepSeek）、Model（deepseek-chat）和 API Key
-3. 点击「测试连接」，看到成功提示即可
-
-API Key 保存在本地，不会上传到任何服务器。
-
-### 第三步：放入素材
-
-解压后的 `raw/` 目录已经包含样例素材和每个文件夹的 `_usage.md` 说明，可以直接试用编译。把你自己的素材放进去即可：
+## How It Works
 
 ```
-raw/
-  01-articles/      # 网页剪藏、文章
-  02-books/         # 读书笔记、书评
-  03-podcasts/      # 播客笔记
-  04-videos/        # 视频笔记
-  05-tweets/        # 推文线程
-  06-flash_notes/   # 闪念笔记、灵感
-    inbox/          # 暂存区（编译时自动整理）
+raw/ (your notes)  -->  AI Compile  -->  wiki/ (knowledge base)
+   articles               LLM extracts          concepts with [[links]]
+   highlights             concepts,             entity pages
+   highlights             entities,             source summaries
+   highlights             sources               index + mind map
 ```
 
-每个子目录下都有 `_usage.md` 说明该放什么、怎么命名。放到大致合适的目录即可，不要求分类精确。
+1. **Put notes** in `raw/` (articles, highlights, flash notes, anything)
+2. **Compile** — AI extracts concepts, entities, and sources, writes structured wiki pages
+3. **Browse & Chat** — explore your knowledge base or ask questions with cited answers
 
-### 第四步：编译
+Incremental compilation: only changed files are re-processed. Subsequent compiles finish in seconds.
 
-- 点击左侧栏闪电图标，按「开始编译」
-- 或使用命令面板（Cmd/Ctrl+P）搜索「编译全部素材」
-- 也可以打开某个 raw 文件，执行「编译当前文件」
-- 开启「自动编译」后，素材有变化时自动触发
+## Quick Start
 
-首次编译耗时取决于素材量，后续增量编译只处理变化的文件，几秒就能完成。
+### Install
 
-### 第五步：浏览和对话
+1. Download `second-brain.zip` from [Releases](https://github.com/graceruowenwang/obsidian-second-brain/releases)
+2. Unzip and open the folder as an Obsidian Vault
 
-编译完成后：
+### Configure API Key
 
-- **Wiki 预览**（地球图标）-- 卡片式索引、页面浏览、SVG 思维导图、全局搜索
-- **Wiki 对话**（对话图标）-- 向 AI 提问关于知识库的问题，回答会引用 `[[双链]]` 指向具体页面
+1. Get an API key from [DeepSeek](https://platform.deepseek.com) (recommended, ~$0.002/1K tokens)
+2. Open plugin settings, enter Provider / Model / API Key
+3. Click "Test Connection"
 
-## 功能一览
+Your API key stays local. Nothing is uploaded.
 
-**编译**
-- 增量编译 -- 文件指纹比对（mtime / size / MD5），只处理变化的文件
-- 自动编译 -- 监听 raw/ 变化，防抖触发（默认 30 秒）
-- 单文件编译 -- 命令面板直接编译当前文件
+### Compile
 
-**浏览**
-- Wiki 预览 -- 卡片式索引、页面浏览（反向链接、面包屑导航）
-- SVG 思维导图 -- 可视化知识网络
-- 全局搜索
+- Click the lightning icon in the left sidebar, then "Start Compile"
+- Or use the command palette: `Cmd/Ctrl+Shift+C`
+- The first compile processes all files; subsequent runs are incremental
 
-**对话**
-- 基于知识库的流式 AI 对话
-- 语义向量检索相关页面
-- 对话中的 `[[双链]]` 和引用链接可直接点击跳转
+### Browse Your Wiki
 
-**知识管理**
-- Draft / Review 工作流 -- 新页面标注 draft，审核后标记 reviewed
-- 健康检查 -- 自动修复死链、补全关联连接、报告孤岛页面
+- **Wiki Preview** (globe icon) — card index, page viewer, SVG mind map, search
+- **Wiki Chat** (chat icon) — ask questions about your knowledge base, answers cite `[[wiki-links]]`
 
-**兼容性**
-- 多 LLM 后端 -- DeepSeek、OpenAI、Anthropic Claude、OpenRouter 及任何 OpenAI 兼容 API
-- 多语言界面 -- 中文、英文、日文，跟随 Obsidian 设置
+## Features
 
-## 设置项
+### Free
 
-| 配置项 | 默认值 | 说明 |
-|--------|--------|------|
-| LLM Provider | DeepSeek | AI 服务商 |
-| Model | deepseek-chat | 模型名称 |
-| 素材目录 | `raw` | 原始素材文件夹 |
-| Wiki 目录 | `wiki` | 编译输出文件夹 |
-| 自动编译 | 开启 | 文件变化时自动触发 |
-| 编译延迟 | 30 秒 | 防抖间隔 |
-| Embedding 模型 | text-embedding-3-small | 语义检索向量模型 |
-| 界面语言 | Auto | 跟随 Obsidian |
+| Feature | Description |
+|---------|-------------|
+| Manual Compile | Compile all or individual files on demand |
+| Wiki Browser | Card-based index, page preview, backlinks |
+| Global Search | Search concepts, entities, sources |
+| Multi-LLM | DeepSeek, OpenAI, Claude, OpenRouter, any OpenAI-compatible API |
+| Multi-language UI | English, Chinese, Japanese |
+| Custom Templates | Editable prompt templates for compilation |
+| Vector Search | Embedding-based semantic search with keyword fallback |
+| Vault Scanner | Auto-detect and import existing notes as raw materials |
+| Knowledge Health | Freshness tracking, stale page alerts, orphan detection |
 
-## 从源码构建
+### Pro
+
+| Feature | Description |
+|---------|-------------|
+| Auto Compile | Watch `raw/` for changes, compile automatically with debounce |
+| AI Chat | Streaming conversation with your knowledge base |
+| SVG Mind Map | Interactive visual knowledge graph |
+| Multi-LLM Backend | Switch between providers in one click |
+
+**Pricing**: $3.99/month or $29.99/year. First compile triggers a 3-day Pro trial.
+
+## Folder Structure
+
+```
+raw/                        # Your input (immutable)
+  01-articles/              # Web clippings, articles
+  02-books/                 # Book notes
+  03-podcasts/              # Podcast notes
+  04-videos/                # Video notes
+  05-tweets/                # Tweet threads
+  06-flash_notes/           # Flash notes, ideas
+    inbox/                  # Staging area (auto-sorted on compile)
+
+wiki/                       # AI-generated output
+  concepts/核心概念/         # Core concepts
+  concepts/方法框架/         # Methods & frameworks
+  concepts/实践经验/         # Practice & experience
+  entities/                 # People, companies, tools
+  sources/                  # Source summaries
+  syntheses/                # Cross-concept analysis
+  index.md                  # Auto-generated wiki index
+  log.md                    # Compile log + weekly reports
+```
+
+## Settings
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| LLM Provider | DeepSeek | AI backend |
+| Model | deepseek-chat | Model name |
+| Raw Folder | `raw` | Input materials folder |
+| Wiki Folder | `wiki` | Output wiki folder |
+| Auto Compile | On | Trigger on file changes (Pro) |
+| Compile Delay | 30s | Debounce interval |
+| Embedding Model | text-embedding-3-small | Semantic search model |
+| Language | Auto | Follows Obsidian setting |
+
+## Build from Source
 
 ```bash
 npm install
 npm run release
 ```
 
-会在项目根目录生成 `second-brain.zip`，包含 `main.js`、`manifest.json`、`styles.css`。解压到 `.obsidian/plugins/second-brain/` 即可。
+Produces `second-brain.zip` containing `main.js`, `manifest.json`, `styles.css`. Extract into `.obsidian/plugins/second-brain/`.
 
-## 注意事项
+## Cost Estimate
 
-- 仅桌面端（`isDesktopOnly: true`），流式对话依赖 `fetch` API
-- 清理 Wiki 需输入 CONFIRM 确认，防止误操作
+| Item | Cost |
+|------|------|
+| Plugin | Free, open source |
+| Obsidian | Free |
+| DeepSeek API (recommended) | ~$0.15/1M input tokens, ~$0.20/1M output tokens |
+| Other LLMs | Pay-per-token; incremental compile keeps costs low |
 
-## 许可
+First full compile uses the most tokens. Incremental compiles only process changed files. Typical usage (dozens of notes/month + occasional chat): a $2 DeepSeek balance lasts months.
+
+## Notes
+
+- Desktop only (`isDesktopOnly: true`) — streaming chat requires `fetch` API
+- Wiki cleanup requires typing CONFIRM to prevent accidental deletion
+
+## License
 
 MIT
+
+---
+
+## 中文说明
+
+碎片化笔记太多，找不到、连不上、用不起来？Second Brain 帮你把它们编译成结构化的 Wiki 知识库。放进去的是散乱素材，得到的是带双向链接和分类索引的知识网络。
+
+### 快速开始
+
+1. 从 [Releases](https://github.com/graceruowenwang/obsidian-second-brain/releases) 下载 `second-brain.zip`，解压后用 Obsidian 打开
+2. 在 [platform.deepseek.com](https://platform.deepseek.com) 申请 API Key，填入插件设置
+3. 把笔记放入 `raw/` 目录（每个子目录有 `_usage.md` 说明）
+4. 点击闪电图标开始编译
+
+### 费用
+
+- 插件免费开源
+- DeepSeek API 充值 10 元可用几个月（增量编译只处理变化文件）
+- Pro 功能：$3.99/月 或 $29.99/年，首次编译自动开启 3 天试用
+
+### 从源码构建
+
+```bash
+npm install
+npm run release
+```
