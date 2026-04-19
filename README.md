@@ -140,20 +140,128 @@ MIT
 
 ## 中文说明
 
-碎片化笔记太多，找不到、连不上、用不起来？Second Brain 帮你把它们编译成结构化的 Wiki 知识库。放进去的是散乱素材，得到的是带双向链接和分类索引的知识网络。
+碎片化笔记太多，找不到、连不上、用不起来？Second Brain 是一个 AI 驱动的知识编译器。把散乱的笔记丢进去，它会自动提取概念、实体和知识来源，生成带双向链接、分类索引和语义搜索的结构化 Wiki 知识库。
+
+### 工作原理
+
+```
+raw/ (你的素材)  -->  AI 编译  -->  wiki/ (知识库)
+  文章剪藏              LLM 提取          带 [[双链]] 的概念页
+  读书笔记              概念、实体、       实体页面
+  播客笔记              知识来源           素材摘要
+  闪念笔记                                索引 + 知识图谱
+```
+
+1. **放入素材** -- 把笔记放到 `raw/` 目录下（文章、高亮、闪念笔记，什么都行）
+2. **AI 编译** -- LLM 自动提取概念、实体和来源，生成结构化的 Wiki 页面
+3. **浏览与对话** -- 浏览知识库，或用 AI 对话功能提问，回答自动引用你的 `[[wiki-links]]`
+
+支持增量编译：只处理有变化的文件，后续编译几秒完成。
 
 ### 快速开始
 
-1. 从 [Releases](https://github.com/graceruowenwang/obsidian-second-brain/releases) 下载 `second-brain.zip`，解压后用 Obsidian 打开
-2. 在 [platform.deepseek.com](https://platform.deepseek.com) 申请 API Key，填入插件设置
-3. 把笔记放入 `raw/` 目录（每个子目录有 `_usage.md` 说明）
-4. 点击闪电图标开始编译
+#### 安装
 
-### 费用
+1. 从 [Releases](https://github.com/graceruowenwang/obsidian-second-brain/releases) 下载 `second-brain.zip`
+2. 解压后，将文件夹作为 Obsidian Vault 打开
 
-- 插件免费开源
-- DeepSeek API 充值 10 元可用几个月（增量编译只处理变化文件）
-- Pro 功能：$3.99/月 或 $29.99/年，首次编译自动开启 3 天试用
+#### 配置 API Key
+
+1. 在 [DeepSeek 开放平台](https://platform.deepseek.com) 注册并获取 API Key（推荐，约 0.002 元/千 token）
+2. 打开插件设置，填写 Provider / Model / API Key
+3. 点击「测试连接」确认可用
+
+API Key 仅保存在本地，不会上传到任何服务器。
+
+#### 编译
+
+- 点击左侧栏的闪电图标，然后点击「开始编译」
+- 或使用命令面板快捷键：`Cmd/Ctrl+Shift+C`
+- 首次编译会处理所有文件，后续编译自动增量处理
+
+#### 浏览知识库
+
+- **Wiki 浏览器**（地球图标）-- 卡片索引、页面阅读器、SVG 知识图谱、搜索
+- **Wiki 对话**（对话图标）-- 针对你的知识库提问，回答自动引用 `[[wiki-links]]`
+
+### 功能一览
+
+#### 免费功能
+
+| 功能 | 说明 |
+|------|------|
+| 手动编译 | 按需编译全部或单个文件 |
+| Wiki 浏览器 | 卡片式索引、页面预览、反向链接 |
+| 全局搜索 | 搜索概念、实体、素材 |
+| 多 LLM 支持 | DeepSeek、OpenAI、Claude、OpenRouter 及任何 OpenAI 兼容 API |
+| 多语言界面 | 中文、英文、日文 |
+| 自定义模板 | 可编辑的编译提示词模板 |
+| 向量搜索 | 基于 Embedding 的语义搜索，带关键词回退 |
+| 笔记库扫描 | 自动检测并导入已有笔记作为素材 |
+| 知识健康度 | 新鲜度追踪、过期页面提醒、孤儿页面检测 |
+
+#### Pro 功能
+
+| 功能 | 说明 |
+|------|------|
+| 自动编译 | 监听 `raw/` 目录变化，自动编译（带防抖） |
+| AI 对话 | 与知识库的流式对话 |
+| SVG 知识图谱 | 可交互的可视化知识网络 |
+| 多 LLM 后端 | 一键切换 AI 提供商 |
+
+**定价**：$3.99/月 或 $29.99/年。首次编译自动开启 3 天 Pro 试用。
+
+### 目录结构
+
+```
+raw/                        # 你的输入素材（不可变）
+  01-articles/              # 网页剪藏、文章
+  02-books/                 # 读书笔记
+  03-podcasts/              # 播客笔记
+  04-videos/                # 视频笔记
+  05-tweets/                # 推文串
+  06-flash_notes/           # 闪念笔记、想法
+    inbox/                  # 暂存区（编译时自动归类）
+
+wiki/                       # AI 生成的知识库
+  concepts/核心概念/         # 核心概念 -- 领域中最基础的观点和立场
+  concepts/方法框架/         # 方法框架 -- 用来分析和解决问题的结构化工具
+  concepts/实践经验/         # 实践经验 -- 来自真实场景的案例和反思
+  entities/                 # 人物、公司、工具、产品
+  sources/                  # 素材摘要
+  syntheses/                # 跨概念综合分析
+  index.md                  # 自动生成的 Wiki 索引
+  log.md                    # 编译日志 + 周报
+```
+
+### 设置项
+
+| 设置 | 默认值 | 说明 |
+|------|--------|------|
+| LLM 提供商 | DeepSeek | AI 后端服务 |
+| 模型 | deepseek-chat | 模型名称 |
+| 素材目录 | `raw` | 输入素材文件夹 |
+| Wiki 目录 | `wiki` | 输出知识库文件夹 |
+| 自动编译 | 开启 | 文件变化时触发（Pro 功能） |
+| 编译延迟 | 30 秒 | 防抖间隔 |
+| Embedding 模型 | text-embedding-3-small | 语义搜索模型 |
+| 界面语言 | 自动 | 跟随 Obsidian 设置 |
+
+### 费用说明
+
+| 项目 | 费用 |
+|------|------|
+| 插件本身 | 免费开源 |
+| Obsidian | 免费 |
+| DeepSeek API（推荐） | 输入约 1 元/百万 token，输出约 1.4 元/百万 token |
+| 其他 LLM | 按量计费；增量编译可将成本控制在很低水平 |
+
+首次全量编译消耗 token 最多，后续增量编译只处理变化文件。日常使用（每月几十条笔记 + 偶尔对话），DeepSeek 充值 10 元可用几个月。
+
+### 其他说明
+
+- 仅支持桌面端（`isDesktopOnly: true`）-- 流式对话依赖 `fetch` API
+- 清理 Wiki 需要输入 CONFIRM 确认，防止误删
 
 ### 从源码构建
 
@@ -161,3 +269,9 @@ MIT
 npm install
 npm run release
 ```
+
+生成 `second-brain.zip`，包含 `main.js`、`manifest.json`、`styles.css`。解压到 `.obsidian/plugins/second-brain/` 即可。
+
+### 许可证
+
+MIT
