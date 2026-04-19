@@ -361,11 +361,24 @@ export async function runCompile(
 	// 异步冲突检测（不阻塞编译结果返回）
 	if (genResult.conflictCheckNeeded && genResult.conflictCheckNeeded.length > 0) {
 		const conflictItems = genResult.conflictCheckNeeded;
-		// fire-and-forget，编译结果先返回
 		runConflictDetection(conflictItems, wikiFolder, app, settings, tpl, signal).catch(e => {
 			console.warn("compile: async conflict detection failed:", e);
 		});
 	}
+
+	// 记录使用统计
+	if (!cache.usageStats) cache.usageStats = emptyStats();
+	recordCompile(cache.usageStats, {
+		success: genResult.errors.length === 0,
+		durationMs: report.durationMs,
+		conceptsCount: cc,
+		entitiesCount: ce,
+	});
+
+	// 每周知识报告（异步，不阻塞）
+	appendWeeklyReport(app, wikiFolder, cache).catch(e => {
+		console.warn("compile: weekly report failed:", e);
+	});
 
 	return {
 		conceptsCount: cc,

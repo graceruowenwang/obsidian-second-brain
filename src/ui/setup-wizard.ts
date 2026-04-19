@@ -132,7 +132,7 @@ export class SetupWizardModal extends Modal {
 		});
 
 		const nextBtn = btnRow.createEl("button", { text: t("wizard.next", lang), cls: "mod-cta" });
-		nextBtn.addEventListener("click", () => { this.step = 2; this.renderStep(); });
+		nextBtn.addEventListener("click", () => { this.step = 3; this.renderStep(); });
 
 		const skipBtn = btnRow.createEl("button", { text: t("wizard.skip", lang) });
 		skipBtn.addEventListener("click", () => this.finish());
@@ -271,7 +271,7 @@ export class SetupWizardModal extends Modal {
 	onClose() {
 		if (!this.plugin.settings.setupCompleted) {
 			this.plugin.settings.setupCompleted = true;
-			this.plugin.saveData(this.plugin.settings);
+			this.plugin.saveSettings();
 		}
 	}
 }
