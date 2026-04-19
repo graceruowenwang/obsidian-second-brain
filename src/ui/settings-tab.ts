@@ -167,8 +167,8 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 			.setName(t("set.testConn", lang))
 			.addButton((btn) => btn.setButtonText(t("set.test", lang)).onClick(async () => {
 				try {
-					const reply = await callLLM([{ role: "user", content: "Hi" }], this.plugin.settings, { maxTokens: 10, temperature: 0 });
-					new Notice(t("notice.connOk", lang, { msg: reply }));
+					await callLLM([{ role: "user", content: "Hi" }], this.plugin.settings, { maxTokens: 5, temperature: 0 });
+					new Notice(t("notice.connOkSimple", lang));
 				} catch (e: unknown) {
 					new Notice(t("notice.connFail", lang, { msg: (e instanceof Error ? e.message : String(e)) }));
 				}
