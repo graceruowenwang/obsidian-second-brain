@@ -511,16 +511,7 @@ pre:hover .sb-copy-btn {
 	background: var(--background-primary);
 }
 
-/* 工具栏 */
-.sb-wiki-toolbar {
-	display: flex;
-	gap: 8px;
-	padding: 12px 20px;
-	border-bottom: 1px solid var(--background-modifier-border);
-	flex-shrink: 0;
-	align-items: center;
-	background: var(--background-primary);
-}
+/* 工具栏 — 样式在文件末尾 (Issue #1 refactor) */
 
 .sb-wiki-search {
 	flex: 1;
@@ -1851,4 +1842,252 @@ pre:hover .sb-copy-btn {
 .sb-batch-checkbox {
 	margin-right: 6px;
 	accent-color: var(--interactive-accent);
+}
+
+/* === Async Button Spinner === */
+.sb-btn-loading {
+	position: relative;
+	pointer-events: none;
+	opacity: 0.7;
+}
+.sb-btn-loading::before {
+	content: "";
+	display: inline-block;
+	width: 12px;
+	height: 12px;
+	border: 2px solid var(--text-muted);
+	border-top-color: transparent;
+	border-radius: 50%;
+	margin-right: 6px;
+	vertical-align: middle;
+	animation: sb-spin 0.6s linear infinite;
+}
+@keyframes sb-spin {
+	to { transform: rotate(360deg); }
+}
+
+/* === Wiki Toolbar Rows (Issue #1) === */
+.sb-wiki-toolbar {
+	display: flex;
+	flex-direction: column;
+	gap: 0;
+	padding: 12px 20px;
+	border-bottom: 1px solid var(--background-modifier-border);
+	flex-shrink: 0;
+	background: var(--background-primary);
+}
+.sb-wiki-toolbar-row1 {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+}
+.sb-wiki-toolbar-row2 {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	margin-top: 8px;
+	position: relative;
+}
+.sb-wiki-more-btn {
+	padding: 6px 12px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	background: transparent;
+	color: var(--text-muted);
+	cursor: pointer;
+	font-size: 14px;
+	font-weight: 700;
+}
+.sb-wiki-more-btn:hover {
+	background: var(--background-modifier-hover);
+}
+.sb-wiki-dropdown {
+	position: absolute;
+	top: 100%;
+	left: 0;
+	display: none;
+	flex-direction: column;
+	gap: 2px;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+	z-index: 20;
+	overflow: hidden;
+	min-width: 140px;
+}
+.sb-wiki-dropdown-item {
+	padding: 8px 16px;
+	border: none;
+	background: transparent;
+	color: var(--text-normal);
+	cursor: pointer;
+	text-align: left;
+	font-size: 13px;
+	white-space: nowrap;
+}
+.sb-wiki-dropdown-item:hover {
+	background: var(--background-modifier-hover);
+}
+
+/* === Generate Article Button (Issue #2) === */
+.sb-wiki-generate-btn {
+	font-size: 11px;
+	padding: 4px 12px;
+	border: 1px solid var(--interactive-accent);
+	border-radius: 6px;
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	cursor: pointer;
+	margin-left: 8px;
+	transition: all 0.15s linear;
+}
+.sb-wiki-generate-btn:hover {
+	opacity: 0.85;
+}
+.sb-wiki-generate-btn:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+/* === Metadata Badges (Issue #12) === */
+.sb-wiki-meta-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 4px 12px;
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 12px;
+	font-size: 12px;
+	margin-right: 6px;
+}
+.sb-wiki-meta-value {
+	color: var(--text-normal);
+	font-weight: 600;
+}
+
+/* === Synthesis Dialog (Issue #4) === */
+.sb-synth-toolbar {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin: 8px 0;
+	padding: 4px 0;
+}
+.sb-synth-select-all {
+	font-size: 12px;
+	padding: 3px 10px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: transparent;
+	color: var(--text-muted);
+	cursor: pointer;
+}
+.sb-synth-select-all:hover {
+	background: var(--background-modifier-hover);
+}
+.sb-synth-counter {
+	font-size: 12px;
+	color: var(--text-faint);
+}
+.sb-synth-list {
+	max-height: 320px;
+	overflow-y: auto;
+	margin-bottom: 12px;
+}
+.sb-synth-error {
+	color: var(--text-error);
+	font-size: 12px;
+	margin-bottom: 8px;
+}
+
+/* === Compile Stage Indicator (Issue #8) === */
+.sb-compile-stages {
+	display: flex;
+	gap: 12px;
+	margin-top: 6px;
+	flex-wrap: wrap;
+}
+.sb-compile-stage-dot {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	opacity: 0.4;
+	transition: opacity 0.3s;
+}
+.sb-compile-stage-dot.sb-compile-stage-active {
+	opacity: 1;
+}
+.sb-compile-stage-icon {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+.sb-compile-stage-label {
+	font-size: 10px;
+	color: var(--text-faint);
+}
+.sb-compile-current-file {
+	font-size: 10px;
+	color: var(--text-faint);
+	padding-top: 2px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* === Mindmap Notice (Issue #9) === */
+.sb-mmap-notice {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 8px 16px;
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	margin-bottom: 12px;
+	font-size: 12px;
+	color: var(--text-muted);
+}
+.sb-mmap-expand-btn {
+	font-size: 11px;
+	padding: 3px 10px;
+	border: 1px solid var(--interactive-accent);
+	border-radius: 4px;
+	background: transparent;
+	color: var(--interactive-accent);
+	cursor: pointer;
+}
+.sb-mmap-expand-btn:hover {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+/* === Wizard Folder Error (Issue #10) === */
+.sb-wizard-folder-error {
+	font-size: 12px;
+	color: var(--text-error);
+	text-align: center;
+	padding: 4px 0;
+}
+
+/* === Chat Preview Blur (Issue #7) === */
+.sb-chat-preview-blur {
+	max-width: 360px;
+	margin: 0 auto 20px;
+	pointer-events: none;
+}
+
+/* === Compare Table Descriptions (Issue #14) === */
+.sb-compare-feat-name {
+	font-weight: 600;
+	color: var(--text-normal);
+	margin-bottom: 2px;
+}
+.sb-compare-feat-desc {
+	font-size: 10px;
+	color: var(--text-faint);
+	line-height: 1.4;
 }

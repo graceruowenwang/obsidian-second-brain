@@ -37,11 +37,30 @@ export class ChatView extends ItemView {
 		container.classList.add("second-brain-chat");
 		const lang = this.plugin.settings.language;
 
-		// Pro 门控
+		// Pro 门控 — Issue #7: show feature highlights + blurred preview
 		if (!requirePro(this.plugin.licenseInfo, "ai-chat")) {
 			const overlay = container.createDiv({ cls: "sb-pro-locked-overlay" });
 			overlay.createEl("h2", { text: t("license.upgradeTitle", lang) });
 			overlay.createEl("p", { text: t("license.feature.ai-chat", lang) + " -- " + t("license.upgradeDesc", lang, { feature: t("license.feature.ai-chat", lang) }) });
+
+			// Feature highlight cards
+			const highlights = overlay.createDiv({ cls: "sb-feature-highlights" });
+			const features = [
+				{ title: t("pro.compare.aiChat", lang), desc: t("pro.compare.aiChatDesc", lang) },
+				{ title: t("pro.compare.mindMap", lang), desc: t("pro.compare.mindMapDesc", lang) },
+				{ title: t("pro.compare.autoCompile", lang), desc: t("pro.compare.autoCompileDesc", lang) },
+			];
+			for (const f of features) {
+				const card = highlights.createDiv({ cls: "sb-feature-card" });
+				card.createEl("h4", { text: f.title });
+				card.createEl("p", { text: f.desc });
+			}
+
+			// Blurred preview hint
+			const previewHint = overlay.createDiv({ cls: "sb-chat-preview-blur" });
+			const previewMsg = previewHint.createDiv({ cls: "sb-msg sb-msg-ai", attr: { style: "filter:blur(4px);opacity:0.4" } });
+			previewMsg.createEl("div", { cls: "sb-bubble", text: "..." });
+
 			const btnRow = overlay.createDiv({ cls: "sb-pro-locked-btns" });
 			const upgradeBtn = btnRow.createEl("button", { text: t("license.upgradeBtn", lang), cls: "mod-cta" });
 			upgradeBtn.addEventListener("click", () => {
@@ -385,7 +404,7 @@ export class ChatView extends ItemView {
 							a.click();
 							URL.revokeObjectURL(url);
 						}
-					} catch {}
+					} catch (e) { console.warn("chat-view:", e) }
 				});
 
 				openBtn.addEventListener("click", (e) => {
@@ -441,6 +460,7 @@ export class ChatView extends ItemView {
 	}
 
 	async onClose() {
+		this.abortController?.abort();
 		this.component.unload();
 	}
 }

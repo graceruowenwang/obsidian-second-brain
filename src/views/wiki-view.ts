@@ -1,34 +1,22 @@
 // Wiki 预览视图 -- 结构化浏览 + 内联页面预览 + 反向链接
 
-import { ItemView, WorkspaceLeaf, MarkdownRenderer, Component, Notice, TFile } from "obsidian";
+import { ItemView, WorkspaceLeaf, MarkdownRenderer, Component, Notice, TFile, Modal } from "obsidian";
 import type { SecondBrainPlugin } from "../types";
 import { openPluginSettings } from "../types";
-import { readWikiFiles } from "../core/file-utils";
+import { readWikiFiles, writeLogEntry } from "../core/file-utils";
 import { t } from "../core/i18n";
 import { requirePro, showUpgradeNotice, createProBadge } from "../core/feature-gate";
 import { renderGraph } from "./wiki-mindmap";
+import { showMoc } from "./wiki-moc";
+import { openSynthesisDialog } from "./wiki-synthesis";
+import { toggleBatchReview } from "./wiki-batch";
+import { setAsyncButton } from "../ui/async-button";
+import type { WikiPage, IndexItem, IndexSection, WikiViewCtx } from "./wiki-shared";
+import { extractFmField, extractTags, stripFrontmatter, extractStatus, extractUpdated } from "./wiki-shared";
 
 export const VIEW_TYPE_WIKI = "second-brain-wiki";
 
-interface WikiPage {
-	path: string;
-	content: string;
-}
-
-interface IndexItem {
-	name: string;
-	display: string;
-	desc: string;
-}
-
-interface IndexSection {
-	title: string;
-	subs: Array<{ title: string; items: IndexItem[] }>;
-}
-
-
 export class WikiView extends ItemView {
-	/** @internal expose for mindmap module */
 	plugin: SecondBrainPlugin;
 	private bodyEl: HTMLElement;
 	private searchEl: HTMLInputElement;
@@ -47,6 +35,8 @@ export class WikiView extends ItemView {
 	private selectedPages = new Set<string>();
 	private batchBar: HTMLElement | null = null;
 	private pageLimit = 50;
+	private searchTimer: ReturnType<typeof setTimeout> | null = null;
+	private dropdownEl: HTMLElement | null = null;
 
 	constructor(leaf: WorkspaceLeaf, plugin: SecondBrainPlugin) {
 		super(leaf);
@@ -66,7 +56,10 @@ export class WikiView extends ItemView {
 
 		const toolbar = container.createDiv({ cls: "sb-wiki-toolbar" });
 
-		const toggle = toolbar.createDiv({ cls: "sb-wiki-view-toggle" });
+		// Row 1: view toggle + search + refresh
+		const row1 = toolbar.createDiv({ cls: "sb-wiki-toolbar-row1" });
+
+		const toggle = row1.createDiv({ cls: "sb-wiki-view-toggle" });
 		this.indexBtn = toggle.createEl("button", { text: t("wiki.tabIndex", lang), cls: "sb-wiki-view-btn active" });
 		const mocBtn = toggle.createEl("button", { text: "MOC", cls: "sb-wiki-view-btn" });
 		this.graphBtn = toggle.createEl("button", { text: t("wiki.tabGraph", lang), cls: "sb-wiki-view-btn" });
@@ -75,16 +68,22 @@ export class WikiView extends ItemView {
 			this.graphBtn.classList.add("sb-pro-locked-btn");
 		}
 		this.indexBtn.addEventListener("click", () => this.showIndex());
-		mocBtn.addEventListener("click", () => this.showMoc());
+		mocBtn.addEventListener("click", () => showMoc(this.ctx()));
 		this.graphBtn.addEventListener("click", () => this.showGraph());
 
-		this.searchEl = toolbar.createEl("input", {
+		this.searchEl = row1.createEl("input", {
 			attr: { placeholder: t("wiki.search", lang), type: "text" },
 			cls: "sb-wiki-search",
 		});
 
-		// 排序下拉
-		this.sortSelect = toolbar.createEl("select", { cls: "sb-wiki-sort" });
+		const refreshBtn = row1.createEl("button", { text: t("wiki.refresh", lang), cls: "sb-wiki-refresh" });
+		refreshBtn.addEventListener("click", () => this.loadWiki());
+
+		// Row 2: sort + more dropdown (synth + batch)
+		const row2 = toolbar.createDiv({ cls: "sb-wiki-toolbar-row2" });
+		row2.style.position = "relative";
+
+		this.sortSelect = row2.createEl("select", { cls: "sb-wiki-sort" });
 		const sortOptions: Array<{ value: string; key: string }> = [
 			{ value: "name-asc", key: "wiki.sortNameAsc" },
 			{ value: "name-desc", key: "wiki.sortNameDesc" },
@@ -100,20 +99,61 @@ export class WikiView extends ItemView {
 			this.renderIndex();
 		});
 
-		const refreshBtn = toolbar.createEl("button", { text: t("wiki.refresh", lang), cls: "sb-wiki-refresh" });
-		refreshBtn.addEventListener("click", () => this.loadWiki());
+		const moreBtn = row2.createEl("button", { text: "...", cls: "sb-wiki-more-btn" });
+		this.dropdownEl = row2.createDiv({ cls: "sb-wiki-dropdown" });
+		this.dropdownEl.style.display = "none";
+		const synthItem = this.dropdownEl.createEl("button", { text: t("wiki.synthBtn", lang), cls: "sb-wiki-dropdown-item" });
+		const batchItem = this.dropdownEl.createEl("button", { text: t("wiki.batchReview", lang), cls: "sb-wiki-dropdown-item" });
 
-		const synthBtn = toolbar.createEl("button", { text: "\u7efc\u5408\u5206\u6790", cls: "sb-wiki-batch-btn" });
-		synthBtn.addEventListener("click", () => this.openSynthesisDialog());
-		const batchBtn = toolbar.createEl("button", { text: t("wiki.batchReview", lang), cls: "sb-wiki-batch-btn" });
-		batchBtn.addEventListener("click", () => this.toggleBatchReview(batchBtn));
+		moreBtn.addEventListener("click", (e) => {
+			e.stopPropagation();
+			if (!this.dropdownEl) return;
+			this.dropdownEl.style.display = this.dropdownEl.style.display === "none" ? "flex" : "none";
+		});
+		synthItem.addEventListener("click", () => {
+			if (this.dropdownEl) this.dropdownEl.style.display = "none";
+			openSynthesisDialog(this.ctx());
+		});
+		batchItem.addEventListener("click", () => {
+			if (this.dropdownEl) this.dropdownEl.style.display = "none";
+			const result = toggleBatchReview(this.ctx(), batchItem, this.batchBar, this.selectedPages);
+			this.batchMode = result.batchMode;
+			this.batchBar = result.batchBar;
+		});
+		document.addEventListener("click", () => {
+			if (this.dropdownEl) this.dropdownEl.style.display = "none";
+		});
 
 		this.bodyEl = container.createDiv({ cls: "sb-wiki-body" });
+		// Issue #13: search debounce
 		this.searchEl.addEventListener("input", () => {
-			if (this.currentView === "index") this.renderIndex();
+			if (this.searchTimer) clearTimeout(this.searchTimer);
+			this.searchTimer = setTimeout(() => {
+				if (this.currentView === "index") this.renderIndex();
+			}, 300);
 		});
 
 		await this.loadWiki();
+	}
+
+	private ctx(): WikiViewCtx {
+		return {
+			app: this.app,
+			plugin: this.plugin,
+			bodyEl: this.bodyEl,
+			wikiPages: this.wikiPages,
+			graphMode: this.graphMode,
+			currentView: this.currentView,
+			currentName: this.currentName,
+			navHistory: this.navHistory,
+			indexBtn: this.indexBtn,
+			navigateTo: (name) => this.navigateTo(name),
+			loadWiki: () => this.loadWiki(),
+			extractType: (c) => extractFmField(c, "type"),
+			extractLevel: (c) => extractFmField(c, "level"),
+			extractTags: (c) => extractTags(c),
+			markAsReviewed: (name: string) => this.markAsReviewed(name),
+		};
 	}
 
 	async loadWiki() {
@@ -132,56 +172,6 @@ export class WikiView extends ItemView {
 		} else {
 			this.currentView = "index";
 			this.renderIndex();
-		}
-	}
-
-	private async showMoc() {
-		this.graphMode = false;
-		this.currentView = "index";
-		this.currentName = "";
-		this.navHistory = [];
-		this.indexBtn.classList.remove("active");
-		this.indexBtn.parentElement?.querySelectorAll(".sb-wiki-view-btn").forEach(b => b.classList.remove("active"));
-		this.bodyEl.empty();
-
-		const lang = this.plugin.settings.language;
-		const wf = this.plugin.settings.wikiFolder;
-		const mocPages = this.wikiPages.filter(f => {
-			const fmMatch = f.content.match(/^---\n[\s\S]*?\n---/);
-			return fmMatch && /^type:\s*["']?moc["']?/m.test(fmMatch[0]);
-		});
-
-		this.bodyEl.createEl("h2", { text: "MOC — Map of Content", cls: "sb-wiki-h2" });
-		this.bodyEl.createEl("p", { text: "MOC 是主题导航页，编译时不会被覆盖。你可以手动编辑它们来组织知识结构。", cls: "sb-wiki-card-desc" });
-
-		const createBtn = this.bodyEl.createEl("button", { text: "+ 新建 MOC", cls: "sb-empty-btn mod-cta" });
-		createBtn.style.marginBottom = "16px";
-		createBtn.addEventListener("click", async () => {
-			const name = "moc-" + Date.now();
-			const today = new Date().toISOString().split("T")[0];
-			const content = `---\ntitle: "New MOC"\ntype: moc\nstatus: "reviewed"\nlast_updated: ${today}\n---\n\n# New MOC\n\n> 在这里组织你的主题导航。使用 [[PageName]] 链接到相关页面。\n\n## 主题\n\n- [[ExamplePage]]\n`;
-			const { writeWikiFile } = await import("../core/file-utils");
-			await writeWikiFile(this.app, wf, `concepts/MOC/${name}.md`, content);
-			new Notice("MOC 已创建");
-			await this.loadWiki();
-			this.showMoc();
-		});
-
-		if (mocPages.length === 0) {
-			this.bodyEl.createEl("p", { text: "还没有 MOC 页面。点击上方按钮创建一个。", cls: "sb-wiki-empty" });
-			return;
-		}
-
-		const grid = this.bodyEl.createDiv({ cls: "sb-wiki-grid" });
-		for (const page of mocPages) {
-			const name = page.path.split("/").pop()!.replace(".md", "");
-			const card = grid.createDiv({ cls: "sb-wiki-card sb-wiki-card-reviewed" });
-			const fmTitle = page.content.match(/^title:\s*["']?(.+?)["']?\s*$/m);
-			card.createEl("a", { text: fmTitle ? fmTitle[1] : name, cls: "sb-wiki-card-title" })
-				.addEventListener("click", (ev) => { ev.preventDefault(); this.navigateTo(name); });
-			const stripped = page.content.replace(/^---\n[\s\S]*?\n---\n*/, "");
-			const firstLine = stripped.split("\n").find(l => l.trim() && !l.startsWith("#") && !l.startsWith(">")) || "";
-			if (firstLine) card.createEl("p", { text: firstLine.slice(0, 120), cls: "sb-wiki-card-desc" });
 		}
 	}
 
@@ -241,20 +231,6 @@ export class WikiView extends ItemView {
 		return sections;
 	}
 
-	private extractLevel(content: string): string {
-		const fmMatch = content.match(/^---\n[\s\S]*?\n---/);
-		if (!fmMatch) return "";
-		const levelMatch = fmMatch[0].match(/^level:\s*["']?(.+?)["']?\s*$/m);
-		return levelMatch ? levelMatch[1].trim() : "";
-	}
-
-	private extractType(content: string): string {
-		const fmMatch = content.match(/^---\n[\s\S]*?\n---/);
-		if (!fmMatch) return "";
-		const typeMatch = fmMatch[0].match(/^type:\s*["']?(.+?)["']?\s*$/m);
-		return typeMatch ? typeMatch[1].trim() : "";
-	}
-
 	private sortItems(items: IndexItem[]): IndexItem[] {
 		const sorted = [...items];
 		sorted.sort((a, b) => {
@@ -264,17 +240,13 @@ export class WikiView extends ItemView {
 				case "name-desc":
 					return b.display.localeCompare(a.display);
 				case "type": {
-					const pageA = this.findPage(a.name);
-					const pageB = this.findPage(b.name);
-					const typeA = pageA ? this.extractType(pageA.content) : "";
-					const typeB = pageB ? this.extractType(pageB.content) : "";
+					const typeA = this.findPage(a.name) ? extractFmField(this.findPage(a.name)!.content, "type") : "";
+					const typeB = this.findPage(b.name) ? extractFmField(this.findPage(b.name)!.content, "type") : "";
 					return typeA.localeCompare(typeB) || a.display.localeCompare(b.display);
 				}
 				case "level": {
-					const pageA = this.findPage(a.name);
-					const pageB = this.findPage(b.name);
-					const levelA = pageA ? this.extractLevel(pageA.content) : "";
-					const levelB = pageB ? this.extractLevel(pageB.content) : "";
+					const levelA = this.findPage(a.name) ? extractFmField(this.findPage(a.name)!.content, "level") : "";
+					const levelB = this.findPage(b.name) ? extractFmField(this.findPage(b.name)!.content, "level") : "";
 					return levelA.localeCompare(levelB) || a.display.localeCompare(b.display);
 				}
 				default:
@@ -299,24 +271,22 @@ export class WikiView extends ItemView {
 			`<span class="sb-stat-item"><span class="sb-stat-num">${ec}</span><span class="sb-stat-label">${t("wiki.entities", lang)}</span></span>` +
 			`<span class="sb-stat-item"><span class="sb-stat-num">${sc}</span><span class="sb-stat-label">${t("wiki.sources", lang)}</span></span>`;
 
-		// Pro 增强统计
 		if (requirePro(this.plugin.licenseInfo, "svg-mind-map")) {
 			const linkCount = this.wikiPages.reduce((sum, p) => {
 				const matches = p.content.match(/\[\[([^\]]+)\]\]/g);
 				return sum + (matches ? matches.length : 0);
 			}, 0);
-			stats.innerHTML += `<span class="sb-stat-item sb-stat-pro"><span class="sb-stat-num">${linkCount}</span><span class="sb-stat-label">${t("pro.stats.linkCount", lang, { n: linkCount })}</span></span>`;
+			stats.innerHTML += `<span class="sb-stat-item sb-stat-pro"><span class="sb-stat-num">${linkCount}</span><span class="sb-stat-label">${t("pro.stats.linkLabel", lang)}</span></span>`;
 		}
 
-		// Recent updates timeline
 		const recentPages = this.wikiPages
-			.map(f => ({ name: f.path.split("/").pop()!.replace(".md", ""), date: this.extractUpdated(f.content) }))
+			.map(f => ({ name: f.path.split("/").pop()!.replace(".md", ""), date: extractUpdated(f.content) }))
 			.filter(f => f.date)
 			.sort((a, b) => b.date.localeCompare(a.date))
 			.slice(0, 8);
 		if (recentPages.length > 0) {
 			const timeline = this.bodyEl.createDiv({ cls: "sb-wiki-timeline" });
-			timeline.createEl("h3", { text: "\u6700\u8fd1\u66f4\u65b0", cls: "sb-wiki-h3" });
+			timeline.createEl("h3", { text: t("wiki.recentUpdates", lang), cls: "sb-wiki-h3" });
 			for (const rp of recentPages) {
 				const row = timeline.createDiv({ cls: "sb-wiki-timeline-row" });
 				row.createEl("span", { text: rp.date, cls: "sb-wiki-timeline-date" });
@@ -338,7 +308,6 @@ export class WikiView extends ItemView {
 				}
 				if (query && items.length === 0) continue;
 
-				// 排序
 				items = this.sortItems(items);
 
 				if (!hasTitle) {
@@ -353,15 +322,14 @@ export class WikiView extends ItemView {
 				for (const item of items) {
 					const card = grid.createDiv({ cls: "sb-wiki-card" });
 					const page = this.findPage(item.name);
-					const tags = page ? this.extractTags(page.content) : [];
+					const pageTags = page ? extractTags(page.content) : [];
 
-					// Draft/Review badge
 					if (page) {
-						const status = this.extractStatus(page.content);
-						if (status === "draft") {
+						const pageStatus = extractStatus(page.content);
+						if (pageStatus === "draft") {
 							card.classList.add("sb-wiki-card-draft");
 							card.createEl("span", { text: t("wiki.statusDraft", lang), cls: "sb-wiki-status-badge sb-status-draft" });
-						} else if (status === "reviewed") {
+						} else if (pageStatus === "reviewed") {
 							card.classList.add("sb-wiki-card-reviewed");
 							card.createEl("span", { text: t("wiki.statusReviewed", lang), cls: "sb-wiki-status-badge sb-status-reviewed" });
 						}
@@ -377,9 +345,9 @@ export class WikiView extends ItemView {
 						card.createEl("p", { text: item.desc, cls: "sb-wiki-card-desc" });
 					}
 
-					if (tags.length > 0) {
+					if (pageTags.length > 0) {
 						const tagRow = card.createDiv({ cls: "sb-wiki-card-tags" });
-						for (const tag of tags.slice(0, 3)) {
+						for (const tag of pageTags.slice(0, 3)) {
 							tagRow.createEl("span", { text: tag, cls: "sb-wiki-tag" });
 						}
 					}
@@ -413,35 +381,30 @@ export class WikiView extends ItemView {
 		}
 
 		if (this.wikiPages.length === 0) {
-				this.bodyEl.createDiv({ cls: "sb-wiki-empty" });
+			this.bodyEl.createDiv({ cls: "sb-wiki-empty" });
 			const guidance = this.bodyEl.createDiv({ cls: "sb-wiki-empty-guidance" });
 			guidance.createEl("h3", { text: t("empty.wikiTitle", lang) });
 			guidance.createEl("p", { text: t("empty.wikiDesc", lang) });
 			const btnRow = guidance.createDiv({ cls: "sb-empty-btn-row" });
-			const settingsBtn = btnRow.createEl("button", { text: t("empty.openSettings", lang), cls: "sb-empty-btn" });
-			settingsBtn.addEventListener("click", () => {
-				openPluginSettings(this.app);
-			});
-			const compileBtn = btnRow.createEl("button", { text: t("empty.startCompile", lang), cls: "sb-empty-btn mod-cta" });
-			compileBtn.addEventListener("click", () => {
-				this.plugin.activateView("second-brain-compile");
-			});
-			}
-
-		// Load more button for large wikis
-			if (this.wikiPages.length > this.pageLimit) {
-				const loadMoreBtn = this.bodyEl.createEl("button", {
-					text: `\u663e\u793a\u66f4\u591a (${this.wikiPages.length - this.pageLimit}+)`,
-					cls: "sb-wiki-load-more"
-				});
-				loadMoreBtn.addEventListener("click", () => {
-					this.pageLimit += 50;
-					this.renderIndex();
-				});
-			}
+			btnRow.createEl("button", { text: t("empty.openSettings", lang), cls: "sb-empty-btn" })
+				.addEventListener("click", () => openPluginSettings(this.app));
+			btnRow.createEl("button", { text: t("empty.startCompile", lang), cls: "sb-empty-btn mod-cta" })
+				.addEventListener("click", () => this.plugin.activateView("second-brain-compile"));
 		}
 
-		// --- Page ---
+		if (this.wikiPages.length > this.pageLimit) {
+			const loadMoreBtn = this.bodyEl.createEl("button", {
+				text: t("wiki.loadMore", lang, { n: this.wikiPages.length - this.pageLimit }),
+				cls: "sb-wiki-load-more"
+			});
+			loadMoreBtn.addEventListener("click", () => {
+				this.pageLimit += 50;
+				this.renderIndex();
+			});
+		}
+	}
+
+	// --- Page ---
 
 	private async navigateTo(name: string) {
 		const marker = this.currentView === "graph" ? "__graph__" : this.currentName;
@@ -480,20 +443,35 @@ export class WikiView extends ItemView {
 		}
 
 		const breadcrumb = this.bodyEl.createDiv({ cls: "sb-wiki-breadcrumb" });
-		const backBtn = breadcrumb.createEl("button", { text: t("wiki.back", lang), cls: "sb-wiki-back" });
-		backBtn.addEventListener("click", () => this.goBack());
+		breadcrumb.createEl("button", { text: t("wiki.back", lang), cls: "sb-wiki-back" })
+			.addEventListener("click", () => this.goBack());
 		breadcrumb.createEl("span", { text: name, cls: "sb-wiki-breadcrumb-title" });
 
-		const editBtn = breadcrumb.createEl("button", { text: t("wiki.openEditor", lang), cls: "sb-wiki-edit-btn" });
-		editBtn.addEventListener("click", () => this.openInEditor(name));
+		breadcrumb.createEl("button", { text: t("wiki.openEditor", lang), cls: "sb-wiki-edit-btn" })
+			.addEventListener("click", () => this.openInEditor(name));
 
-		const expressBtn = breadcrumb.createEl("button", { text: "\u751f\u6210\u6587\u7ae0", cls: "sb-wiki-edit-btn" });
+		const expressBtn = breadcrumb.createEl("button", { text: t("wiki.generateArticle", lang), cls: "sb-wiki-generate-btn" });
 		expressBtn.addEventListener("click", async () => {
-			expressBtn.textContent = "...";
+			// Issue #2: confirmation modal before generating
+			const confirmed = await new Promise<boolean>((resolve) => {
+				const modal = new Modal(this.app);
+				modal.titleEl.setText(t("wiki.generateArticle", lang));
+				modal.contentEl.createEl("p", { text: t("wiki.generateArticleConfirm", lang) });
+				const btnRow = modal.contentEl.createDiv();
+				btnRow.style.display = "flex";
+				btnRow.style.gap = "8px";
+				btnRow.style.justifyContent = "flex-end";
+				btnRow.createEl("button", { text: t("set.cancel", lang) }).addEventListener("click", () => { modal.close(); resolve(false); });
+				btnRow.createEl("button", { text: t("wiki.generateArticle", lang), cls: "mod-cta" }).addEventListener("click", () => { modal.close(); resolve(true); });
+				modal.open();
+			});
+			if (!confirmed) return;
+
+			setAsyncButton(expressBtn, true);
 			try {
 				const { callLLM } = await import("../core/llm");
 				const { ensureFolder } = await import("../core/file-utils");
-				const strippedContent = this.stripFrontmatter(page.content);
+				const strippedContent = stripFrontmatter(page.content);
 				const today = new Date().toISOString().split("T")[0];
 				const result = await callLLM([
 					{ role: "system", content: "Writer. Transform wiki page into a polished article. Same language as source. Keep wikilinks [[PageName]]." },
@@ -505,56 +483,55 @@ export class WikiView extends ItemView {
 				const existing = this.app.vault.getAbstractFileByPath(blogPath);
 				if (existing instanceof TFile) await this.app.vault.modify(existing, article);
 				else await this.app.vault.create(blogPath, article);
-				expressBtn.textContent = "\u5df2\u751f\u6210";
+				setAsyncButton(expressBtn, false, t("wiki.articleGenerated", lang));
+				new Notice(t("wiki.articleGeneratedNotice", lang));
 			} catch (e) {
-				expressBtn.textContent = "\u751f\u6210\u6587\u7ae0";
+				setAsyncButton(expressBtn, false, t("wiki.generateArticle", lang));
+				new Notice(t("wiki.generateFailed", lang));
 			}
 		});
 
-		// 页面元数据
 		const metaRow = this.bodyEl.createDiv({ cls: "sb-wiki-meta" });
-		const fmType = this.extractType(page.content);
-		const fmLevel = this.extractLevel(page.content);
-		const fmUpdated = this.extractUpdated(page.content);
+		const fmType = extractFmField(page.content, "type");
+		const fmLevel = extractFmField(page.content, "level");
+		const fmUpdated = extractUpdated(page.content);
 		if (fmType) {
-			const item = metaRow.createDiv({ cls: "sb-wiki-meta-item" });
-			item.createEl("span", { text: t("wiki.metaType", lang), cls: "sb-wiki-meta-label" });
-			item.createEl("span", { text: fmType });
+			const badge = metaRow.createDiv({ cls: "sb-wiki-meta-badge" });
+			badge.createEl("span", { text: t("wiki.metaType", lang), cls: "sb-wiki-meta-label" });
+			badge.createEl("span", { text: fmType, cls: "sb-wiki-meta-value" });
 		}
 		if (fmLevel) {
-			const item = metaRow.createDiv({ cls: "sb-wiki-meta-item" });
-			item.createEl("span", { text: t("wiki.metaLevel", lang), cls: "sb-wiki-meta-label" });
-			item.createEl("span", { text: fmLevel });
+			const badge = metaRow.createDiv({ cls: "sb-wiki-meta-badge" });
+			badge.createEl("span", { text: t("wiki.metaLevel", lang), cls: "sb-wiki-meta-label" });
+			badge.createEl("span", { text: fmLevel, cls: "sb-wiki-meta-value" });
 		}
 		if (fmUpdated) {
-			const item = metaRow.createDiv({ cls: "sb-wiki-meta-item" });
-			item.createEl("span", { text: t("wiki.metaUpdated", lang), cls: "sb-wiki-meta-label" });
-			item.createEl("span", { text: fmUpdated });
+			const badge = metaRow.createDiv({ cls: "sb-wiki-meta-badge" });
+			badge.createEl("span", { text: t("wiki.metaUpdated", lang), cls: "sb-wiki-meta-label" });
+			badge.createEl("span", { text: fmUpdated, cls: "sb-wiki-meta-value" });
 		}
 
-		// 待审核横幅
-		const status = this.extractStatus(page.content);
-		if (status === "draft") {
+		const pageStatus = extractStatus(page.content);
+		if (pageStatus === "draft") {
 			const banner = this.bodyEl.createDiv({ cls: "sb-draft-banner" });
 			banner.createEl("span", { text: t("wiki.draft", lang), cls: "sb-draft-label" });
 			const reviewBtn = banner.createEl("button", { text: t("wiki.markReviewed", lang), cls: "sb-draft-review-btn" });
 			reviewBtn.addEventListener("click", async () => {
 				await this.markAsReviewed(name);
 				reviewBtn.textContent = t("wiki.reviewed", lang);
-				banner.classList.remove("sb-draft-banner");
-				banner.classList.add("sb-reviewed-banner");
+				banner.classList.replace("sb-draft-banner", "sb-reviewed-banner");
 				const label = banner.querySelector(".sb-draft-label");
 				if (label) label.textContent = t("wiki.reviewed", lang);
 			});
-		} else if (status === "reviewed") {
+		} else if (pageStatus === "reviewed") {
 			const banner = this.bodyEl.createDiv({ cls: "sb-reviewed-banner" });
 			banner.createEl("span", { text: t("wiki.reviewed", lang), cls: "sb-draft-label" });
-			const summaryBtn = banner.createEl("button", { text: "\u63d0\u70bc\u6458\u8981", cls: "sb-draft-review-btn" });
+			const summaryBtn = banner.createEl("button", { text: t("wiki.distillSummary", lang), cls: "sb-draft-review-btn" });
 			summaryBtn.addEventListener("click", async () => {
 				summaryBtn.textContent = "...";
 				try {
 					const { callLLM } = await import("../core/llm");
-					const strippedContent = this.stripFrontmatter(page.content);
+					const strippedContent = stripFrontmatter(page.content);
 					const result = await callLLM([
 						{ role: "system", content: "Knowledge distiller. 2-3 sentence executive summary in the page's language." },
 						{ role: "user", content: `Summarize key insight in 2-3 sentences:\n\n${strippedContent.slice(0, 4000)}` },
@@ -573,16 +550,16 @@ export class WikiView extends ItemView {
 						await this.app.vault.modify(file, updated);
 						page.content = updated;
 					}
-					summaryBtn.textContent = "\u5df2\u63d0\u70bc";
+					summaryBtn.textContent = t("wiki.summaryDistilled", lang);
 					summaryBtn.classList.add("mod-cta");
 				} catch (e) {
-					summaryBtn.textContent = "\u63d0\u70bc\u6458\u8981";
+					summaryBtn.textContent = t("wiki.distillSummary", lang);
 				}
 			});
 		}
 
 		const contentEl = this.bodyEl.createDiv({ cls: "sb-wiki-page-content" });
-		const stripped = this.stripFrontmatter(page.content);
+		const stripped = stripFrontmatter(page.content);
 		this.component.unload();
 		this.component = new Component();
 		await MarkdownRenderer.render(this.app, stripped, contentEl, "", this.component);
@@ -602,17 +579,10 @@ export class WikiView extends ItemView {
 			this.bodyEl.createEl("h3", { text: t("wiki.backlinks", lang), cls: "sb-wiki-backlinks-title" });
 			const blGrid = this.bodyEl.createDiv({ cls: "sb-wiki-backlinks-grid" });
 			for (const bl of backlinks) {
-				const chip = blGrid.createEl("a", { text: bl.display, cls: "sb-wiki-backlink-chip" });
-				chip.addEventListener("click", (ev) => { ev.preventDefault(); this.navigateTo(bl.name); });
+				blGrid.createEl("a", { text: bl.display, cls: "sb-wiki-backlink-chip" })
+					.addEventListener("click", (ev) => { ev.preventDefault(); this.navigateTo(bl.name); });
 			}
 		}
-	}
-
-	private extractUpdated(content: string): string {
-		const fmMatch = content.match(/^---\n[\s\S]*?\n---/);
-		if (!fmMatch) return "";
-		const updatedMatch = fmMatch[0].match(/^last_updated:\s*["']?(.+?)["']?\s*$/m);
-		return updatedMatch ? updatedMatch[1].trim() : "";
 	}
 
 	private openInEditor(name: string) {
@@ -642,24 +612,6 @@ export class WikiView extends ItemView {
 		});
 	}
 
-	private extractTags(content: string): string[] {
-		const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
-		if (!fmMatch) return [];
-		const tagsLine = fmMatch[1].match(/tags:\s*\[([^\]]+)\]/);
-		if (!tagsLine) return [];
-		return tagsLine[1].split(",").map(t2 => t2.trim().replace(/['"]/g, "")).filter(Boolean);
-	}
-
-	private stripFrontmatter(content: string): string {
-		return content.replace(/^---\n[\s\S]*?\n---\n*/, "");
-	}
-	private extractStatus(content: string): string {
-		const fmMatch = content.match(/^---\n[\s\S]*?\n---/);
-		if (!fmMatch) return "";
-		const statusMatch = fmMatch[0].match(/^status:\s*["']?(\w+)["']?\s*$/m);
-		return statusMatch ? statusMatch[1] : "";
-	}
-
 	private async markAsReviewed(name: string): Promise<void> {
 		const page = this.findPage(name);
 		if (!page) return;
@@ -670,7 +622,6 @@ export class WikiView extends ItemView {
 		if (file instanceof TFile) {
 			await this.app.vault.modify(file, updated);
 			page.content = updated;
-			const { writeLogEntry } = await import("../core/file-utils");
 			await writeLogEntry(this.app, wf, "sync", `Reviewed: ${name}`);
 		}
 	}
@@ -681,110 +632,12 @@ export class WikiView extends ItemView {
 
 		for (const page of this.wikiPages) {
 			if (page.path.split("/").pop()!.replace(".md", "") === name) continue;
-			const content = page.content;
-			if (searchPatterns.some(p => content.includes(p))) {
+			if (searchPatterns.some(p => page.content.includes(p))) {
 				const fileName = page.path.split("/").pop()!.replace(".md", "");
 				results.push({ name: fileName, display: fileName });
 			}
 		}
 		return results;
-	}
-
-	private async openSynthesisDialog() {
-		const lang = this.plugin.settings.language;
-		const concepts = this.wikiPages
-			.filter(f => f.path.includes("concepts/"))
-			.map(f => ({ name: f.path.split("/").pop()!.replace(".md", ""), content: f.content }));
-
-		const { Modal } = await import("obsidian");
-		const modal = new Modal(this.app);
-		modal.titleEl.setText("\u9009\u62e9 2-3 \u4e2a\u6982\u5ff5\u8fdb\u884c\u7efc\u5408\u5206\u6790");
-		const container = modal.contentEl.createDiv();
-		const checkboxes: Array<{ name: string; el: HTMLInputElement }> = [];
-
-		for (const c of concepts.slice(0, 50)) {
-			const label = container.createEl("label", { cls: "sb-synth-checkbox" });
-			const cb = label.createEl("input", { attr: { type: "checkbox", value: c.name } });
-			label.createSpan({ text: c.name });
-			checkboxes.push({ name: c.name, el: cb });
-		}
-
-		const btnRow = container.createDiv({ cls: "sb-wizard-btn-row" });
-		const genBtn = btnRow.createEl("button", { text: "\u751f\u6210", cls: "mod-cta" });
-		genBtn.addEventListener("click", async () => {
-			const selected = checkboxes.filter(c => c.el.checked).map(c => c.name);
-			if (selected.length < 2) { genBtn.textContent = "\u81f3\u5c11\u9009 2 \u4e2a"; return; }
-			genBtn.textContent = "...";
-			try {
-				const { callLLM } = await import("../core/llm");
-				const { writeWikiFile } = await import("../core/file-utils");
-				const relatedContent = selected.map(n => {
-					const page = concepts.find(c => c.name === n);
-					return page ? `=== ${n} ===\n${page.content.slice(0, 1500)}` : "";
-				}).join("\n\n");
-				const today = new Date().toISOString().split("T")[0];
-				const result = await callLLM([
-					{ role: "system", content: "Knowledge synthesis expert. Write a cross-concept analysis in the same language as the source material." },
-					{ role: "user", content: `Analyze the deep connections between these concepts: ${selected.join(", ")}\n\n${relatedContent.slice(0, 12000)}\n\nWrite a synthesis page answering: How do these concepts relate, complement, or contradict each other?` },
-				], this.plugin.settings, { maxTokens: 3000, temperature: 0.5 });
-				const slug = selected.join("-").slice(0, 60);
-				const page = `---\ntitle: "${slug}"\ntype: synthesis\nstatus: "draft"\nlast_updated: ${today}\n---\n\n${result.trim()}\n`;
-				await writeWikiFile(this.app, this.plugin.settings.wikiFolder, `syntheses/${slug}.md`, page);
-				modal.close();
-				new Notice("\u7efc\u5408\u5206\u6790\u5df2\u751f\u6210");
-				await this.loadWiki();
-			} catch (e) {
-				genBtn.textContent = "\u751f\u6210\u5931\u8d25";
-			}
-		});
-		modal.open();
-	}
-
-	private toggleBatchReview(btn: HTMLButtonElement) {
-		const lang = this.plugin.settings.language;
-		if (this.batchMode) {
-			this.batchMode = false;
-			this.selectedPages.clear();
-			if (this.batchBar) { this.batchBar.remove(); this.batchBar = null; }
-			btn.textContent = t("wiki.batchReview", lang);
-			this.renderIndex();
-			return;
-		}
-		this.batchMode = true;
-		this.selectedPages.clear();
-		btn.textContent = t("wiki.batchReview", lang) + " *";
-		this.renderIndex();
-
-		if (this.batchBar) this.batchBar.remove();
-		this.batchBar = this.bodyEl.createDiv({ cls: "sb-batch-bar" });
-		const countEl = this.batchBar.createEl("span", { text: "0" });
-		const applyBtn = this.batchBar.createEl("button", { text: t("wiki.batchReviewBtn", lang, { n: 0 }), cls: "mod-cta" });
-		applyBtn.addEventListener("click", async () => {
-			for (const name of this.selectedPages) {
-				await this.markAsReviewed(name);
-			}
-			this.batchMode = false;
-			this.selectedPages.clear();
-			if (this.batchBar) { this.batchBar.remove(); this.batchBar = null; }
-			btn.textContent = t("wiki.batchReview", lang);
-			this.renderIndex();
-		});
-
-		this.bodyEl.querySelectorAll(".sb-wiki-card").forEach((cardEl: HTMLElement) => {
-			const titleLink = cardEl.querySelector(".sb-wiki-card-title") as HTMLAnchorElement;
-			if (!titleLink) return;
-			const name = titleLink.textContent || "";
-			const checkbox = cardEl.createEl("input", { cls: "sb-batch-checkbox", attr: { type: "checkbox" } });
-			checkbox.addEventListener("change", () => {
-				if ((checkbox as HTMLInputElement).checked) {
-					this.selectedPages.add(name);
-				} else {
-					this.selectedPages.delete(name);
-				}
-				countEl.textContent = `${this.selectedPages.size}`;
-				applyBtn.textContent = t("wiki.batchReviewBtn", lang, { n: this.selectedPages.size });
-			});
-		});
 	}
 
 	async onClose() {

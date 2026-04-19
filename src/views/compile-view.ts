@@ -29,6 +29,8 @@ export class CompileView extends ItemView {
 	private abortController: AbortController | null = null;
 	private compileStartTime = 0;
 	private timeEstimateEl: HTMLElement;
+	private stageIndicator: HTMLElement;
+	private currentFileEl: HTMLElement;
 
 	constructor(leaf: WorkspaceLeaf, plugin: SecondBrainPlugin) {
 		super(leaf);
@@ -65,6 +67,24 @@ export class CompileView extends ItemView {
 		this.progressLabel = progressWrap.createDiv({ cls: "sb-progress-label" });
 		const bar = progressWrap.createDiv({ cls: "sb-progress-bar" });
 		this.progressFill = bar.createDiv({ cls: "sb-progress-fill" });
+
+		// Issue #8: stage indicator
+		this.stageIndicator = progressWrap.createDiv({ cls: "sb-compile-stages" });
+		const stages = [
+			{ key: "reading", color: "#3b82f6" },
+			{ key: "analyzing", color: "#eab308" },
+			{ key: "generating", color: "#22c55e" },
+			{ key: "writing", color: "#8b5cf6" },
+		];
+		for (const s of stages) {
+			const dot = this.stageIndicator.createDiv({ cls: "sb-compile-stage-dot" });
+			dot.createEl("span", { cls: "sb-compile-stage-icon", attr: { style: `background:${s.color}` } });
+			dot.createEl("span", { text: t(`compile.stage.${s.key}`, lang), cls: "sb-compile-stage-label" });
+		}
+
+		// Current file label
+		this.currentFileEl = progressWrap.createDiv({ cls: "sb-compile-current-file" });
+		this.currentFileEl.style.display = "none";
 
 		// 时间预估
 		this.timeEstimateEl = progressWrap.createDiv({ cls: "sb-time-estimate" });
@@ -125,6 +145,25 @@ export class CompileView extends ItemView {
 		const onProgress = (e: ProgressEvent) => {
 			this.progressFill.style.width = `${e.percent}%`;
 			this.progressLabel.textContent = t("compile.progress", lang, { step: e.stepName, detail: e.detail, pct: e.percent });
+
+			// Issue #8: color progress bar by stage
+			const stageColors: Record<string, string> = {
+				"reading": "#3b82f6", "analyzing": "#eab308",
+				"generating": "#22c55e", "writing": "#8b5cf6",
+			};
+			const color = stageColors[e.stepName.toLowerCase()] ?? "var(--interactive-accent)";
+			this.progressFill.style.background = color;
+
+			// Highlight active stage dot
+			this.stageIndicator.querySelectorAll(".sb-compile-stage-dot").forEach((dot, i) => {
+				(dot as HTMLElement).classList.toggle("sb-compile-stage-active", e.step === i + 1);
+			});
+
+			// Show current file
+			if (e.detail) {
+				this.currentFileEl.textContent = e.detail;
+				this.currentFileEl.style.display = "";
+			}
 
 			// 时间预估：进度超过 20% 时显示
 			if (e.percent > 20) {
@@ -207,6 +246,7 @@ export class CompileView extends ItemView {
 				new Notice(t("compile.fail", lang, { msg: friendlyMsg }));
 			}
 		} finally {
+			if (!this.compileBtn) return;
 			this.compiling = false;
 			this.abortController = null;
 			this.compileBtn.disabled = false;

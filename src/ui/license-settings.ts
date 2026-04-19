@@ -105,7 +105,8 @@ export function renderLicenseSettings(containerEl: HTMLElement, plugin: SecondBr
 				await plugin.saveLicenseInfo();
 				new Notice(t("license.statusActive", lang));
 				plugin.refreshSettingsTab();
-			} catch {
+			} catch (e) {
+				console.warn("license-settings:", e);
 				new Notice(t("license.networkError", lang));
 			} finally {
 				validateBtn.disabled = false;
@@ -151,7 +152,9 @@ function renderCompareTable(container: HTMLElement, lang: string, state: License
 	const tbody = table.createEl("tbody");
 	for (const feat of COMPARE_FEATURES) {
 		const tr = tbody.createEl("tr");
-		tr.createEl("td", { text: t(`pro.compare.${feat}`, lang) });
+		const nameCell = tr.createEl("td");
+		nameCell.createDiv({ text: t(`pro.compare.${feat}`, lang), cls: "sb-compare-feat-name" });
+		nameCell.createDiv({ text: t(`pro.compare.${feat}Desc`, lang), cls: "sb-compare-feat-desc" });
 
 		const freeCell = tr.createEl("td", { cls: "sb-compare-check" });
 		freeCell.innerHTML = FREE_FEATURES.has(feat) ? "&#10003;" : "";

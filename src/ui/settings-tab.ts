@@ -175,7 +175,7 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 			}));
 
 		// --- Imp 8: 推荐设置 ---
-		const recDetails = containerEl.createEl("details", { cls: "sb-settings-section", attr: { open: "" } });
+		const recDetails = containerEl.createEl("details", { cls: "sb-settings-section" });
 		recDetails.createEl("summary", { text: t("set.sectionRecommended", lang) });
 		const recContent = recDetails.createDiv();
 
@@ -344,7 +344,24 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 								await this.app.vault.delete(file);
 							}
 						}
-						this.plugin.settings = { ...DEFAULT_SETTINGS };
+						// 只重置 wiki/cache 相关状态，保留用户配置
+						const s = this.plugin.settings;
+						this.plugin.settings = {
+							...DEFAULT_SETTINGS,
+							provider: s.provider,
+							model: s.model,
+							apiKey: s.apiKey,
+							baseUrl: s.baseUrl,
+							maxTokens: s.maxTokens,
+							temperature: s.temperature,
+							embeddingProvider: s.embeddingProvider,
+							embeddingModel: s.embeddingModel,
+							embeddingBaseUrl: s.embeddingBaseUrl,
+							embeddingApiKey: s.embeddingApiKey,
+							language: s.language,
+							licenseKey: s.licenseKey,
+							proWelcomeShown: s.proWelcomeShown,
+						};
 						await this.plugin.saveData(emptyCache());
 						new Notice(t("notice.wikiCleaned", lang, { n: wikiFiles.length }));
 						modal.close();

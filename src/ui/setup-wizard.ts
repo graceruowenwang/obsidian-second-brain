@@ -78,7 +78,8 @@ export class SetupWizardModal extends Modal {
 				await callLLM([{ role: "user", content: "Hi" }], this.plugin.settings, { maxTokens: 5, temperature: 0 });
 				testBtn.textContent = "OK";
 				testBtn.classList.add("mod-cta");
-			} catch {
+			} catch (e) {
+				console.warn("setup-wizard: test failed:", e);
 				testBtn.textContent = "FAIL";
 				testBtn.classList.add("mod-warning");
 			}
@@ -119,8 +120,9 @@ export class SetupWizardModal extends Modal {
 				try {
 					await this.app.vault.createFolder(folder);
 					statusEl.createDiv({ text: `+ ${folder}/`, cls: "sb-wizard-folder-created" });
-				} catch {
-					statusEl.createDiv({ text: `! ${folder}/`, cls: "sb-wizard-folder-exists" });
+				} catch (e) {
+					console.warn("setup-wizard: folder creation:", e);
+					statusEl.createDiv({ text: `! ${folder}/`, cls: "sb-wizard-folder-error" });
 				}
 			} else {
 				statusEl.createDiv({ text: `  ${folder}/`, cls: "sb-wizard-folder-exists" });

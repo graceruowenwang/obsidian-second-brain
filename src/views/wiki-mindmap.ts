@@ -72,6 +72,45 @@ export function buildMindMapTree(wikiPages: Array<{ path: string; content: strin
 	return root;
 }
 
+function renderFullGraph(bodyEl: HTMLElement, tree: MindMapNode, lang: string, view: Registerable, navigateTo: (id: string) => void, totalLeaves: number): void {
+	const mmapContainer = bodyEl.createDiv({ cls: "sb-mmap-container" });
+
+	requestAnimationFrame(() => {
+		const containerW = mmapContainer.clientWidth || 800;
+		const containerH = Math.max(400, Math.min(800, totalLeaves * 38 + 160));
+
+		layoutMindMap(tree, containerW, containerH);
+
+		const svg = createSvg(containerW, containerH);
+		mmapContainer.appendChild(svg);
+
+		const g = createGroup();
+		svg.appendChild(g);
+
+		for (const cat of tree.children) {
+			mmapDrawBezier(g, tree.x, tree.y, cat.x, cat.y, cat.color, 2.5, cat.id);
+			for (const page of cat.children) {
+				mmapDrawBezier(g, cat.x, cat.y, page.x, page.y, cat.color, 1.5, cat.id, page.id);
+			}
+		}
+
+		mmapDrawRoot(g, tree);
+
+		for (const cat of tree.children) {
+			mmapDrawCategory(g, cat);
+			for (const page of cat.children) {
+				mmapDrawPage(g, page, cat.color,
+					(id: string) => navigateTo(id),
+					(id: string) => highlightBranch(id, tree, svg),
+					() => resetHighlight(svg),
+				);
+			}
+		}
+
+		setupMindMapInteraction(view, svg, g);
+	});
+}
+
 export function renderGraph(view: Registerable, bodyEl: HTMLElement, wikiPages: Array<{ path: string; content: string }>, navigateTo: (id: string) => void, lang: string): void {
 	bodyEl.empty();
 
@@ -84,6 +123,15 @@ export function renderGraph(view: Registerable, bodyEl: HTMLElement, wikiPages: 
 	const totalLeaves = tree.children.reduce((s, c) => s + c.children.length, 0);
 
 	if (totalLeaves > 50) {
+		// Issue #9: notice bar with expand option
+		const noticeBar = bodyEl.createDiv({ cls: "sb-mmap-notice" });
+		noticeBar.createEl("span", { text: t("wiki.mindmapSimplifiedNotice", lang) });
+		const expandBtn = noticeBar.createEl("button", { text: t("wiki.mindmapExpandAll", lang), cls: "sb-mmap-expand-btn" });
+		expandBtn.addEventListener("click", () => {
+			noticeBar.remove();
+			renderLegend(bodyEl, tree, lang);
+			renderFullGraph(bodyEl, tree, lang, view, navigateTo, totalLeaves);
+		});
 		renderSimplifiedGraph(bodyEl, tree, lang, view);
 		return;
 	}
@@ -501,7 +549,7 @@ function mmapDrawPage(
 		};
 		const onUp = () => {
 			window.removeEventListener("mousemove", onMove);
-			window.removeEventListener("mouseup", onUp);
+			window.removeEventListener("mouseup", onUp, true);
 			ng.style.cursor = "";
 			if (isDragging) {
 				const suppressClick = (ce: MouseEvent) => { ce.stopPropagation(); ng.removeEventListener("click", suppressClick, true); };
@@ -509,7 +557,7 @@ function mmapDrawPage(
 			}
 		};
 		window.addEventListener("mousemove", onMove);
-		window.addEventListener("mouseup", onUp);
+		window.addEventListener("mouseup", onUp, true);
 	});
 
 	ng.addEventListener("click", () => onClick(node.id));
