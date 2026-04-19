@@ -312,7 +312,7 @@ export const zhCN: Record<string, string> = {
 		"license.expiresAt": "到期: {date}",
 		"license.trialNotice": "试用期剩余 {days} 天",
 		"license.getPro": "获取 Pro",
-		"license.purchaseUrl": "https://obsidian-second-brain.lemonsqueezy.com/checkout",
+		"license.purchaseUrl": "https://ruowenwang.lemonsqueezy.com/checkout/buy/93c781c6-a65f-45b0-b75b-4368d2f2b444",
 		"license.proBadge": "PRO",
 		"license.proBadgeTitle": "Pro 功能",
 		"license.upgradeTitle": "购买完整版",

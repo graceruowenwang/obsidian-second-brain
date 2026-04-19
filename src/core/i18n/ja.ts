@@ -304,7 +304,7 @@ export const ja: Record<string, string> = {
 		"license.expiresAt": "有効期限: {date}",
 		"license.trialNotice": "トライアル: 残り {days} 日",
 		"license.getPro": "Pro を取得",
-		"license.purchaseUrl": "https://obsidian-second-brain.lemonsqueezy.com/checkout",
+		"license.purchaseUrl": "https://ruowenwang.lemonsqueezy.com/checkout/buy/93c781c6-a65f-45b0-b75b-4368d2f2b444",
 		"license.proBadge": "PRO",
 		"license.proBadgeTitle": "Pro 機能",
 		"license.upgradeTitle": "フル版を購入",
