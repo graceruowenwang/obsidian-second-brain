@@ -56,9 +56,9 @@ export class UpgradeModal extends Modal {
 		});
 
 		const priceEl = contentEl.createDiv({ cls: "sb-upgrade-pricing" });
-		priceEl.createEl("span", { text: "$3.99/month", cls: "sb-upgrade-price" });
+		priceEl.createEl("span", { text: "$5 one-time", cls: "sb-upgrade-price" });
 		priceEl.createEl("span", { text: " | ", cls: "sb-upgrade-price-sep" });
-		priceEl.createEl("span", { text: "$29.99/year", cls: "sb-upgrade-price" });
+		priceEl.createEl("span", { text: "30 CNY one-time", cls: "sb-upgrade-price" });
 
 		const btnRow = contentEl.createDiv({ cls: "sb-upgrade-btns" });
 
