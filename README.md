@@ -69,7 +69,7 @@ Your API key stays local. Nothing is uploaded.
 | SVG Mind Map | Interactive visual knowledge graph |
 | Multi-LLM Backend | Switch between providers in one click |
 
-**Pricing**: $3/month or ¥20/month. First compile triggers a 3-day Pro trial.
+**Pricing**: ¥30 one-time purchase. First compile triggers a 3-day Pro trial.
 
 ## Folder Structure
 
@@ -209,7 +209,7 @@ API Key 仅保存在本地，不会上传到任何服务器。
 | SVG 知识图谱 | 可交互的可视化知识网络 |
 | 多 LLM 后端 | 一键切换 AI 提供商 |
 
-**定价**：$3/月 或 ¥20/月。首次编译自动开启 3 天 Pro 试用。
+**定价**：¥30 买断。首次编译自动开启 3 天 Pro 试用。
 
 ### 目录结构
 
