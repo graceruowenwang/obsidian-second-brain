@@ -1,319 +1,26 @@
-// 编译页面生成 -- 任务构建 + 素材检索 + 页面渲染
+// 编译页面生成 -- 任务构建 + 页面渲染 + Diff 分析
+// JSON 解析/校验/后处理 → compile-analysis.ts
+// 素材检索 → compile-materials.ts
 
 import { App, TFile } from "obsidian";
-import { callLLM } from "./llm";
-import { readWikiFiles, writeWikiFile, deleteWikiFile, vectorSearch, buildEmbeddingCache, filesToMap, getStorage } from "./file-utils";
+import { callLLM, callLLMBatch, type BatchTask } from "./llm";
+import { readWikiFiles, writeWikiFile, deleteWikiFile, getStorage } from "./file-utils";
 import type { StorageLike } from "./file-utils";
 import {
 	buildConceptPrompt, buildEntityPrompt, buildSourcePrompt, buildSynthesisPrompt,
 } from "./wiki-schema";
 import type { TemplateConfig } from "./templates";
-import type { Analysis, CompileCache, ProgressEvent, Concept, Entity, Source, ValidationIssue, PluginSettings } from "../types";
+import type { Analysis, CompileCache, ProgressEvent, Concept, Entity, Source, PluginSettings } from "../types";
+import {
+	postProcessPage,
+	getPagePath, checkAborted, findAffectedPages,
+} from "./compile-analysis";
+import type { AnalysisItem } from "./compile-analysis";
+import {
+	findRelevantMaterials,
+} from "./compile-materials";
 
 const BATCH = 5;
-
-
-
-// 确保页面 frontmatter 中包含 status: "draft"
-export function ensureDraftStatus(content: string): string {
-	const fmMatch = content.match(/^(---\n)([\s\S]*?)(\n---\n*)/);
-	if (!fmMatch) {
-		return `---\nstatus: "draft"\n---\n\n${content}`;
-	}
-	const [, open, body, close] = fmMatch;
-	if (/^status:/m.test(body)) {
-		return content.replace(/^(status:\s*).*$/m, '$1"draft"');
-	}
-	return `${open}status: "draft"\n${body}${close}`;
-}
-
-// 健壮解析 LLM 返回的 JSON 分析结果
-export function parseAnalysisJSON(raw: string): Analysis {
-	const cleaned = raw.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
-	const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-	if (!jsonMatch) {
-		return { concepts: [], entities: [], sources: [], syntheses: [] };
-	}
-	try {
-		const parsed = JSON.parse(jsonMatch[0]);
-		return {
-			concepts: Array.isArray(parsed.concepts) ? parsed.concepts : [],
-			entities: Array.isArray(parsed.entities) ? parsed.entities : [],
-			sources: Array.isArray(parsed.sources) ? parsed.sources : [],
-			syntheses: Array.isArray(parsed.syntheses) ? parsed.syntheses : [],
-		};
-	} catch {
-		return { concepts: [], entities: [], sources: [], syntheses: [] };
-	}
-}
-
-// === Phase 1a: Schema 校验 ===
-
-export function toTitleCase(s: string): string {
-	return s.split(/[\s_-]+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join("");
-}
-
-export function validateAnalysis(
-	analysis: Analysis,
-	rawFilePaths: Set<string>,
-	tpl: TemplateConfig,
-): { valid: Analysis; issues: ValidationIssue[] } {
-	const issues: ValidationIssue[] = [];
-	const validLevels = tpl.levels.map(l => l.key);
-	const titleCaseRe = /^[A-Z][a-zA-Z0-9]*$/;
-
-	const concepts = analysis.concepts.filter((c, i) => {
-		if (!c.name || !c.name.trim()) { issues.push({ field: "concepts.name", index: i, issue: "empty name" }); return false; }
-		if (!titleCaseRe.test(c.name)) {
-			const fixed = toTitleCase(c.name);
-			if (titleCaseRe.test(fixed)) {
-				issues.push({ field: "concepts.name", index: i, issue: "auto-fixed to TitleCase", value: c.name });
-				c.name = fixed;
-			} else {
-				issues.push({ field: "concepts.name", index: i, issue: "invalid TitleCase, skipped", value: c.name });
-				return false;
-			}
-		}
-		if (!c.title || !c.title.trim()) { c.title = c.name; }
-		if (!validLevels.includes(c.level)) {
-			issues.push({ field: "concepts.level", index: i, issue: `invalid level "${c.level}", defaulted`, value: c.level });
-			c.level = validLevels[validLevels.length - 1];
-		}
-		if (c.source_file && !rawFilePaths.has(c.source_file)) {
-			issues.push({ field: "concepts.source_file", index: i, issue: "source_file not found in raw/", value: c.source_file });
-		}
-		return true;
-	});
-
-	const entities = analysis.entities.filter((e, i) => {
-		if (!e.name || !e.name.trim()) { issues.push({ field: "entities.name", index: i, issue: "empty name" }); return false; }
-		return true;
-	});
-
-	const sources = analysis.sources.filter((s, i) => {
-		if (!s.name || !s.name.trim()) { issues.push({ field: "sources.name", index: i, issue: "empty name" }); return false; }
-		if (s.source_file && !rawFilePaths.has(s.source_file)) {
-			issues.push({ field: "sources.source_file", index: i, issue: "source_file not found in raw/", value: s.source_file });
-		}
-		return true;
-	});
-
-	const conceptNames = new Set(concepts.map(c => c.name));
-	const syntheses = analysis.syntheses.filter(syn => {
-		syn.concepts = syn.concepts.filter(c => conceptNames.has(c));
-		return syn.concepts.length >= 2;
-	});
-
-	return { valid: { concepts, entities, sources, syntheses }, issues };
-}
-
-// === Phase 1b: Wikilink 存在性校验 ===
-
-export function validateWikilinks(content: string, validPageNames: Set<string>): string {
-	return content.replace(/\[\[([^\]|#]+)(?:[|#][^\]]+)?\]\]/g, (match, pageName) => {
-		const trimmed = pageName.trim();
-		if (validPageNames.has(trimmed)) return match;
-		const displayMatch = match.match(/\[\[([^\]|]+)\|([^\]]+)\]\]/);
-		return displayMatch ? displayMatch[2] : trimmed;
-	});
-}
-
-// === Phase 1c: 确定性后处理 ===
-
-export function postProcessPage(content: string, itemType: "concept" | "entity" | "source" | "synthesis", item: { name: string; title?: string; level?: string }, tpl: TemplateConfig, validPageNames: Set<string>): string {
-	// 1. 去掉 LLM 前缀废话
-	let page = content;
-	const firstFm = page.indexOf("---");
-	if (firstFm > 0) {
-		page = page.slice(firstFm);
-	}
-
-	// 2. 确保 frontmatter 存在
-	if (!page.startsWith("---")) {
-		const TODAY = new Date().toISOString().split("T")[0];
-		const fm = `---\ntitle: "${item.title || item.name}"\ntype: ${itemType}\nstatus: "draft"\nlast_updated: ${TODAY}\n---\n\n`;
-		page = fm + page;
-	}
-
-	// 3. 确保关键 frontmatter 字段
-	page = ensureDraftStatus(page);
-
-	// 如果是 concept 且缺少 level 字段，补充
-	if (itemType === "concept" && item.level) {
-		const fmMatch = page.match(/^(---\n)([\s\S]*?)(\n---)/);
-		if (fmMatch && !/^level:/m.test(fmMatch[2])) {
-			page = `${fmMatch[1]}level: "${item.level}"\n${fmMatch[2]}${fmMatch[3]}` + page.slice(fmMatch[0].length);
-		}
-	}
-
-	// 4. 校验 wikilinks
-	page = validateWikilinks(page, validPageNames);
-
-	// 5. 确保 ## 关联连接 区块存在
-	const relatedHeader = `## ${tpl.relatedLinksHeader}`;
-	if (!page.includes(relatedHeader)) {
-		// 从正文中提取所有 wikilink 作为关联连接
-		const links = [...new Set([...page.matchAll(/\[\[([^\]|#]+)/g)].map(m => m[1].trim()))];
-		const linkSection = `\n\n${relatedHeader}\n${links.filter(n => n !== item.name).map(n => `- [[${n}]]`).join("\n")}`;
-		page = page.trimEnd() + linkSection + "\n";
-	}
-
-	return page;
-}
-
-// === Phase 2a: 模糊去重 ===
-
-export function stringSimilarity(a: string, b: string): number {
-	if (a === b) return 1.0;
-	if (a.length === 0 || b.length === 0) return 0.0;
-	const maxLen = Math.max(a.length, b.length);
-	if (Math.abs(a.length - b.length) / maxLen > 0.4) return 0.0;
-	// Levenshtein distance
-	const matrix: number[][] = [];
-	for (let i = 0; i <= b.length; i++) matrix[i] = [i];
-	for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
-	for (let i = 1; i <= b.length; i++) {
-		for (let j = 1; j <= a.length; j++) {
-			const cost = b[i - 1] === a[j - 1] ? 0 : 1;
-			matrix[i][j] = Math.min(
-				matrix[i - 1][j] + 1,
-				matrix[i][j - 1] + 1,
-				matrix[i - 1][j - 1] + cost,
-			);
-		}
-	}
-	return 1 - matrix[b.length][a.length] / maxLen;
-}
-
-// 合并同名数组：新条目覆盖旧条目，新名称追加（支持模糊匹配）
-function mergeByName<T extends { name: string }>(arr: T[], items: T[], fuzzyThreshold = 0.8): T[] {
-	const result = [...arr];
-	for (const item of items) {
-		const exactIdx = result.findIndex(e => e.name === item.name);
-		if (exactIdx >= 0) {
-			result[exactIdx] = item;
-			continue;
-		}
-		// 模糊匹配
-		let bestIdx = -1;
-		let bestScore = 0;
-		for (let i = 0; i < result.length; i++) {
-			const score = stringSimilarity(result[i].name.toLowerCase(), item.name.toLowerCase());
-			if (score > bestScore && score >= fuzzyThreshold) {
-				bestScore = score;
-				bestIdx = i;
-			}
-		}
-		if (bestIdx >= 0) {
-			result[bestIdx] = { ...result[bestIdx], ...item, name: result[bestIdx].name };
-		} else {
-			result.push(item);
-		}
-	}
-	return result;
-}
-
-// 合并旧分析 + 增量分析结果
-export function mergeAnalysis(oldAnalysis: Analysis | null, incremental: Analysis): Analysis {
-	if (!oldAnalysis) return incremental;
-	return {
-		concepts: mergeByName(oldAnalysis.concepts || [], incremental.concepts || []),
-		entities: mergeByName(oldAnalysis.entities || [], incremental.entities || []),
-		sources: mergeByName(oldAnalysis.sources || [], incremental.sources || []),
-		syntheses: mergeByName(oldAnalysis.syntheses || [], incremental.syntheses || []),
-	};
-}
-
-export type AnalysisItem = {
-	_type: "concept" | "entity" | "source";
-	name: string;
-	title?: string;
-	level?: string;
-	desc?: string;
-	source_file?: string;
-};
-
-export function getPagePath(item: AnalysisItem): string {
-	if (item._type === "concept") {
-		const levelDir = item.level === "核心概念" ? "核心概念" : item.level === "实践经验" ? "实践经验" : "方法框架";
-		return `concepts/${levelDir}/${item.name}.md`;
-	} else if (item._type === "entity") {
-		return `entities/${item.name}.md`;
-	} else {
-		return `sources/${item.name}.md`;
-	}
-}
-
-export async function findRelevantMaterials(itemName: string, itemDesc: string, allFiles: Array<{ path: string; content: string }>, settings: PluginSettings, maxChars = 10000): Promise<string> {
-	// 尝试向量检索
-	if (settings.embeddingApiKey || settings.apiKey) {
-		try {
-			const query = `${itemName} ${itemDesc || ""}`;
-			const filesMap = filesToMap(allFiles);
-			await buildEmbeddingCache(filesMap, settings);
-			const results = await vectorSearch(query, filesMap, settings, 8);
-			if (results.length > 0) {
-				let result = "";
-				for (const r of results) {
-					if (result.length >= maxChars) break;
-					const path = r.filePath;
-					const content = r.content || filesMap[path] || "";
-					result += `--- 文件: ${path} ---\n${content.slice(0, 3000)}\n\n`;
-				}
-				if (result) return result.slice(0, maxChars);
-			}
-		} catch {
-			// 向量检索失败，降级到关键词匹配
-		}
-	}
-
-	// 关键词匹配 fallback
-	return findRelevantMaterialsByKeyword(itemName, itemDesc, allFiles, maxChars);
-}
-
-function findRelevantMaterialsByKeyword(itemName: string, itemDesc: string, allFiles: Array<{ path: string; content: string }>, maxChars = 10000): string {
-	const keywords: string[] = [];
-	const titleWords = itemName.match(/[A-Z][a-z]+/g) || [];
-	keywords.push(...titleWords);
-	const segments = (itemDesc || "").split(/[,，、；;？?!！。\s]+/).filter(w => w.length >= 2 && w.length <= 8);
-	keywords.push(...segments);
-	const uniqueKw = [...new Set(keywords.filter(k => k.length >= 2))];
-	if (uniqueKw.length === 0) uniqueKw.push(itemName);
-	const kwLower = uniqueKw.map(k => k.toLowerCase());
-
-	const fileInfos = allFiles.map(f => ({
-		file: f,
-		titleLow: f.path.split("/").pop()!.replace(/\.md$/, "").toLowerCase(),
-		headingsLow: (f.content.match(/^#{1,3}\s+(.+)$/gm) || []).join(" ").toLowerCase(),
-		contentLow: f.content.toLowerCase(),
-	}));
-
-	const scored = fileInfos.map(info => {
-		let score = 0;
-		for (const kw of kwLower) {
-			if (info.titleLow.includes(kw)) score += 8;
-			if (info.headingsLow.includes(kw)) score += 5;
-			if (info.contentLow.includes(kw)) score += 2;
-		}
-		return { file: info.file, score };
-	});
-
-	const relevant = scored.filter(s => s.score >= 3);
-	relevant.sort((a, b) => b.score - a.score);
-
-	let result = "";
-	for (const { file, score } of relevant) {
-		if (result.length >= maxChars) break;
-		const sliceLen = score > 5 ? 3000 : 1500;
-		result += `--- 文件: ${file.path} ---\n${file.content.slice(0, sliceLen)}\n\n`;
-	}
-	if (!result && allFiles.length > 0) {
-		for (const f of allFiles.slice(0, 2)) {
-			result += `--- 文件: ${f.path} ---\n${f.content.slice(0, 2000)}\n\n`;
-		}
-	}
-	return result.slice(0, maxChars);
-}
 
 export interface Task {
 	name: string;
@@ -339,7 +46,7 @@ export async function buildTask(item: AnalysisItem, allFiles: Array<{ path: stri
 		const s = item as Source;
 		let sourceContent = "";
 		if (s.source_file) {
-			const sourceFile = allFiles.find(f => f.path.includes(s.source_file));
+			const sourceFile = allFiles.find(f => f.path === s.source_file || f.path.endsWith("/" + s.source_file));
 			if (sourceFile) sourceContent = sourceFile.content.slice(0, 10000);
 		}
 		if (!sourceContent) sourceContent = await findRelevantMaterials(s.name, desc, allFiles, settings, 8000);
@@ -347,7 +54,7 @@ export async function buildTask(item: AnalysisItem, allFiles: Array<{ path: stri
 	}
 }
 
-export function diffAnalysis(oldAnalysis: Analysis | null, newAnalysis: Analysis, changedFiles: Array<{ path: string; content: string }>): { regen: AnalysisItem[]; skip: AnalysisItem[]; remove: AnalysisItem[] } {
+export function diffAnalysis(oldAnalysis: Analysis | null, newAnalysis: Analysis, changedFiles: Array<{ path: string; content: string }>, dependencies?: Record<string, string[]>): { regen: AnalysisItem[]; skip: AnalysisItem[]; remove: AnalysisItem[] } {
 	if (!oldAnalysis) {
 		return {
 			regen: [
@@ -370,8 +77,13 @@ export function diffAnalysis(oldAnalysis: Analysis | null, newAnalysis: Analysis
 	const remove: AnalysisItem[] = [];
 	const matchedOld = new Set<string>();
 
-	const changedContent = changedFiles.map(f => f.content).join(" ");
-	const changedPaths = changedFiles.map(f => f.path).join(" ");
+	const changedPathsSet = new Set(changedFiles.map(f => f.path));
+
+	// 使用依赖图做受影响页面传递闭包
+	let affectedPages = new Set<string>();
+	if (dependencies && Object.keys(dependencies).length > 0) {
+		affectedPages = findAffectedPages(changedPathsSet, dependencies);
+	}
 
 	const allNew: AnalysisItem[] = [
 		...(newAnalysis.concepts || []).map(c => ({ ...c, _type: "concept" as const })),
@@ -390,7 +102,14 @@ export function diffAnalysis(oldAnalysis: Analysis | null, newAnalysis: Analysis
 			(item.level || "") === (oldItem.level || "") &&
 			(item.desc || "") === (oldItem.desc || "");
 		if (!fieldsMatch) { regen.push(item); continue; }
-		const isAffected = changedContent.includes(item.name) || changedContent.includes(itemTitle) || changedPaths.includes(item.source_file || "");
+
+		// 使用依赖图判断是否受影响（优先），降级到旧逻辑
+		const pagePath = getPagePath(item);
+		const isAffected = affectedPages.has(pagePath)
+			|| (affectedPages.size === 0 && (
+				changedPathsSet.has(item.source_file || "")
+				|| changedFiles.some(f => f.content.includes(item.name) || f.content.includes(itemTitle))
+			));
 		isAffected ? regen.push(item) : skip.push(item);
 	}
 
@@ -401,16 +120,13 @@ export function diffAnalysis(oldAnalysis: Analysis | null, newAnalysis: Analysis
 	return { regen, skip, remove };
 }
 
-export function checkAborted(signal?: AbortSignal) {
-	if (signal?.aborted) throw new Error("编译已取消");
-}
-
 export interface PageGenResult {
 	errors: Array<{ name: string; path: string; error: string }>;
 	generated: number;
 	skippedByDiff: number;
 	removed: number;
 	protectedByReview: number;
+	conflictCheckNeeded: Array<{ item: AnalysisItem; oldContent: string }>;
 }
 
 export async function generatePages(
@@ -432,17 +148,14 @@ export async function generatePages(
 	const concepts = newAnalysis.concepts || [];
 	const totalPages = concepts.length + (newAnalysis.entities?.length || 0) + (newAnalysis.sources?.length || 0);
 
-	// 构建 validPageNames 用于 wikilink 校验
 	const validPageNames = new Set<string>();
 	for (const c of concepts) validPageNames.add(c.name);
 	for (const e of (newAnalysis.entities || [])) validPageNames.add(e.name);
 	for (const s of (newAnalysis.sources || [])) validPageNames.add(s.name);
 
-	// Diff 分析
-	const { regen, skip, remove } = diffAnalysis(oldAnalysis, newAnalysis, changedFiles);
+	const { regen, skip, remove } = diffAnalysis(oldAnalysis, newAnalysis, changedFiles, cache.dependencies);
 	onProgress({ step: 3, stepName: "增量分析", detail: `新增/变化 ${regen.length}，跳过 ${skip.length}，删除 ${remove.length}`, percent: 45 });
 
-	// Mark skipped pages as outdated if their source file changed
 	const changedPathsSet = new Set(changedFiles.map(f => f.path));
 	for (const item of skip) {
 		if (item.source_file && changedPathsSet.has(item.source_file)) {
@@ -455,12 +168,13 @@ export async function generatePages(
 						const updated = existingContent.replace(/^status:\s*["']?\w+["']?\s*$/m, 'status: "outdated"');
 						await app.vault.modify(existingFile, updated);
 					}
-				} catch {}
+				} catch (e) {
+					console.warn("compile-pages: mark outdated failed:", e);
+				}
 			}
 		}
 	}
 
-	// 删除不再存在的页面，同步清理 indexEntries
 	for (const item of remove) {
 		const pagePath = getPagePath(item);
 		if (cache.pages[pagePath]) {
@@ -471,10 +185,7 @@ export async function generatePages(
 		delete cache.failedPages[pagePath];
 	}
 
-	// Phase 4b: 保护已审核页面 -- reviewed 页面如果 source 没变化，不重新生成
 	const changedPaths = new Set(changedFiles.map(f => f.path));
-
-	// 因为需要 async 读取文件，不能用 filter
 	const finalRegen: AnalysisItem[] = [];
 	const syncProtected: AnalysisItem[] = [];
 	const conflictCheckNeeded: Array<{ item: AnalysisItem; oldContent: string }> = [];
@@ -485,7 +196,6 @@ export async function generatePages(
 			try {
 				const existingContent = await app.vault.cachedRead(existingFile);
 				const head = existingContent.slice(0, 500);
-				// MOC pages are never overwritten by compilation
 				if (/^type:\s*["']?moc["']?/m.test(head)) {
 					syncProtected.push(item);
 					continue;
@@ -495,23 +205,22 @@ export async function generatePages(
 						syncProtected.push(item);
 						continue;
 					}
-					// reviewed but source changed -> conflict check
 					conflictCheckNeeded.push({ item, oldContent: existingContent });
 					finalRegen.push(item);
 					continue;
 				}
-			} catch {}
+			} catch (e) {
+				console.warn("compile-pages: read existing failed:", e);
+			}
 		}
 		finalRegen.push(item);
 	}
 
-	// 重试失败页面 (Phase 2c)
 	if (cache.failedPages) {
 		for (const [path, entry] of Object.entries(cache.failedPages)) {
 			if (entry.failCount < 3) {
 				const existing = finalRegen.find(r => getPagePath(r as AnalysisItem) === path);
 				if (!existing) {
-					// 需要从 newAnalysis 中找到对应条目重试
 					const allItems: AnalysisItem[] = [
 						...(newAnalysis.concepts || []).map(c => ({ ...c, _type: "concept" as const })),
 						...(newAnalysis.entities || []).map(e => ({ ...e, _type: "entity" as const })),
@@ -524,47 +233,50 @@ export async function generatePages(
 		}
 	}
 
-	// 构建生成任务
 	const tasks = await Promise.all(finalRegen.map(item => buildTask(item, allFiles, concepts, tpl, settings)));
 	let pagesDone = skip.length + syncProtected.length;
 	const errors: Array<{ name: string; path: string; error: string }> = [];
 
 	if (!cache.failedPages) cache.failedPages = {};
 
-	// 批量生成概念/实体/来源页面
-	for (let i = 0; i < tasks.length; i += BATCH) {
+	// 使用 callLLMBatch 替代手写循环，带独立重试和批次间延迟
+	if (tasks.length > 0) {
 		checkAborted(signal);
-		const batch = tasks.slice(i, i + BATCH);
-		onProgress({ step: 3, stepName: "生成 wiki", detail: `生成中 (${batch.length} 个)...`, percent: 45 + Math.floor((i / Math.max(tasks.length, 1)) * 40), pagesDone, pagesTotal: totalPages });
+		onProgress({ step: 3, stepName: "生成 wiki", detail: `生成中 (${tasks.length} 个)...`, percent: 50, pagesDone, pagesTotal: totalPages });
 
-		const results = await Promise.allSettled(batch.map(async (task) => {
-			const raw = await callLLM([{ role: "system", content: task.system }, { role: "user", content: task.prompt }], settings, { temperature: task.temp, signal });
-			const page = postProcessPage(raw, task.item._type, task.item, tpl, validPageNames);
-			await writeWikiFile(app, wikiFolder, task.path, page);
-			cache.pages[task.path] = { key: task.item.name, generatedAt: new Date().toISOString() };
-			// 成功则清除失败记录
-			delete cache.failedPages[task.path];
+		const batchTasks: BatchTask[] = tasks.map(task => ({
+			messages: [{ role: "system", content: task.system }, { role: "user", content: task.prompt }],
+			options: { temperature: task.temp, signal },
 		}));
 
-		for (let j = 0; j < results.length; j++) {
-			if (results[j].status === "rejected") {
-				const errMsg = (results[j] as PromiseRejectedResult).reason?.message || "未知错误";
-				errors.push({ name: batch[j].name, path: batch[j].path, error: errMsg });
-				// 记录失败 (Phase 2c)
-				cache.failedPages[batch[j].path] = {
-					name: batch[j].name,
-					path: batch[j].path,
+		const batchResults = await callLLMBatch(batchTasks, settings, { concurrency: 5, batchDelay: 500, perItemRetry: 3, signal });
+
+		for (let j = 0; j < batchResults.length; j++) {
+			const result = batchResults[j];
+			const task = tasks[j];
+			if (result.status === "fulfilled" && result.value) {
+				const page = postProcessPage(result.value, task.item._type, task.item, tpl, validPageNames);
+				await writeWikiFile(app, wikiFolder, task.path, page);
+				cache.pages[task.path] = { key: task.item.name, generatedAt: new Date().toISOString() };
+				delete cache.failedPages[task.path];
+			} else {
+				const errMsg = result.reason || "未知错误";
+				errors.push({ name: task.name, path: task.path, error: errMsg });
+				cache.failedPages[task.path] = {
+					name: task.name,
+					path: task.path,
 					error: errMsg,
-					failCount: (cache.failedPages[batch[j].path]?.failCount || 0) + 1,
+					failCount: (cache.failedPages[task.path]?.failCount || 0) + 1,
 					lastFailedAt: new Date().toISOString(),
 				};
 			}
+			pagesDone++;
 		}
-		pagesDone += batch.length;
 		await getStorage(app, plugin).saveData(cache);
 	}
 
-	// 批量生成 synthesis 页面
+
+	// Synthesis 页面生成
 	const syntheses = newAnalysis.syntheses || [];
 	if (syntheses.length > 0) {
 		checkAborted(signal);
@@ -605,13 +317,31 @@ export async function generatePages(
 		await getStorage(app, plugin).saveData(cache);
 	}
 
-	// Phase 6: Conflict detection for reviewed pages with changed sources
-	if (conflictCheckNeeded.length > 0) {
-		checkAborted(signal);
-		onProgress({ step: 3, stepName: "Conflict check", detail: `Checking ${conflictCheckNeeded.length} pages for conflicts...`, percent: 92 });
+	return {
+		errors,
+		generated: finalRegen.length - errors.length,
+		skippedByDiff: skip.length,
+		removed: remove.length,
+		protectedByReview: syncProtected.length,
+		conflictCheckNeeded,
+	};
+}
+
+// 异步冲突检测（post-compile，不阻塞主流程）
+	export async function runConflictDetection(
+		conflictCheckNeeded: Array<{ item: AnalysisItem; oldContent: string }>,
+		wikiFolder: string,
+		app: App,
+		settings: PluginSettings,
+		tpl: TemplateConfig,
+		signal?: AbortSignal,
+	): Promise<number> {
+		if (conflictCheckNeeded.length === 0) return 0;
+		let conflictsFound = 0;
 		const tplConflictHeader = tpl.conflictHeader;
 
 		for (const { item, oldContent } of conflictCheckNeeded) {
+			if (signal?.aborted) break;
 			const pagePath = getPagePath(item);
 			const newFile = app.vault.getAbstractFileByPath(`${wikiFolder}/${pagePath}`);
 			if (!(newFile instanceof TFile)) continue;
@@ -626,10 +356,10 @@ export async function generatePages(
 					{ role: "user", content: `Compare old vs new page "${item.name}".
 
 OLD:
-${oldStripped.slice(0, 3000)}
+${'$'}{oldStripped.slice(0, 3000)}
 
 NEW:
-${newStripped.slice(0, 3000)}
+${'$'}{newStripped.slice(0, 3000)}
 
 Contradictions? JSON only: {"has_conflict":bool,"description":"...","old_view":"...","new_view":"..."}` },
 				], settings, { maxTokens: 500, temperature: 0.1, signal });
@@ -638,23 +368,21 @@ Contradictions? JSON only: {"has_conflict":bool,"description":"...","old_view":"
 				if (jsonMatch) {
 					const parsed = JSON.parse(jsonMatch[0]);
 					if (parsed.has_conflict) {
-						const section = `\n\n## ${tplConflictHeader}\n> ${parsed.description || ""}\n> **Old**: ${parsed.old_view || ""}\n> **New**: ${parsed.new_view || ""}`;
+						conflictsFound++;
+						const section = `\n\n## ${'$'}{tplConflictHeader}\n> ${'$'}{parsed.description || ""}\n> **Old**: ${'$'}{parsed.old_view || ""}\n> **New**: ${'$'}{parsed.new_view || ""}`;
 						const updated = newContent.replace(/\n*$/, "") + section + "\n";
 						const withStatus = updated.replace(/^status:\s*["']?\w+["']?\s*$/m, 'status: "conflict"');
 						await app.vault.modify(newFile, withStatus);
 					}
 				}
-			} catch {
-				// conflict check failure should not block main flow
+			} catch (e) {
+				console.warn("compile-pages: conflict check failed:", e);
 			}
 		}
+		return conflictsFound;
 	}
 
-	return {
-		errors,
-		generated: finalRegen.length - errors.length,
-		skippedByDiff: skip.length,
-		removed: remove.length,
-		protectedByReview: syncProtected.length,
-	};
-}
+// Re-export for backward compatibility
+export { parseAnalysisJSON, validateAnalysis, ensureDraftStatus, postProcessPage, mergeAnalysis, getPagePath, checkAborted } from "./compile-analysis";
+export type { AnalysisItem } from "./compile-analysis";
+export { findRelevantMaterials } from "./compile-materials";

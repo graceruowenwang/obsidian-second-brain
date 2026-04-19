@@ -12,11 +12,13 @@ import { runCompile } from "./core/compile";
 import { readRawFiles, diffFingerprints, emptyCache } from "./core/file-utils";
 import { t } from "./core/i18n";
 import { SetupWizardModal } from "./ui/setup-wizard";
-import { validateLicense, isPro, needsRevalidation, enterGraceIfNeeded, checkGraceExpiry, checkTrialExpiry, getDefaultLicense, getTrialLicense } from "./core/license";
+import { validateLicense, isPro, needsRevalidation, enterGraceIfNeeded, checkGraceExpiry, checkTrialExpiry, getDefaultLicense, getTrialLicense, getTrialDaysLeft } from "./core/license";
 import { requirePro, showUpgradeNotice } from "./core/feature-gate";
 import { quickIngest } from "./core/quick-ingest";
+import { computeWikiHealth } from "./core/health";
+import { SecondBrainSettingTab } from "./ui/settings-tab";
 
-export default class SecondBrain extends Plugin {
+export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 	settings!: PluginSettings;
 	licenseInfo: LicenseInfo = getDefaultLicense();
 	private autoCompileTimer: ReturnType<typeof setTimeout> | null = null;
@@ -37,7 +39,7 @@ export default class SecondBrain extends Plugin {
 		if (this.settings.setupCompleted && !this.settings.licenseKey && this.licenseInfo.plan === "free") {
 			this.licenseInfo = getTrialLicense();
 			await this.saveLicenseInfo();
-			new Notice(t("license.trialNotice", lang));
+			new Notice(t("license.trialNotice", lang, { days: getTrialDaysLeft(this.licenseInfo) }));
 		}
 
 		// Pro 激活引导（仅首次）
@@ -48,9 +50,9 @@ export default class SecondBrain extends Plugin {
 		}
 
 		// 注册 View
-		this.registerView(VIEW_TYPE_COMPILE, (leaf) => new CompileView(leaf, this as unknown as SecondBrainPlugin));
-		this.registerView(VIEW_TYPE_CHAT, (leaf) => new ChatView(leaf, this as unknown as SecondBrainPlugin));
-		this.registerView(VIEW_TYPE_WIKI, (leaf) => new WikiView(leaf, this as unknown as SecondBrainPlugin));
+		this.registerView(VIEW_TYPE_COMPILE, (leaf) => new CompileView(leaf, this));
+		this.registerView(VIEW_TYPE_CHAT, (leaf) => new ChatView(leaf, this));
+		this.registerView(VIEW_TYPE_WIKI, (leaf) => new WikiView(leaf, this));
 
 		// 左侧栏图标
 		const ribbonCompile = this.addRibbonIcon("zap", t("cmd.compileWiki", lang), () => this.activateView(VIEW_TYPE_COMPILE));
@@ -107,13 +109,13 @@ export default class SecondBrain extends Plugin {
 		// 命令：捕获当前笔记到 inbox
 		this.addCommand({
 			id: "capture-to-inbox",
-			name: "Capture current note to inbox",
+			name: t("cmd.captureToInbox", lang),
 			hotkeys: [{ modifiers: ["Mod", "Shift"], key: "i" }],
 			editorCallback: async (editor: Editor, view: MarkdownView) => {
 				const file = view.file;
 				if (!file) return;
 				const content = editor.getValue();
-				if (!content.trim()) { new Notice("Empty note"); return; }
+				if (!content.trim()) { new Notice(t("notice.emptyNote", lang)); return; }
 				const today = new Date().toISOString().split("T")[0];
 				const title = file.basename || today;
 				const inboxPath = `${this.settings.rawFolder}/06-flash_notes/inbox/${today}-${title}.md`;
@@ -133,7 +135,7 @@ export default class SecondBrain extends Plugin {
 					}
 					await this.app.vault.create(inboxPath, content);
 				}
-				new Notice(`Captured to ${inboxPath}`);
+				new Notice(t("notice.capturedTo", lang, { path: inboxPath }));
 			},
 		});
 
@@ -170,6 +172,31 @@ export default class SecondBrain extends Plugin {
 		);
 
 		console.log("Second Brain plugin loaded");
+
+		// 笔记衰减通知
+		this.checkStalePages();
+	}
+
+	private async checkStalePages() {
+		try {
+			const { wikiFolder } = this.settings;
+			const lang = this.settings.language;
+			const wikiFiles = this.app.vault.getMarkdownFiles()
+				.filter(f => f.path.startsWith(wikiFolder + "/") && !f.path.endsWith("/index.md") && !f.path.endsWith("/log.md"));
+			if (wikiFiles.length === 0) return;
+
+			const pages = await Promise.all(wikiFiles.map(async f => ({
+				path: f.path,
+				content: await this.app.vault.cachedRead(f),
+			})));
+			const health = computeWikiHealth(pages);
+			if (health.stalePages.length > 0) {
+				const n = health.stalePages.length;
+				new Notice(t("notice.stalePages", lang, { n }));
+			}
+		} catch {
+			// 静默失败，不影响启动
+		}
 	}
 
 	onunload() {
@@ -294,7 +321,8 @@ export default class SecondBrain extends Plugin {
 				new Notice(t("notice.detectNew", this.settings.language, { n: changed.length }));
 				this.triggerAutoCompile();
 			}
-		} catch {
+		} catch (e) {
+		console.warn("main:", e);
 		}
 	}
 
@@ -378,5 +406,3 @@ export default class SecondBrain extends Plugin {
 		modal.open();
 	}
 }
-
-import { SecondBrainSettingTab } from "./ui/settings-tab";

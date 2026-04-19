@@ -2091,3 +2091,500 @@ pre:hover .sb-copy-btn {
 	color: var(--text-faint);
 	line-height: 1.4;
 }
+
+/* === Health Dashboard === */
+.sb-health {
+	margin-bottom: 20px;
+}
+.sb-health-row {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+.sb-health-bar {
+	flex: 1;
+	height: 6px;
+	background: var(--background-modifier-border);
+	border-radius: 3px;
+	overflow: hidden;
+}
+.sb-health-fill {
+	height: 100%;
+	border-radius: 3px;
+	transition: width 0.3s ease, background 0.3s ease;
+}
+.sb-health-stats {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	flex-shrink: 0;
+}
+.sb-health-badge {
+	font-size: 13px;
+	font-weight: 700;
+	color: var(--interactive-accent);
+}
+.sb-health-label {
+	font-size: 10px;
+	color: var(--text-muted);
+}
+.sb-health-sep {
+	font-size: 10px;
+	color: var(--text-faint);
+	margin: 0 2px;
+}
+.sb-health-stale-toggle {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-top: 8px;
+	cursor: pointer;
+	padding: 4px 0;
+}
+.sb-health-stale-toggle:hover .sb-health-stale-label {
+	color: var(--interactive-accent);
+}
+.sb-health-stale-label {
+	font-size: 11px;
+	color: var(--text-muted);
+}
+.sb-health-toggle-icon {
+	font-size: 10px;
+	color: var(--text-faint);
+}
+.sb-health-stale-list {
+	margin-top: 4px;
+	padding-left: 12px;
+}
+.sb-health-stale-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 3px 0;
+}
+.sb-health-stale-name {
+	font-size: 12px;
+	color: var(--text-normal);
+	cursor: pointer;
+}
+.sb-health-stale-name:hover {
+	color: var(--interactive-accent);
+}
+.sb-health-stale-days {
+	font-size: 10px;
+	color: var(--text-warning);
+}
+.sb-health-stale-level {
+	font-size: 10px;
+	color: var(--text-faint);
+	background: var(--background-secondary);
+	padding: 1px 6px;
+	border-radius: 8px;
+}
+
+/* === Compile History === */
+.sb-compile-history {
+	margin-bottom: 8px;
+	padding: 8px 0;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+.sb-compile-history-title {
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--text-muted);
+	margin: 0 0 6px;
+	padding: 0;
+	letter-spacing: 0.3px;
+	text-transform: uppercase;
+}
+.sb-history-entry {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 3px 0;
+	font-size: 11px;
+}
+.sb-history-tag {
+	font-size: 9px;
+	padding: 1px 6px;
+	border-radius: 8px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.3px;
+}
+.sb-history-tag-full {
+	background: rgba(139, 92, 246, 0.15);
+	color: #8b5cf6;
+}
+.sb-history-tag-incremental {
+	background: rgba(34, 197, 94, 0.15);
+	color: #22c55e;
+}
+.sb-history-tag-single {
+	background: rgba(59, 130, 246, 0.15);
+	color: #3b82f6;
+}
+.sb-history-date {
+	color: var(--text-muted);
+	font-size: 11px;
+}
+.sb-history-changes {
+	color: var(--text-normal);
+	font-weight: 600;
+	font-size: 11px;
+	font-family: var(--font-monospace);
+}
+.sb-history-duration {
+	color: var(--text-faint);
+	font-size: 10px;
+	margin-left: auto;
+}
+.sb-history-detail-toggle {
+	cursor: pointer;
+	color: var(--text-faint);
+	padding: 0 4px;
+}
+.sb-history-detail-toggle:hover {
+	color: var(--interactive-accent);
+}
+.sb-history-detail {
+	padding: 2px 0 4px 24px;
+}
+.sb-history-detail-item {
+	font-size: 10px;
+	color: var(--text-muted);
+	padding: 1px 0;
+	font-family: var(--font-monospace);
+}
+
+/* === Phase 4: Feature 1 — Setup Wizard Welcome === */
+.sb-wizard-value-cards {
+	display: flex;
+	gap: 12px;
+	margin: 16px 0;
+	flex-wrap: wrap;
+}
+.sb-wizard-value-card {
+	flex: 1;
+	min-width: 140px;
+	padding: 16px;
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	text-align: center;
+}
+.sb-wizard-value-icon {
+	width: 36px;
+	height: 36px;
+	border-radius: 50%;
+	margin: 0 auto 8px;
+	background: var(--interactive-accent);
+	opacity: 0.15;
+}
+.sb-wizard-value-card h4 {
+	margin: 0 0 4px;
+	font-size: 13px;
+}
+.sb-wizard-value-card p {
+	margin: 0;
+	font-size: 11px;
+	color: var(--text-muted);
+	line-height: 1.4;
+}
+.sb-wizard-comparison {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin: 16px 0;
+	flex-wrap: wrap;
+}
+.sb-wizard-compare-box {
+	flex: 1;
+	min-width: 150px;
+	padding: 12px;
+	border-radius: 8px;
+	position: relative;
+}
+.sb-wizard-compare-before {
+	background: rgba(239, 68, 68, 0.08);
+	border: 1px solid rgba(239, 68, 68, 0.2);
+}
+.sb-wizard-compare-after {
+	background: rgba(34, 197, 94, 0.08);
+	border: 1px solid rgba(34, 197, 94, 0.2);
+}
+.sb-wizard-compare-label {
+	font-size: 10px;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	color: var(--text-muted);
+	display: block;
+	margin-bottom: 6px;
+}
+.sb-wizard-compare-content {
+	font-size: 12px;
+	color: var(--text-normal);
+	line-height: 1.5;
+}
+.sb-wizard-compare-arrow {
+	font-size: 20px;
+	color: var(--text-faint);
+	flex-shrink: 0;
+}
+
+/* === Phase 4: Feature 2 — Compile Stats Badges === */
+.sb-compile-stat-badge {
+	display: inline-flex;
+	flex-direction: column;
+	align-items: center;
+	padding: 8px 16px;
+	border-radius: 8px;
+	min-width: 70px;
+}
+.sb-compile-stat-num {
+	font-size: 20px;
+	font-weight: 700;
+	line-height: 1;
+}
+.sb-compile-stat-label {
+	font-size: 10px;
+	margin-top: 2px;
+}
+.sb-stat-new {
+	background: rgba(34, 197, 94, 0.1);
+	color: #22c55e;
+}
+.sb-stat-modified {
+	background: rgba(59, 130, 246, 0.1);
+	color: #3b82f6;
+}
+.sb-stat-relations {
+	background: rgba(139, 92, 246, 0.1);
+	color: #8b5cf6;
+}
+.sb-stat-total {
+	background: rgba(234, 179, 8, 0.1);
+	color: #eab308;
+}
+
+/* === Phase 4: Feature 3 — Source Citations === */
+.sb-wiki-sources {
+	margin: 8px 0;
+	padding: 10px 14px;
+	background: var(--background-secondary);
+	border-radius: 8px;
+	border: 1px solid var(--background-modifier-border);
+}
+.sb-wiki-sources-title {
+	font-size: 12px;
+	margin: 0 0 8px;
+	color: var(--text-muted);
+	font-weight: 600;
+}
+.sb-wiki-source-group {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	flex-wrap: wrap;
+	margin-bottom: 6px;
+}
+.sb-wiki-source-type-label {
+	font-size: 10px;
+	color: var(--text-faint);
+	font-weight: 600;
+	min-width: 60px;
+}
+.sb-wiki-source-chip {
+	font-size: 11px;
+	padding: 2px 8px;
+	border-radius: 4px;
+	cursor: pointer;
+	text-decoration: none;
+	transition: opacity 0.15s;
+}
+.sb-wiki-source-chip:hover {
+	opacity: 0.8;
+}
+.sb-wiki-source-original {
+	background: rgba(34, 197, 94, 0.12);
+	color: #22c55e;
+	border: 1px solid rgba(34, 197, 94, 0.25);
+}
+.sb-wiki-source-reference {
+	background: rgba(59, 130, 246, 0.12);
+	color: #3b82f6;
+	border: 1px solid rgba(59, 130, 246, 0.25);
+}
+
+/* === Phase 4: Feature 4 — Section Regenerate === */
+.sb-wiki-regen-btn {
+	position: absolute;
+	right: 0;
+	top: 50%;
+	transform: translateY(-50%);
+	font-size: 10px;
+	padding: 2px 8px;
+	border: 1px solid var(--interactive-accent);
+	border-radius: 4px;
+	background: var(--background-primary);
+	color: var(--interactive-accent);
+	cursor: pointer;
+	opacity: 0.8;
+	transition: opacity 0.15s;
+	z-index: 5;
+}
+.sb-wiki-regen-btn:hover {
+	opacity: 1;
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+/* === Phase 4: Feature 5 — Growth Stats Panel === */
+.sb-wiki-growth-panel {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	padding: 10px 14px;
+	margin-bottom: 12px;
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	flex-wrap: wrap;
+}
+.sb-growth-stat {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	min-width: 50px;
+}
+.sb-growth-num {
+	font-size: 18px;
+	font-weight: 700;
+	color: var(--text-normal);
+	line-height: 1;
+}
+.sb-growth-draft {
+	color: #eab308;
+}
+.sb-growth-reviewed {
+	color: #22c55e;
+}
+.sb-growth-label {
+	font-size: 10px;
+	color: var(--text-muted);
+	margin-top: 2px;
+}
+.sb-growth-progress-wrap {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-left: auto;
+}
+.sb-growth-progress-bar {
+	width: 100px;
+	height: 6px;
+	background: var(--background-modifier-border);
+	border-radius: 3px;
+	overflow: hidden;
+}
+.sb-growth-progress-fill {
+	height: 100%;
+	background: #22c55e;
+	border-radius: 3px;
+	transition: width 0.3s ease;
+}
+
+/* === Phase 4: Feature 6 — Chat Free Quota === */
+.sb-chat-quota-tag {
+	font-size: 11px;
+	padding: 2px 8px;
+	border-radius: 4px;
+	background: rgba(234, 179, 8, 0.12);
+	color: #eab308;
+	border: 1px solid rgba(234, 179, 8, 0.25);
+	margin-left: 6px;
+}
+.sb-chat-quota-msg {
+	font-size: 12px;
+	color: var(--text-muted);
+	text-align: center;
+	margin: 8px 0;
+}
+
+/* === Phase 4: Feature 7 — Needs Update Badge === */
+.sb-status-needs-update {
+	background: rgba(234, 179, 8, 0.12);
+	color: #eab308;
+	border: 1px solid rgba(234, 179, 8, 0.25);
+}
+.sb-wiki-card-needs-update {
+	border-color: rgba(234, 179, 8, 0.3) !important;
+}
+.sb-wiki-filter-btn {
+	font-size: 11px;
+	padding: 4px 10px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	background: transparent;
+	color: var(--text-muted);
+	cursor: pointer;
+	transition: all 0.15s;
+}
+.sb-wiki-filter-btn:hover {
+	background: var(--background-modifier-hover);
+}
+.sb-wiki-filter-btn.active {
+	background: rgba(234, 179, 8, 0.12);
+	color: #eab308;
+	border-color: rgba(234, 179, 8, 0.3);
+}
+
+/* === Recent Updates Card Date === */
+.sb-wiki-card-date {
+	font-size: 10px;
+	color: var(--text-faint);
+	margin-left: auto;
+	white-space: nowrap;
+}
+.sb-wiki-card .sb-wiki-card-title + .sb-wiki-card-date {
+	display: block;
+	margin: 2px 0 0;
+}
+
+/* === 使用统计 === */
+.sb-usage-stats {
+	margin: 8px 0;
+	padding: 10px;
+	background: var(--background-secondary);
+	border-radius: 8px;
+}
+.sb-stats-title {
+	margin: 0 0 8px;
+	font-size: 13px;
+	color: var(--text-muted);
+}
+.sb-stats-grid {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+.sb-stat-cell {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	padding: 6px 10px;
+	background: var(--background-primary);
+	border-radius: 6px;
+	min-width: 60px;
+}
+.sb-stat-value {
+	font-size: 16px;
+	font-weight: 600;
+	color: var(--text-normal);
+}
+.sb-stat-label {
+	font-size: 10px;
+	color: var(--text-muted);
+	margin-top: 2px;
+}

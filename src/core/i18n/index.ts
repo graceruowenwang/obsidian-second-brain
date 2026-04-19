@@ -21,7 +21,7 @@ const T: Record<string, Record<string, string>> = {
 export function t(key: string, lang: string, params?: Params): string {
 	const template = T[lang]?.[key] ?? T["zh-CN"]?.[key] ?? key;
 	if (!params) return template;
-	return template.replace(/\{\{(\w+)\}\}/g, (_, k) =>
-		String(params[k] ?? `{{${k}}}`)
+	return template.replace(/\{(\w+)\}/g, (_, k) =>
+		String(params[k] ?? `{${k}}`)
 	);
 }

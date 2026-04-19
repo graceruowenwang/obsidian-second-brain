@@ -401,8 +401,9 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 		const rawItem = bar.createDiv({ cls: "sb-health-item" });
 		const rawFolder = this.plugin.settings.rawFolder;
 		const rawExists = !!this.app.vault.getAbstractFileByPath(rawFolder);
+		const rawFileCount = rawExists ? this.app.vault.getFiles().filter(f => f.path.startsWith(rawFolder + "/")).length : 0;
 		rawItem.createEl("span", { cls: `sb-health-dot ${rawExists ? "sb-health-ok" : "sb-health-err"}` });
-		rawItem.createEl("span", { text: rawExists ? t("health.rawOk", lang) : t("health.rawFail", lang), cls: "sb-health-label" });
+		rawItem.createEl("span", { text: rawExists ? t("health.rawOk", lang, { n: rawFileCount }) : t("health.rawFail", lang), cls: "sb-health-label" });
 
 		// 编译状态
 		const compileItem = bar.createDiv({ cls: "sb-health-item" });

@@ -2,11 +2,12 @@
 
 import { ItemView, WorkspaceLeaf, Notice, MarkdownRenderer, Component } from "obsidian";
 import { callLLMStream } from "../core/llm";
-import { readWikiFiles, findRelevantPages, filesToMap, vectorSearch, buildEmbeddingCache } from "../core/file-utils";
+import { readWikiFiles, filesToMap, vectorSearch, buildEmbeddingCache } from "../core/file-utils";
 import type { SecondBrainPlugin } from "../types";
 import { openPluginSettings } from "../types";
 import { t, LANG_INSTRUCTION } from "../core/i18n";
-import { requirePro, showUpgradeNotice } from "../core/feature-gate";
+import { requirePro } from "../core/feature-gate";
+import { isPro, checkFreeChatQuota, incrementFreeChatUsage } from "../core/license";
 
 export const VIEW_TYPE_CHAT = "second-brain-chat";
 
@@ -37,8 +38,9 @@ export class ChatView extends ItemView {
 		container.classList.add("second-brain-chat");
 		const lang = this.plugin.settings.language;
 
-		// Pro 门控 — Issue #7: show feature highlights + blurred preview
-		if (!requirePro(this.plugin.licenseInfo, "ai-chat")) {
+		// Freemium Chat: Pro 无限制，Free 用户每月 3 条
+		const quota = checkFreeChatQuota(this.plugin.licenseInfo);
+		if (!requirePro(this.plugin.licenseInfo, "ai-chat") && !quota.allowed) {
 			const overlay = container.createDiv({ cls: "sb-pro-locked-overlay" });
 			overlay.createEl("h2", { text: t("license.upgradeTitle", lang) });
 			overlay.createEl("p", { text: t("license.feature.ai-chat", lang) + " -- " + t("license.upgradeDesc", lang, { feature: t("license.feature.ai-chat", lang) }) });
@@ -62,6 +64,7 @@ export class ChatView extends ItemView {
 			previewMsg.createEl("div", { cls: "sb-bubble", text: "..." });
 
 			const btnRow = overlay.createDiv({ cls: "sb-pro-locked-btns" });
+			overlay.createEl("p", { text: t("chat.freeQuotaUsed", lang, { limit: quota.limit }), cls: "sb-chat-quota-msg" });
 			const upgradeBtn = btnRow.createEl("button", { text: t("license.upgradeBtn", lang), cls: "mod-cta" });
 			upgradeBtn.addEventListener("click", () => {
 				(window as any).open(t("license.purchaseUrl", lang));
@@ -80,6 +83,11 @@ export class ChatView extends ItemView {
 		// Pro 增强信息：模型 + 索引状态
 		const proInfo = titleRow.createDiv({ cls: "sb-chat-pro-info" });
 		proInfo.createEl("span", { text: t("pro.chat.model", lang, { model: this.plugin.settings.model }), cls: "sb-chat-pro-tag" });
+			if (!isPro(this.plugin.licenseInfo)) {
+				const quota = checkFreeChatQuota(this.plugin.licenseInfo);
+				const quotaTag = proInfo.createEl("span", { cls: "sb-chat-quota-tag" });
+				quotaTag.textContent = t("chat.freeQuotaRemaining", lang, { n: quota.remaining, limit: quota.limit });
+			}
 		const clearBtn = header.createEl("button", { text: t("chat.clear", lang), cls: "sb-chat-clear-btn" });
 		clearBtn.addEventListener("click", () => {
 			this.chatHistory = [];
@@ -220,6 +228,15 @@ export class ChatView extends ItemView {
 		const settings = this.plugin.settings;
 		const lang = settings.language;
 		if (!settings.apiKey) { new Notice(t("chat.noApiKey", lang)); return; }
+
+			// Freemium quota check
+			if (!isPro(this.plugin.licenseInfo)) {
+				const quota = checkFreeChatQuota(this.plugin.licenseInfo);
+				if (!quota.allowed) {
+					new Notice(t("chat.freeQuotaUsed", lang, { limit: quota.limit }));
+					return;
+				}
+			}
 
 		this.inputEl.value = "";
 		this.inputEl.style.height = "auto";

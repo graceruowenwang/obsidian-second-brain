@@ -3,9 +3,10 @@
 import { ItemView, WorkspaceLeaf, Notice } from "obsidian";
 import { runCompile } from "../core/compile";
 import { readRawFiles } from "../core/file-utils";
-import type { SecondBrainPlugin, ProgressEvent } from "../types";
+import type { SecondBrainPlugin, ProgressEvent, CompileResult, CompileCache, CompileHistoryEntry } from "../types";
 import { t } from "../core/i18n";
 import { isPro, getCompileTrialLicense } from "../core/license";
+import { getSuccessRate, getAvgDurationSec } from "../core/usage-stats";
 
 export const VIEW_TYPE_COMPILE = "second-brain-compile";
 
@@ -15,6 +16,7 @@ function userFriendlyError(error: string, lang: string): string {
 	if (error.includes("timeout") || error.includes("ETIMEDOUT")) return t("compile.error.timeout", lang);
 	if (error.includes("network") || error.includes("ECONNREFUSED") || error.includes("fetch")) return t("compile.error.network", lang);
 	if (error.includes("JSON") || error.includes("json") || error.includes("parse")) return t("compile.error.parseError", lang);
+	if (error.includes("empty") || error.includes("为空")) return t("compile.error.rawEmpty", lang);
 	return t("compile.error.unknown", lang, { msg: error });
 }
 
@@ -96,6 +98,10 @@ export class CompileView extends ItemView {
 
 		// 加载 raw 文件列表
 		this.loadRawFileList();
+		// 使用统计
+		this.renderStats();
+		// Compile history
+		this.renderHistory();
 	}
 
 	private async loadRawFileList() {
@@ -227,7 +233,7 @@ export class CompileView extends ItemView {
 
 			// 编译摘要
 			const elapsed = Math.round((Date.now() - this.compileStartTime) / 1000);
-			this.renderCompileSummary(elapsed, errorCount, force);
+			this.renderCompileSummary(elapsed, errorCount, force, result);
 
 			// 首次编译成功 → 触发 3 天 Pro 试用
 			if (!isPro(this.plugin.licenseInfo) && !this.plugin.settings.licenseKey) {
@@ -256,7 +262,7 @@ export class CompileView extends ItemView {
 		}
 	}
 
-	private renderCompileSummary(elapsedSec: number, errorCount: number, force: boolean) {
+	private renderCompileSummary(elapsedSec: number, errorCount: number, force: boolean, result?: CompileResult) {
 		const lang = this.plugin.settings.language;
 		// 移除旧摘要
 		const old = this.logEl.parentElement?.querySelector(".sb-compile-summary");
@@ -265,23 +271,139 @@ export class CompileView extends ItemView {
 		const summary = this.logEl.parentElement!.createDiv({ cls: "sb-compile-summary" });
 		const header = summary.createDiv({ cls: "sb-compile-summary-header" });
 		header.createEl("span", { text: t("compile.summaryTitle", lang) });
-		const stats = summary.createDiv({ cls: "sb-compile-summary-stats" });
-		stats.createEl("span", { text: t("compile.summaryTime", lang, { t: elapsedSec }) });
+
+		// Stats badge row
+		const badges = summary.createDiv({ cls: "sb-compile-summary-badges" });
+		const newCount = result?.report?.newConcepts.length ?? 0;
+		const modCount = result?.report?.modifiedConcepts.length ?? 0;
+		const relCount = result?.changeImpact?.length ?? 0;
+		const totalPages = result ? result.conceptsCount + result.entitiesCount + result.sourcesCount : 0;
+		const statEntries = [
+			{ value: newCount, labelKey: "compile.statsNew", cls: "sb-stat-new" },
+			{ value: modCount, labelKey: "compile.statsModified", cls: "sb-stat-modified" },
+			{ value: relCount, labelKey: "compile.statsRelations", cls: "sb-stat-relations" },
+			{ value: totalPages, labelKey: "compile.statsTotal", cls: "sb-stat-total" },
+		];
+		for (const s of statEntries) {
+			const badge = badges.createDiv({ cls: `sb-compile-stat-badge ${s.cls}` });
+			badge.createEl("span", { text: String(s.value), cls: "sb-compile-stat-num" });
+			badge.createEl("span", { text: t(s.labelKey, lang), cls: "sb-compile-stat-label" });
+		}
+
+		// Time
+		const timeEl = summary.createDiv({ cls: "sb-compile-summary-time" });
+		timeEl.createEl("span", { text: t("compile.summaryTime", lang, { t: elapsedSec }) });
+
 		if (errorCount > 0) {
-			stats.createEl("span", { text: t("compile.summaryFailed", lang, { n: errorCount }) });
-			const retryBtn = summary.createEl("button", { text: t("compile.retryFailed", lang), cls: "sb-retry-btn" });
+			const failEl = summary.createDiv({ cls: "sb-compile-summary-fail" });
+			failEl.createEl("span", { text: t("compile.summaryFailed", lang, { n: errorCount }) });
+			const retryBtn = failEl.createEl("button", { text: t("compile.retryFailed", lang), cls: "sb-retry-btn" });
 			retryBtn.addEventListener("click", () => {
 				summary.remove();
 				this.startCompile(force);
 			});
 		}
+
+			// Next step guidance
+			if (errorCount === 0 && totalPages > 0) {
+				const guideEl = summary.createDiv({ cls: "sb-compile-guide" });
+				const viewBtn = guideEl.createEl("button", { text: t("compile.viewWiki", lang), cls: "sb-compile-guide-btn mod-cta" });
+				viewBtn.addEventListener("click", () => {
+					this.plugin.activateView("second-brain-wiki");
+				});
+			}
+
 		// 插入到 logEl 之前
 		this.logEl.parentElement!.insertBefore(summary, this.logEl);
+	}
+
+
+	private async renderHistory() {
+		const lang = this.plugin.settings.language;
+		const container = this.containerEl.children[1] as HTMLElement;
+
+		const existing = container.querySelector('.sb-compile-history');
+		if (existing) existing.remove();
+
+		const cache = await (this.plugin as any).loadData() as CompileCache | null;
+		const history = cache?.compileHistory;
+		if (!history || history.length === 0) return;
+
+		const historyEl = container.createDiv({ cls: "sb-compile-history" });
+		historyEl.createEl("h4", { text: t("compile.historyTitle", lang), cls: "sb-compile-history-title" });
+
+		for (const entry of history.slice(0, 10)) {
+			const row = historyEl.createDiv({ cls: "sb-history-entry" });
+
+			const tagMap: Record<string, string> = { full: "compile.historyFull", incremental: "compile.historyIncremental", single: "compile.historySingle" };
+			const tag = row.createEl("span", { text: t(tagMap[entry.action] || "compile.historyIncremental", lang), cls: "sb-history-tag sb-history-tag-" + entry.action });
+
+			const dateStr = new Date(entry.date).toLocaleDateString();
+			row.createEl("span", { text: dateStr, cls: "sb-history-date" });
+
+			const changes: string[] = [];
+			if (entry.added.length > 0) changes.push("+" + entry.added.length);
+			if (entry.modified.length > 0) changes.push("~" + entry.modified.length);
+			if (entry.removed.length > 0) changes.push("-" + entry.removed.length);
+			row.createEl("span", { text: changes.join(" "), cls: "sb-history-changes" });
+
+			const sec = Math.round(entry.durationMs / 1000);
+			row.createEl("span", { text: t("compile.historyDuration", lang, { t: sec }), cls: "sb-history-duration" });
+
+			if (entry.added.length > 0 || entry.modified.length > 0) {
+				const detailBtn = row.createEl("span", { text: "...", cls: "sb-history-detail-toggle" });
+				const detailEl = historyEl.createDiv({ cls: "sb-history-detail" });
+				detailEl.style.display = "none";
+				const names = [...entry.added.map(n => "+ " + n), ...entry.modified.map(n => "~ " + n), ...entry.removed.map(n => "- " + n)];
+				for (const name of names) {
+					detailEl.createEl("div", { text: name, cls: "sb-history-detail-item" });
+				}
+				detailBtn.addEventListener("click", () => {
+					const open = detailEl.style.display !== "none";
+					detailEl.style.display = open ? "none" : "";
+					detailBtn.textContent = open ? "..." : "▲";
+				});
+			}
+		}
+
+		this.logEl.parentElement?.insertBefore(historyEl, this.logEl);
 	}
 
 	addLog(text: string, cls: string) {
 		this.logEl.createDiv({ cls: `sb-log-line ${cls}`, text });
 		this.logEl.scrollTop = this.logEl.scrollHeight;
+	}
+
+	private async renderStats() {
+		const lang = this.plugin.settings.language;
+		const container = this.containerEl.children[1] as HTMLElement;
+
+		const existing = container.querySelector('.sb-usage-stats');
+		if (existing) existing.remove();
+
+		const cache = await (this.plugin as any).loadData() as CompileCache | null;
+		const stats = cache?.usageStats;
+		if (!stats || stats.totalCompiles === 0) return;
+
+		const statsEl = container.createDiv({ cls: "sb-usage-stats" });
+		statsEl.createEl("h4", { text: t("stats.title", lang), cls: "sb-stats-title" });
+
+		const grid = statsEl.createDiv({ cls: "sb-stats-grid" });
+		const entries = [
+			{ value: String(stats.totalCompiles), label: t("stats.totalCompiles", lang) },
+			{ value: getSuccessRate(stats) + "%", label: t("stats.successRate", lang) },
+			{ value: getAvgDurationSec(stats) + "s", label: t("stats.avgDuration", lang) },
+			{ value: String(stats.totalConceptsGenerated), label: t("stats.totalConcepts", lang) },
+			{ value: String(stats.weeklyCompiles), label: t("stats.weeklyCompiles", lang) },
+		];
+
+		for (const e of entries) {
+			const cell = grid.createDiv({ cls: "sb-stat-cell" });
+			cell.createEl("span", { text: e.value, cls: "sb-stat-value" });
+			cell.createEl("span", { text: e.label, cls: "sb-stat-label" });
+		}
+
+		this.logEl.parentElement?.insertBefore(statsEl, this.logEl);
 	}
 
 	async onClose() {

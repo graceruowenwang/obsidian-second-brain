@@ -168,7 +168,8 @@ export async function loadTemplateConfig(
 				? userConfig.levels
 				: preset.levels,
 		};
-	} catch {
+	} catch (e) {
+		console.warn("templates: load failed:", e);
 		return preset;
 	}
 }

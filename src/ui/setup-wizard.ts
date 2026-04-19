@@ -27,14 +27,56 @@ export class SetupWizardModal extends Modal {
 		const lang = this.plugin.settings.language;
 
 		if (this.step === 0) {
-			this.renderStep1(lang);
+			this.renderStep0Welcome(lang);
 		} else if (this.step === 1) {
+			this.renderStep1(lang);
+		} else if (this.step === 2) {
 			this.renderStep2(lang);
+		} else if (this.step === 3) {
+			this.renderStep3Samples(lang);
 		} else {
-			this.renderStep3(lang);
+			this.renderStep4(lang);
 		}
 	}
 
+	// Step 0: 价值展示欢迎页
+	private renderStep0Welcome(lang: string) {
+		this.container.createEl("h2", { text: t("wizard.welcomeTitle", lang), cls: "sb-wizard-welcome-title" });
+		this.container.createEl("p", { text: t("wizard.welcomeDesc", lang), cls: "sb-wizard-welcome-desc" });
+
+		// 3 value proposition cards
+		const cardsRow = this.container.createDiv({ cls: "sb-wizard-value-cards" });
+		const cards = [
+			{ titleKey: "wizard.valueCard1Title", descKey: "wizard.valueCard1Desc", icon: "sb-wizard-icon-fragments" },
+			{ titleKey: "wizard.valueCard2Title", descKey: "wizard.valueCard2Desc", icon: "sb-wizard-icon-ai" },
+			{ titleKey: "wizard.valueCard3Title", descKey: "wizard.valueCard3Desc", icon: "sb-wizard-icon-links" },
+		];
+		for (const c of cards) {
+			const card = cardsRow.createDiv({ cls: "sb-wizard-value-card" });
+			card.createDiv({ cls: `sb-wizard-value-icon ${c.icon}` });
+			card.createEl("h4", { text: t(c.titleKey, lang) });
+			card.createEl("p", { text: t(c.descKey, lang) });
+		}
+
+		// Before/After comparison
+		const comparison = this.container.createDiv({ cls: "sb-wizard-comparison" });
+		const before = comparison.createDiv({ cls: "sb-wizard-compare-box sb-wizard-compare-before" });
+		before.createEl("span", { text: t("wizard.beforeLabel", lang), cls: "sb-wizard-compare-label" });
+		before.createDiv({ cls: "sb-wizard-compare-content", text: t("wizard.beforeSample", lang) });
+		comparison.createDiv({ cls: "sb-wizard-compare-arrow", text: "\u2192" });
+		const after = comparison.createDiv({ cls: "sb-wizard-compare-box sb-wizard-compare-after" });
+		after.createEl("span", { text: t("wizard.afterLabel", lang), cls: "sb-wizard-compare-label" });
+		after.createDiv({ cls: "sb-wizard-compare-content", text: t("wizard.afterSample", lang) });
+
+		// Buttons
+		const btnRow = this.container.createDiv({ cls: "sb-wizard-btn-row" });
+		const startBtn = btnRow.createEl("button", { text: t("wizard.startSetup", lang), cls: "mod-cta" });
+		startBtn.addEventListener("click", () => { this.step = 1; this.renderStep(); });
+		const skipBtn = btnRow.createEl("button", { text: t("wizard.skip", lang) });
+		skipBtn.addEventListener("click", () => this.finish());
+	}
+
+	// Step 1: LLM 配置 (原 Step 0)
 	private renderStep1(lang: string) {
 		this.container.createEl("h3", { text: t("wizard.step1", lang) });
 		this.container.createEl("p", { text: t("wizard.step1Desc", lang) });
@@ -90,15 +132,13 @@ export class SetupWizardModal extends Modal {
 		});
 
 		const nextBtn = btnRow.createEl("button", { text: t("wizard.next", lang), cls: "mod-cta" });
-		nextBtn.addEventListener("click", () => {
-			this.step = 1;
-			this.renderStep();
-		});
+		nextBtn.addEventListener("click", () => { this.step = 2; this.renderStep(); });
 
 		const skipBtn = btnRow.createEl("button", { text: t("wizard.skip", lang) });
 		skipBtn.addEventListener("click", () => this.finish());
 	}
 
+	// Step 2: 目录配置 (原 Step 1)
 	private async renderStep2(lang: string) {
 		this.container.createEl("h3", { text: t("wizard.step2", lang) });
 		this.container.createEl("p", { text: t("wizard.step2Desc", lang) });
@@ -131,22 +171,92 @@ export class SetupWizardModal extends Modal {
 
 		const btnRow = this.container.createDiv({ cls: "sb-wizard-btn-row" });
 		const prevBtn = btnRow.createEl("button", { text: t("wizard.prev", lang) });
-		prevBtn.addEventListener("click", () => { this.step = 0; this.renderStep(); });
+		prevBtn.addEventListener("click", () => { this.step = 1; this.renderStep(); });
 
 		const nextBtn = btnRow.createEl("button", { text: t("wizard.next", lang), cls: "mod-cta" });
-		nextBtn.addEventListener("click", () => { this.step = 2; this.renderStep(); });
+		nextBtn.addEventListener("click", () => { this.step = 3; this.renderStep(); });
 
 		const skipBtn = btnRow.createEl("button", { text: t("wizard.skip", lang) });
 		skipBtn.addEventListener("click", () => this.finish());
 	}
 
-	private renderStep3(lang: string) {
+	// Step 3: 加载示例素材
+	private async renderStep3Samples(lang: string) {
+		this.container.createEl("h3", { text: t("wizard.step3SamplesTitle", lang) });
+		this.container.createEl("p", { text: t("wizard.step3SamplesDesc", lang) });
+
+		const statusEl = this.container.createDiv({ cls: "sb-wizard-samples-status" });
+
+		// Check if raw-sample/ exists
+		const sampleFolder = this.app.vault.getAbstractFileByPath("raw-sample");
+		const rawFolder = this.plugin.settings.rawFolder;
+		const hasRaw = this.app.vault.getAbstractFileByPath(rawFolder);
+		let rawHasFiles = false;
+		if (hasRaw) {
+			const files = this.app.vault.getFiles();
+			rawHasFiles = files.some(f => f.path.startsWith(rawFolder + "/") && !f.path.includes("_usage"));
+		}
+
+		if (rawHasFiles) {
+			statusEl.createDiv({ text: t("wizard.step3SamplesAlreadyHas", lang), cls: "sb-wizard-folder-exists" });
+		} else {
+			const loadBtn = statusEl.createEl("button", { text: t("wizard.step3SamplesLoad", lang), cls: "mod-cta" });
+			loadBtn.style.marginTop = "12px";
+			loadBtn.addEventListener("click", async () => {
+				loadBtn.textContent = "...";
+				try {
+					if (sampleFolder) {
+						const files = this.app.vault.getFiles().filter(f => f.path.startsWith("raw-sample/"));
+						for (const f of files) {
+							const targetPath = f.path.replace("raw-sample/", rawFolder + "/");
+							const existing = this.app.vault.getAbstractFileByPath(targetPath);
+							if (!existing) {
+								const content = await this.app.vault.read(f);
+								// Ensure folder
+								const folderPath = targetPath.substring(0, targetPath.lastIndexOf("/"));
+								const folder = this.app.vault.getAbstractFileByPath(folderPath);
+								if (!folder) {
+									const parts = folderPath.split("/");
+									let cur = "";
+									for (const p of parts) {
+										cur = cur ? cur + "/" + p : p;
+										if (!this.app.vault.getAbstractFileByPath(cur)) {
+											await this.app.vault.createFolder(cur);
+										}
+									}
+								}
+								await this.app.vault.create(targetPath, content);
+							}
+						}
+					}
+					loadBtn.textContent = t("wizard.step3SamplesDone", lang);
+					loadBtn.classList.add("mod-cta");
+				} catch (e) {
+					console.warn("setup-wizard: sample load failed:", e);
+					loadBtn.textContent = t("wizard.step3SamplesFail", lang);
+				}
+			});
+		}
+
+		const btnRow = this.container.createDiv({ cls: "sb-wizard-btn-row" });
+		const prevBtn = btnRow.createEl("button", { text: t("wizard.prev", lang) });
+		prevBtn.addEventListener("click", () => { this.step = 2; this.renderStep(); });
+
+		const nextBtn = btnRow.createEl("button", { text: t("wizard.next", lang), cls: "mod-cta" });
+		nextBtn.addEventListener("click", () => { this.step = 4; this.renderStep(); });
+
+		const skipBtn = btnRow.createEl("button", { text: t("wizard.skip", lang) });
+		skipBtn.addEventListener("click", () => this.finish());
+	}
+
+	// Step 4: 完成
+	private renderStep4(lang: string) {
 		this.container.createEl("h3", { text: t("wizard.step3", lang) });
 		this.container.createEl("p", { text: t("wizard.step3Desc", lang) });
 
 		const btnRow = this.container.createDiv({ cls: "sb-wizard-btn-row" });
 		const prevBtn = btnRow.createEl("button", { text: t("wizard.prev", lang) });
-		prevBtn.addEventListener("click", () => { this.step = 1; this.renderStep(); });
+		prevBtn.addEventListener("click", () => { this.step = 2; this.renderStep(); });
 
 		const doneBtn = btnRow.createEl("button", { text: t("wizard.done", lang), cls: "mod-cta" });
 		doneBtn.addEventListener("click", () => this.finish());

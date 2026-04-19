@@ -4,6 +4,8 @@ import { ItemView, WorkspaceLeaf, MarkdownRenderer, Component, Notice, TFile, Mo
 import type { SecondBrainPlugin } from "../types";
 import { openPluginSettings } from "../types";
 import { readWikiFiles, writeLogEntry } from "../core/file-utils";
+import { computeWikiHealth } from "../core/health";
+import { scanVaultForMaterials, importToRaw } from "../core/vault-scanner";
 import { t } from "../core/i18n";
 import { requirePro, showUpgradeNotice, createProBadge } from "../core/feature-gate";
 import { renderGraph } from "./wiki-mindmap";
@@ -12,7 +14,7 @@ import { openSynthesisDialog } from "./wiki-synthesis";
 import { toggleBatchReview } from "./wiki-batch";
 import { setAsyncButton } from "../ui/async-button";
 import type { WikiPage, IndexItem, IndexSection, WikiViewCtx } from "./wiki-shared";
-import { extractFmField, extractTags, stripFrontmatter, extractStatus, extractUpdated } from "./wiki-shared";
+import { extractFmField, extractTags, stripFrontmatter, extractStatus, extractUpdated, extractFmArray } from "./wiki-shared";
 
 export const VIEW_TYPE_WIKI = "second-brain-wiki";
 
@@ -99,7 +101,7 @@ export class WikiView extends ItemView {
 			this.renderIndex();
 		});
 
-		const moreBtn = row2.createEl("button", { text: "...", cls: "sb-wiki-more-btn" });
+			const moreBtn = row2.createEl("button", { text: "...", cls: "sb-wiki-more-btn" });
 		this.dropdownEl = row2.createDiv({ cls: "sb-wiki-dropdown" });
 		this.dropdownEl.style.display = "none";
 		const synthItem = this.dropdownEl.createEl("button", { text: t("wiki.synthBtn", lang), cls: "sb-wiki-dropdown-item" });
@@ -279,19 +281,79 @@ export class WikiView extends ItemView {
 			stats.innerHTML += `<span class="sb-stat-item sb-stat-pro"><span class="sb-stat-num">${linkCount}</span><span class="sb-stat-label">${t("pro.stats.linkLabel", lang)}</span></span>`;
 		}
 
+		// Feature 5: Knowledge growth stats panel
+		const draftCount = this.wikiPages.filter(f => extractStatus(f.content) === "draft").length;
+		const reviewedCount = this.wikiPages.filter(f => extractStatus(f.content) === "reviewed").length;
+		const totalPages = this.wikiPages.length;
+		const reviewPct = totalPages > 0 ? Math.round((reviewedCount / totalPages) * 100) : 0;
+		const growthPanel = this.bodyEl.createDiv({ cls: "sb-wiki-growth-panel" });
+		growthPanel.innerHTML =
+			`<div class="sb-growth-stat"><span class="sb-growth-num">${totalPages}</span><span class="sb-growth-label">${t("wiki.growthTotalPages", lang)}</span></div>` +
+			`<div class="sb-growth-stat"><span class="sb-growth-num sb-growth-draft">${draftCount}</span><span class="sb-growth-label">${t("wiki.growthDraftPages", lang)}</span></div>` +
+			`<div class="sb-growth-stat"><span class="sb-growth-num sb-growth-reviewed">${reviewedCount}</span><span class="sb-growth-label">${t("wiki.growthReviewedPages", lang)}</span></div>` +
+			`<div class="sb-growth-progress-wrap"><span class="sb-growth-label">${t("wiki.growthReviewProgress", lang, { pct: reviewPct })}</span><div class="sb-growth-progress-bar"><div class="sb-growth-progress-fill" style="width:${reviewPct}%"></div></div></div>`;
+
+		// Health dashboard
+		if (this.wikiPages.length > 0) {
+			const health = computeWikiHealth(this.wikiPages);
+			const healthEl = this.bodyEl.createDiv({ cls: "sb-health" });
+			const healthRow = healthEl.createDiv({ cls: "sb-health-row" });
+
+			const barWrap = healthRow.createDiv({ cls: "sb-health-bar" });
+			const freshPct = 100 - health.staleness;
+			const barColor = freshPct >= 70 ? "var(--text-success)" : freshPct >= 40 ? "var(--text-warning)" : "var(--text-error)";
+			barWrap.createDiv({ cls: "sb-health-fill", attr: { style: `width:${freshPct}%;background:${barColor}` } });
+
+			const healthStats = healthRow.createDiv({ cls: "sb-health-stats" });
+			healthStats.createEl("span", { cls: "sb-health-badge", text: `${freshPct}%` });
+			healthStats.createEl("span", { cls: "sb-health-label", text: t("health.healthBar", lang) });
+			healthStats.createEl("span", { cls: "sb-health-sep", text: "|" });
+			healthStats.createEl("span", { cls: "sb-health-badge", text: String(health.avgLinkCount) });
+			healthStats.createEl("span", { cls: "sb-health-label", text: t("health.avgLinks", lang) });
+			healthStats.createEl("span", { cls: "sb-health-sep", text: "|" });
+			healthStats.createEl("span", { cls: "sb-health-badge", text: `${health.reviewed}/${health.total}` });
+			healthStats.createEl("span", { cls: "sb-health-label", text: t("health.reviewProgress", lang, { reviewed: String(health.reviewed), total: String(health.total) }) });
+
+			if (health.stalePages.length > 0) {
+				const staleToggle = healthEl.createDiv({ cls: "sb-health-stale-toggle" });
+				staleToggle.createEl("span", { text: t("health.stalePages", lang) + ` (${health.stalePages.length})`, cls: "sb-health-stale-label" });
+				const toggleIcon = staleToggle.createEl("span", { text: "▸", cls: "sb-health-toggle-icon" });
+				const staleList = healthEl.createDiv({ cls: "sb-health-stale-list" });
+				staleList.style.display = "none";
+				for (const sp of health.stalePages) {
+					const row = staleList.createDiv({ cls: "sb-health-stale-row" });
+					const nameLink = row.createEl("a", { text: sp.name, cls: "sb-health-stale-name" });
+					nameLink.addEventListener("click", (ev) => { ev.preventDefault(); this.navigateTo(sp.name); });
+					row.createEl("span", { text: t("health.daysAgo", lang, { n: sp.daysSinceUpdate }), cls: "sb-health-stale-days" });
+					if (sp.level) row.createEl("span", { text: sp.level, cls: "sb-health-stale-level" });
+				}
+				staleToggle.addEventListener("click", () => {
+					const open = staleList.style.display !== "none";
+					staleList.style.display = open ? "none" : "";
+					toggleIcon.textContent = open ? "▸" : "▾";
+				});
+			}
+		}
+
 		const recentPages = this.wikiPages
 			.map(f => ({ name: f.path.split("/").pop()!.replace(".md", ""), date: extractUpdated(f.content) }))
 			.filter(f => f.date)
 			.sort((a, b) => b.date.localeCompare(a.date))
 			.slice(0, 8);
 		if (recentPages.length > 0) {
-			const timeline = this.bodyEl.createDiv({ cls: "sb-wiki-timeline" });
-			timeline.createEl("h3", { text: t("wiki.recentUpdates", lang), cls: "sb-wiki-h3" });
+			this.bodyEl.createEl("h3", { text: t("wiki.recentUpdates", lang), cls: "sb-wiki-h3" });
+			const recentGrid = this.bodyEl.createDiv({ cls: "sb-wiki-grid" });
 			for (const rp of recentPages) {
-				const row = timeline.createDiv({ cls: "sb-wiki-timeline-row" });
-				row.createEl("span", { text: rp.date, cls: "sb-wiki-timeline-date" });
-				const link = row.createEl("a", { text: rp.name, cls: "sb-wiki-timeline-link" });
-				link.addEventListener("click", (ev: Event) => { ev.preventDefault(); this.navigateTo(rp.name); });
+				const card = recentGrid.createDiv({ cls: "sb-wiki-card" });
+				card.createEl("a", { text: rp.name, cls: "sb-wiki-card-title" })
+					.addEventListener("click", (ev) => { ev.preventDefault(); this.navigateTo(rp.name); });
+				card.createEl("span", { text: rp.date, cls: "sb-wiki-card-date" });
+				const page = this.findPage(rp.name);
+				if (page) {
+					const lines = page.content.split("\n");
+					const desc = lines.find(l => l.trim() && !l.startsWith("---") && !l.startsWith("#") && !l.startsWith("title:") && !l.startsWith("type:") && !l.startsWith("tags:"));
+					if (desc) card.createEl("p", { text: desc.slice(0, 80), cls: "sb-wiki-card-desc" });
+				}
 			}
 		}
 
@@ -384,12 +446,69 @@ export class WikiView extends ItemView {
 			this.bodyEl.createDiv({ cls: "sb-wiki-empty" });
 			const guidance = this.bodyEl.createDiv({ cls: "sb-wiki-empty-guidance" });
 			guidance.createEl("h3", { text: t("empty.wikiTitle", lang) });
-			guidance.createEl("p", { text: t("empty.wikiDesc", lang) });
+
+			// 3-step guide
+			const steps = guidance.createDiv({ cls: "sb-empty-steps" });
+			const step1 = steps.createDiv({ cls: "sb-empty-step" });
+			step1.createEl("span", { text: "1", cls: "sb-empty-step-num" });
+			step1.createEl("span", { text: t("empty.step1Put", lang), cls: "sb-empty-step-text" });
+
+			// Detect if raw-sample exists and raw is empty
+			const sampleFolder = this.app.vault.getAbstractFileByPath("raw-sample");
+			const rawFolder = this.plugin.settings.rawFolder;
+			const rawDir = this.app.vault.getAbstractFileByPath(rawFolder);
+			let rawHasFiles = false;
+			if (rawDir) {
+				const allFiles = this.app.vault.getFiles();
+				rawHasFiles = allFiles.some(f => f.path.startsWith(rawFolder + "/") && !f.path.includes("_usage"));
+			}
+			if (!rawHasFiles && sampleFolder) {
+				const sampleBtn = guidance.createEl("button", { text: t("empty.loadSamples", lang), cls: "sb-empty-btn" });
+				sampleBtn.style.marginBottom = "8px";
+				sampleBtn.addEventListener("click", async () => {
+					sampleBtn.textContent = "...";
+					try {
+						const files = this.app.vault.getFiles().filter(f => f.path.startsWith("raw-sample/"));
+						for (const f of files) {
+							const targetPath = f.path.replace("raw-sample/", rawFolder + "/");
+							const existing = this.app.vault.getAbstractFileByPath(targetPath);
+							if (!existing) {
+								const fileContent = await this.app.vault.read(f);
+								const folderPath = targetPath.substring(0, targetPath.lastIndexOf("/"));
+								const folder = this.app.vault.getAbstractFileByPath(folderPath);
+								if (!folder) {
+									const parts = folderPath.split("/");
+									let cur = "";
+									for (const p of parts) {
+										cur = cur ? cur + "/" + p : p;
+										if (!this.app.vault.getAbstractFileByPath(cur)) {
+											await this.app.vault.createFolder(cur);
+										}
+									}
+								}
+								await this.app.vault.create(targetPath, fileContent);
+							}
+						}
+						sampleBtn.textContent = t("empty.samplesLoaded", lang);
+					} catch (e) {
+						sampleBtn.textContent = t("empty.samplesFail", lang);
+					}
+				});
+			}
+
+			const step2 = steps.createDiv({ cls: "sb-empty-step" });
+			step2.createEl("span", { text: "2", cls: "sb-empty-step-num" });
+			step2.createEl("span", { text: t("empty.step2Compile", lang), cls: "sb-empty-step-text" });
+
+			const step3 = steps.createDiv({ cls: "sb-empty-step" });
+			step3.createEl("span", { text: "3", cls: "sb-empty-step-num" });
+			step3.createEl("span", { text: t("empty.step3Browse", lang), cls: "sb-empty-step-text" });
+
 			const btnRow = guidance.createDiv({ cls: "sb-empty-btn-row" });
 			btnRow.createEl("button", { text: t("empty.openSettings", lang), cls: "sb-empty-btn" })
 				.addEventListener("click", () => openPluginSettings(this.app));
 			btnRow.createEl("button", { text: t("empty.startCompile", lang), cls: "sb-empty-btn mod-cta" })
-				.addEventListener("click", () => this.plugin.activateView("second-brain-compile"));
+			.addEventListener("click", () => this.plugin.activateView("second-brain-compile"));
 		}
 
 		if (this.wikiPages.length > this.pageLimit) {
@@ -511,6 +630,42 @@ export class WikiView extends ItemView {
 			badge.createEl("span", { text: fmUpdated, cls: "sb-wiki-meta-value" });
 		}
 
+		// Feature 3: Source citation display
+		const originalSources = extractFmArray(page.content, "original");
+		const referenceSources = extractFmArray(page.content, "reference");
+		if (originalSources.length > 0 || referenceSources.length > 0) {
+			const sourcesEl = this.bodyEl.createDiv({ cls: "sb-wiki-sources" });
+			sourcesEl.createEl("h4", { text: t("wiki.sourcesLabel", lang), cls: "sb-wiki-sources-title" });
+			if (originalSources.length > 0) {
+				const origSection = sourcesEl.createDiv({ cls: "sb-wiki-source-group" });
+				origSection.createEl("span", { text: t("wiki.originalSources", lang), cls: "sb-wiki-source-type-label" });
+				for (const src of originalSources) {
+					const chip = origSection.createEl("a", { text: src.split("/").pop() || src, cls: "sb-wiki-source-chip sb-wiki-source-original" });
+					chip.addEventListener("click", (ev) => {
+						ev.preventDefault();
+						const file = this.app.vault.getAbstractFileByPath(src);
+						if (file instanceof TFile) {
+							this.app.workspace.getLeaf(false).openFile(file);
+						}
+					});
+				}
+			}
+			if (referenceSources.length > 0) {
+				const refSection = sourcesEl.createDiv({ cls: "sb-wiki-source-group" });
+				refSection.createEl("span", { text: t("wiki.referenceSources", lang), cls: "sb-wiki-source-type-label" });
+				for (const src of referenceSources) {
+					const chip = refSection.createEl("a", { text: src.split("/").pop() || src, cls: "sb-wiki-source-chip sb-wiki-source-reference" });
+					chip.addEventListener("click", (ev) => {
+						ev.preventDefault();
+						const file = this.app.vault.getAbstractFileByPath(src);
+						if (file instanceof TFile) {
+							this.app.workspace.getLeaf(false).openFile(file);
+						}
+					});
+				}
+			}
+		}
+
 		const pageStatus = extractStatus(page.content);
 		if (pageStatus === "draft") {
 			const banner = this.bodyEl.createDiv({ cls: "sb-draft-banner" });
@@ -582,6 +737,79 @@ export class WikiView extends ItemView {
 				blGrid.createEl("a", { text: bl.display, cls: "sb-wiki-backlink-chip" })
 					.addEventListener("click", (ev) => { ev.preventDefault(); this.navigateTo(bl.name); });
 			}
+		}
+	}
+
+
+	private addRegenerateButtons(contentEl: HTMLElement, page: WikiPage, pageName: string) {
+		const lang = this.plugin.settings.language;
+		const headings = contentEl.querySelectorAll("h2, h3");
+		for (const heading of headings) {
+			const sectionTitle = heading.textContent || "";
+			const regenBtn = createEl("button", {
+				cls: "sb-wiki-regen-btn",
+				text: t("wiki.regenerateSection", lang),
+			});
+			regenBtn.style.display = "none";
+			(heading as HTMLElement).style.position = "relative";
+			(heading as HTMLElement).appendChild(regenBtn);
+
+			(heading as HTMLElement).addEventListener("mouseenter", () => {
+				regenBtn.style.display = "";
+			});
+			(heading as HTMLElement).addEventListener("mouseleave", () => {
+				regenBtn.style.display = "none";
+			});
+
+			regenBtn.addEventListener("click", async (ev) => {
+				ev.preventDefault();
+				ev.stopPropagation();
+
+				const confirmed = await new Promise<boolean>((resolve) => {
+					const modal = new Modal(this.app);
+					modal.titleEl.setText(t("wiki.regenerateSection", lang));
+					modal.contentEl.createEl("p", { text: t("wiki.regenerateConfirm", lang, { section: sectionTitle }) });
+					const btnRow = modal.contentEl.createDiv();
+					btnRow.style.display = "flex";
+					btnRow.style.gap = "8px";
+					btnRow.style.justifyContent = "flex-end";
+					btnRow.createEl("button", { text: t("set.cancel", lang) }).addEventListener("click", () => { modal.close(); resolve(false); });
+					btnRow.createEl("button", { text: t("wiki.regenerateSection", lang), cls: "mod-cta" }).addEventListener("click", () => { modal.close(); resolve(true); });
+					modal.open();
+				});
+				if (!confirmed) return;
+
+				setAsyncButton(regenBtn, true, t("wiki.regenerating", lang));
+				try {
+					const { callLLM } = await import("../core/llm");
+					const strippedContent = stripFrontmatter(page.content);
+					const result = await callLLM([
+						{ role: "system", content: "Knowledge regenerator. Rewrite the specified section with improved clarity and depth. Same language as source. Keep wikilinks [[PageName]]." },
+						{ role: "user", content: `Rewrite the section "${sectionTitle}" from this wiki page. Only return the new section content (starting with ## ${sectionTitle}):
+
+${strippedContent.slice(0, 6000)}` },
+					], this.plugin.settings, { maxTokens: 2000, temperature: 0.4 });
+
+					// Find and replace the section in page content
+					const newSection = result.trim();
+					const stripped2 = stripFrontmatter(page.content);
+					const sectionRegex = new RegExp(`(##\\s*${sectionTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.+?)(?=\n##\\s|\n###[^#]|$)`, "s");
+					const updated = stripped2.replace(sectionRegex, newSection);
+					const fm = page.content.match(/^---\n[\s\S]*?\n---/)?.[0] || "";
+					const fullUpdated = fm + "\n\n" + updated;
+					const wf = this.plugin.settings.wikiFolder;
+					const fullPath = `${wf}/${page.path}`;
+					const file = this.app.vault.getAbstractFileByPath(fullPath);
+					if (file instanceof TFile) {
+						await this.app.vault.modify(file, fullUpdated);
+						page.content = fullUpdated;
+					}
+					setAsyncButton(regenBtn, false, t("wiki.regenerateDone", lang));
+				} catch (e) {
+					setAsyncButton(regenBtn, false, t("wiki.regenerateFail", lang));
+					new Notice(t("wiki.regenerateFail", lang));
+				}
+			});
 		}
 	}
 

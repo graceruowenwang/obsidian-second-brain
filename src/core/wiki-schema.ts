@@ -3,19 +3,25 @@
 import type { Concept, Entity, Source, Synthesis } from "../types";
 import type { TemplateConfig } from "./templates";
 
-export const TODAY = new Date().toISOString().split("T")[0];
+export function today(): string {
+	return new Date().toISOString().split("T")[0];
+}
 
 // Frontmatter 模板
+function yamlStr(v: string): string {
+	return `"${v.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
+
 export function frontmatter(fields: Record<string, any>): string {
 	const lines = ["---"];
 	for (const [k, v] of Object.entries(fields)) {
 		if (Array.isArray(v)) {
 			if (v.length > 0) {
 				lines.push(`${k}:`);
-				for (const item of v) lines.push(`  - "${item}"`);
+				for (const item of v) lines.push(`  - ${yamlStr(String(item))}`);
 			}
 		} else {
-			lines.push(`${k}: "${v}"`);
+			lines.push(`${k}: ${yamlStr(String(v))}`);
 		}
 	}
 	lines.push("---");
@@ -39,7 +45,7 @@ export function conceptFrontmatter(concept: Concept): string {
 		tags: [concept.title],
 		...(originalFiles.length > 0 ? { original: originalFiles } : {}),
 		...(referenceFiles.length > 0 ? { reference: referenceFiles } : {}),
-		last_updated: TODAY,
+		last_updated: today(),
 	});
 }
 
@@ -48,7 +54,7 @@ export function entityFrontmatter(entity: Entity): string {
 		title: entity.name,
 		type: "entity",
 		tags: [],
-		last_updated: TODAY,
+		last_updated: today(),
 	});
 }
 
@@ -59,7 +65,7 @@ export function sourceFrontmatter(source: Source): string {
 		title: source.desc,
 		type: "source",
 		...(referenceFiles.length > 0 ? { reference: referenceFiles } : {}),
-		last_updated: TODAY,
+		last_updated: today(),
 	});
 }
 
@@ -75,7 +81,7 @@ ${tpl.pageRules}
   level: ${levelKeys}
   status: "draft"
   tags: [tags]
-  last_updated: ${TODAY}
+  last_updated: ${today()}
   ---
   type and level depend on page type; concept pages must have level field
   status is always "draft", meaning AI-generated pending review

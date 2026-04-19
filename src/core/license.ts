@@ -48,6 +48,8 @@ export async function validateLicense(key: string): Promise<LicenseInfo> {
 				lastValidated: new Date().toISOString(),
 				graceStart: null,
 				trialStart: null,
+				freeChatUsed: 0,
+				freeChatMonth: "",
 			};
 		}
 
@@ -70,7 +72,8 @@ export async function deactivateLicense(key: string): Promise<void> {
 			headers: { "Content-Type": "application/json", "Accept": "application/json" },
 			body: JSON.stringify({ license_key: key }),
 		});
-	} catch {
+	} catch (e) {
+		console.warn("license: deactivate failed:", e);
 		// 即使 deactivate API 失败也继续清理本地状态
 	}
 }
@@ -156,4 +159,27 @@ export function checkTrialExpiry(state: LicenseInfo): LicenseInfo {
 		return { ...DEFAULT_LICENSE };
 	}
 	return state;
+}
+
+// Freemium Chat — 每月 3 条免费消息
+const FREE_CHAT_MONTHLY_LIMIT = 3;
+
+export function checkFreeChatQuota(state: LicenseInfo): { allowed: boolean; used: number; limit: number; remaining: number } {
+	if (isPro(state)) return { allowed: true, used: 0, limit: Infinity, remaining: Infinity };
+	const now = new Date();
+	const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+	if (state.freeChatMonth !== currentMonth) {
+		return { allowed: true, used: 0, limit: FREE_CHAT_MONTHLY_LIMIT, remaining: FREE_CHAT_MONTHLY_LIMIT };
+	}
+	const remaining = FREE_CHAT_MONTHLY_LIMIT - state.freeChatUsed;
+	return { allowed: remaining > 0, used: state.freeChatUsed, limit: FREE_CHAT_MONTHLY_LIMIT, remaining: Math.max(0, remaining) };
+}
+
+export function incrementFreeChatUsage(state: LicenseInfo): LicenseInfo {
+	const now = new Date();
+	const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+	if (state.freeChatMonth !== currentMonth) {
+		return { ...state, freeChatMonth: currentMonth, freeChatUsed: 1 };
+	}
+	return { ...state, freeChatUsed: state.freeChatUsed + 1 };
 }

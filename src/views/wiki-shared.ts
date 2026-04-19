@@ -64,3 +64,32 @@ export function extractStatus(content: string): string {
 export function extractUpdated(content: string): string {
 	return extractFmField(content, "last_updated");
 }
+
+export function extractFmArray(content: string, field: string): string[] {
+	const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+	if (!fmMatch) return [];
+	const lines = fmMatch[1].split("\n");
+	let inField = false;
+	const items: string[] = [];
+	for (const line of lines) {
+		if (line.startsWith(`${field}:`)) {
+			inField = true;
+			const inline = line.slice(field.length + 1).trim();
+			if (inline.startsWith("[")) {
+				const parsed = inline.replace(/^\[/, "").replace(/\]$/, "").split(",").map(s => s.trim().replace(/^["']|["']$/g, "")).filter(Boolean);
+				items.push(...parsed);
+				return items;
+			}
+			continue;
+		}
+		if (inField) {
+			const itemMatch = line.match(/^\s+-\s+["']?(.+?)["']?\s*$/);
+			if (itemMatch) {
+				items.push(itemMatch[1]);
+			} else if (!line.match(/^\s/)) {
+				break;
+			}
+		}
+	}
+	return items;
+}

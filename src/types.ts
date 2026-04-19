@@ -87,6 +87,7 @@ export interface Analysis {
 }
 
 export interface CompileCache {
+	version: number;
 	fingerprints: Record<string, Fingerprint>;
 	analysis: Analysis | null;
 	pages: Record<string, { key: string; generatedAt: string | null }>;
@@ -94,6 +95,30 @@ export interface CompileCache {
 	perFileAnalysis: Record<string, Analysis>;
 	indexEntries: Record<string, { type: string; level: string; name: string; title: string; desc: string }>;
 	failedPages: Record<string, FailedPageEntry>;
+	dependencies: Record<string, string[]>;
+	compileHistory?: CompileHistoryEntry[];
+	usageStats?: UsageStats;
+	weeklyReportLastDate?: string;
+	// v1 遗留字段，迁移后清空
+	embeddings?: Record<string, number[]>;
+}
+
+export interface UsageStats {
+	totalCompiles: number;
+	successCompiles: number;
+	failedCompiles: number;
+	totalDurationMs: number;
+	firstCompileAt: string | null;
+	lastCompileAt: string | null;
+	totalConceptsGenerated: number;
+	totalEntitiesGenerated: number;
+	weeklyCompiles: number;
+	lastWeekDate: string;
+}
+
+// Embedding 独立存储，与主缓存分离
+export interface EmbeddingStore {
+	version: 1;
 	embeddings: Record<string, number[]>;
 }
 
@@ -102,6 +127,7 @@ export interface ValidationIssue {
 	index: number;
 	issue: string;
 	value?: string;
+	severity?: "error" | "warning";
 }
 
 export interface FailedPageEntry {
@@ -151,6 +177,17 @@ export interface Fingerprint {
 	h?: string;
 }
 
+export interface CompileHistoryEntry {
+	date: string;
+	action: "full" | "incremental" | "single";
+	added: string[];
+	modified: string[];
+	removed: string[];
+	conflicts: string[];
+	durationMs: number;
+	totalPages: number;
+}
+
 export interface ProgressEvent {
 	step: number;
 	stepName: string;
@@ -172,8 +209,10 @@ export type SecondBrainPlugin = Plugin & {
 };
 
 export function openPluginSettings(app: App) {
-	(app as any).setting.open();
-	(app as any).setting.openTabById("second-brain");
+	// Obsidian 内部 API，公开类型中未暴露 setting 对象
+	const appWithSetting = app as unknown as { setting: { open(): void; openTabById(id: string): void } };
+	appWithSetting.setting.open();
+	appWithSetting.setting.openTabById("second-brain");
 }
 
 // License 相关类型
@@ -185,6 +224,8 @@ export interface LicenseInfo {
 	lastValidated: string | null;
 	graceStart: string | null;
 	trialStart: string | null;
+	freeChatUsed: number;
+	freeChatMonth: string;
 }
 
 export const DEFAULT_LICENSE: LicenseInfo = {
@@ -195,4 +236,6 @@ export const DEFAULT_LICENSE: LicenseInfo = {
 	lastValidated: null,
 	graceStart: null,
 	trialStart: null,
+	freeChatUsed: 0,
+	freeChatMonth: "",
 };

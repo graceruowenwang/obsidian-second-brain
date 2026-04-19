@@ -7,7 +7,7 @@ import {
 	readRawFiles, writeWikiFile,
 	diffFingerprints, updateFingerprints,
 	totalAnalysisCount, emptyCache, getStorage,
-	restoreEmbeddingCache, flushEmbeddingCache,
+	restoreEmbeddingStore, flushEmbeddingStore, migrateEmbeddingsToStore,
 } from "./file-utils";
 import type { StorageLike } from "./file-utils";
 import {
@@ -16,13 +16,17 @@ import {
 import { loadTemplateConfig } from "./templates";
 import type { TemplateConfig } from "./templates";
 import { t } from "./i18n";
-import type { PluginSettings, Analysis, CompileCache, ProgressEvent, ValidationIssue, CompileReport, ChangeImpact, CompileResult } from "../types";
+import type { PluginSettings, Analysis, CompileCache, ProgressEvent, ValidationIssue, CompileReport, ChangeImpact, CompileResult, CompileHistoryEntry, UsageStats } from "../types";
+import { recordCompile, emptyStats } from "./usage-stats";
+import { appendWeeklyReport } from "./weekly-report";
 
 const MAX_CHARS = 60000;
 
 
 const ANALYSIS_MAX_TOKENS = 4000;
-import { parseAnalysisJSON, getPagePath, generatePages, checkAborted, PageGenResult, validateAnalysis, mergeAnalysis } from "./compile-pages";
+import { parseAnalysisJSON, getPagePath, generatePages, checkAborted, PageGenResult, validateAnalysis, mergeAnalysis, runConflictDetection } from "./compile-pages";
+import { buildDependencyGraph } from "./compile-analysis";
+import { CompileLogBuilder, saveCompileLog } from "./compile-log";
 
 // === 步骤 1-2：读取素材 + AI 分析 ===
 
@@ -46,12 +50,12 @@ async function runAnalysis(
 	const rawFilePaths = new Set(allFiles.map(f => f.path));
 	const canIncremental = !forceRecompile && Object.keys(cache.perFileAnalysis || {}).length > 0 && changedFiles.length > 0 && changedFiles.length < allFiles.length;
 
-	if (canIncremental) {
+	if (canIncremental && cache.analysis && cache.analysis.concepts) {
 		onProgress({ step: 2, stepName: "AI 增量分析", detail: `分析 ${changedFiles.length} 个变化文件...`, percent: 30 });
-		const existingNames = [...(cache.analysis?.concepts || []).map(c => c.name), ...(cache.analysis?.entities || []).map(e => e.name)];
+		const existingNames = [...(cache.analysis.concepts || []).map(c => c.name), ...(cache.analysis.entities || []).map(e => e.name)];
 		const changedMaterials = changedFiles.filter(f => !f.path.includes("_usage")).map(f => `--- 文件: ${f.path} ---\n${f.content.slice(0, 3000)}`).join("\n\n");
 		if (!changedMaterials) {
-			return { analysis: cache.analysis!, validationIssues: [] };
+			return { analysis: cache.analysis, validationIssues: [] };
 		}
 		checkAborted(signal);
 		const result = await callLLM(
@@ -59,11 +63,7 @@ async function runAnalysis(
 			settings, { maxTokens: ANALYSIS_MAX_TOKENS, signal },
 		);
 		const incrementalResult = parseAnalysisJSON(result);
-		if (incrementalResult.concepts.length === 0 && incrementalResult.entities.length === 0 && incrementalResult.sources.length === 0) {
-			new Notice(t("notice.badAnalysis", settings.language));
-			return { analysis: cache.analysis!, validationIssues: [] };
-		}
-		const merged = mergeAnalysis(cache.analysis!, incrementalResult);
+		const merged = mergeAnalysis(cache.analysis, incrementalResult);
 		const { valid, issues } = validateAnalysis(merged, rawFilePaths, tpl);
 		return { analysis: valid, validationIssues: issues };
 	}
@@ -249,6 +249,9 @@ export async function runCompile(
 	const startTime = Date.now();
 	const { rawFolder, wikiFolder } = settings;
 
+	// 初始化编译日志
+	const logBuilder = new CompileLogBuilder(forceRecompile ? "full" : "incremental");
+
 	// 加载模板配置
 	const tpl = await loadTemplateConfig(app, settings.templateFile, settings.language);
 
@@ -259,10 +262,25 @@ export async function runCompile(
 
 	// 加载缓存
 	let cache: CompileCache = (await getStorage(app, plugin).loadData()) as CompileCache || emptyCache();
+		if (!cache.version || cache.version < 1) cache = emptyCache();
 	if (!cache.fingerprints) cache = emptyCache();
 	if (!cache.failedPages) cache.failedPages = {};
-	if (!cache.embeddings) cache.embeddings = {};
-	restoreEmbeddingCache(cache);
+		if (!cache.dependencies) cache.dependencies = {};
+		// v1→v2 迁移：embedding 移到独立文件
+		if (cache.version < 2) {
+			if ((cache as any).embeddings && Object.keys((cache as any).embeddings).length > 0) {
+				await migrateEmbeddingsToStore(app, wikiFolder, cache as any);
+			}
+			delete (cache as any).embeddings;
+			cache.version = 2;
+		}
+
+		// v2->v3: add compileHistory
+		if (cache.version < 3) {
+			if (!cache.compileHistory) cache.compileHistory = [];
+			cache.version = 3;
+		}
+		await restoreEmbeddingStore(app, wikiFolder);
 
 	const { changed: changedFiles } = diffFingerprints(allFiles, cache);
 	const hasChanges = changedFiles.length > 0;
@@ -292,20 +310,62 @@ export async function runCompile(
 	cache.analysis = newAnalysis;
 	cache.analysisTime = new Date().toISOString();
 
+		// 更新依赖图
+		cache.dependencies = buildDependencyGraph(newAnalysis, allFiles);
+
 	// 步骤 4：生成索引
 	onProgress({ step: 4, stepName: "生成索引", detail: "更新 index.md...", percent: 95 });
 	await buildIndex(newAnalysis, tpl, cache, wikiFolder, app);
 
 	// 更新指纹 + 保存
 	updateFingerprints(allFiles, cache);
-	cache.embeddings = flushEmbeddingCache();
+	await flushEmbeddingStore(app, wikiFolder);
 	await getStorage(app, plugin).saveData(cache);
 
 	onProgress({ step: 4, stepName: "完成", detail: "编译完成", percent: 100 });
 
+	// 保存编译日志
+	try {
+		logBuilder.setTotalPages(cc + ce + cs)
+			.setGenerated(genResult.generated)
+			.setSkipped(genResult.skippedByDiff)
+			.setProtected(genResult.protectedByReview)
+			.setRemoved(genResult.removed);
+		for (const err of genResult.errors) {
+			logBuilder.addFailed(err.path, err.name, err.error);
+		}
+		const compileLog = logBuilder.build();
+		await saveCompileLog(app, wikiFolder, compileLog);
+	} catch (e) {
+		console.warn("compile: failed to save compile log:", e);
+	}
+
 	// 构建编译报告
 	const report = buildCompileReport(oldAnalysis, newAnalysis, genResult, validationIssues, startTime);
 	const changeImpact = buildChangeImpact(changedFiles, newAnalysis);
+
+	// Append compile history
+	if (!cache.compileHistory) cache.compileHistory = [];
+	cache.compileHistory.unshift({
+		date: new Date().toISOString(),
+		action: forceRecompile ? "full" : "incremental",
+		added: report.newConcepts.map(c => c.title || c.name),
+		modified: report.modifiedConcepts.map(c => c.title || c.name),
+		removed: report.deletedConcepts.map(c => c.title || c.name),
+		conflicts: [],
+		durationMs: report.durationMs,
+		totalPages: report.totalPages,
+	});
+	if (cache.compileHistory.length > 50) cache.compileHistory = cache.compileHistory.slice(0, 50);
+
+	// 异步冲突检测（不阻塞编译结果返回）
+	if (genResult.conflictCheckNeeded && genResult.conflictCheckNeeded.length > 0) {
+		const conflictItems = genResult.conflictCheckNeeded;
+		// fire-and-forget，编译结果先返回
+		runConflictDetection(conflictItems, wikiFolder, app, settings, tpl, signal).catch(e => {
+			console.warn("compile: async conflict detection failed:", e);
+		});
+	}
 
 	return {
 		conceptsCount: cc,

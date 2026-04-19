@@ -87,7 +87,11 @@ export async function ensureFolder(app: App, folderPath: string): Promise<void> 
 		current = current ? `${current}/${part}` : part;
 		const existing = app.vault.getAbstractFileByPath(current);
 		if (!existing) {
-			await app.vault.createFolder(current);
+			try {
+				await app.vault.createFolder(current);
+			} catch (e) {
+				if (!app.vault.getAbstractFileByPath(current)) throw e;
+			}
 		}
 	}
 }
@@ -170,6 +174,7 @@ export function computeFingerprint(content: string): Fingerprint {
 // 空缓存
 export function emptyCache(): CompileCache {
 	return {
+		version: 2,
 		fingerprints: {},
 		analysis: null,
 		pages: {},
@@ -177,7 +182,7 @@ export function emptyCache(): CompileCache {
 		perFileAnalysis: {},
 		indexEntries: {},
 		failedPages: {},
-		embeddings: {},
+		dependencies: {},
 	};
 }
 
@@ -237,7 +242,13 @@ export async function writeLogEntry(
 
 	const existing = app.vault.getAbstractFileByPath(logPath);
 	if (existing instanceof TFile) {
-		const content = await app.vault.read(existing);
+		let content = await app.vault.read(existing);
+		// Auto-cleanup: keep only the last 100 entries
+		const entries = content.split(/\n(?=## \[)/);
+		if (entries.length > 200) {
+			const header = entries[0];
+			content = header + "\n" + entries.slice(-100).join("\n");
+		}
 		await app.vault.modify(existing, content + entry);
 	} else {
 		// 新建 log.md
@@ -258,23 +269,79 @@ export function totalAnalysisCount(analysis: { concepts?: unknown[]; entities?: 
 // === 向量检索 (Embedding-based) ===
 
 import { requestUrl } from "obsidian";
-import type { PluginSettings } from "../types";
+import type { PluginSettings, EmbeddingStore } from "../types";
 
-// 向量缓存：内存 Map + CompileCache 持久化
+const EMBEDDING_CACHE_DIR = ".cache";
+const EMBEDDING_CACHE_FILE = "embeddings.json";
+
+// 内存缓存
 let embeddingCache: Map<string, number[]> = new Map();
 let cacheBuilt = false;
+let embeddingStoreLoaded = false;
 
-// 从 CompileCache 恢复 embedding 缓存（启动时调用）
-export function restoreEmbeddingCache(cache: { embeddings?: Record<string, number[]> }): void {
-	if (cache.embeddings && Object.keys(cache.embeddings).length > 0) {
-		embeddingCache = new Map(Object.entries(cache.embeddings));
-		cacheBuilt = true;
+// 获取 embedding 存储路径
+function embeddingStorePath(wikiFolder: string): string {
+	return `${wikiFolder}/${EMBEDDING_CACHE_DIR}/${EMBEDDING_CACHE_FILE}`;
+}
+
+// 懒加载 EmbeddingStore
+async function ensureEmbeddingStoreLoaded(app: App, wikiFolder: string): Promise<void> {
+	if (embeddingStoreLoaded) return;
+	const filePath = embeddingStorePath(wikiFolder);
+	const file = app.vault.getAbstractFileByPath(filePath);
+	if (file instanceof TFile) {
+		try {
+			const raw = await app.vault.read(file);
+			const store: EmbeddingStore = JSON.parse(raw);
+			if (store.version === 1 && store.embeddings) {
+				embeddingCache = new Map(Object.entries(store.embeddings));
+				cacheBuilt = true;
+			}
+		} catch (e) {
+			console.warn("file-utils: embedding store load failed:", e);
+		}
+	}
+	embeddingStoreLoaded = true;
+}
+
+// v1→v2 迁移：将 cache.embeddings 移到独立文件
+export async function migrateEmbeddingsToStore(app: App, wikiFolder: string, cache: { embeddings?: Record<string, number[]> }): Promise<void> {
+	if (!cache.embeddings || Object.keys(cache.embeddings).length === 0) return;
+	const store: EmbeddingStore = { version: 1, embeddings: cache.embeddings };
+	await saveEmbeddingStore(app, wikiFolder, store);
+	embeddingCache = new Map(Object.entries(cache.embeddings));
+	cacheBuilt = true;
+	embeddingStoreLoaded = true;
+	delete cache.embeddings;
+}
+
+// 保存 EmbeddingStore 到独立文件
+export async function saveEmbeddingStore(app: App, wikiFolder: string, store: EmbeddingStore): Promise<void> {
+	const dirPath = `${wikiFolder}/${EMBEDDING_CACHE_DIR}`;
+	await ensureFolder(app, dirPath);
+	const filePath = embeddingStorePath(wikiFolder);
+	const content = JSON.stringify(store);
+	const existing = app.vault.getAbstractFileByPath(filePath);
+	if (existing instanceof TFile) {
+		await app.vault.modify(existing, content);
+	} else {
+		await app.vault.create(filePath, content);
 	}
 }
 
-// 将内存缓存写回 CompileCache（编译完成后调用）
-export function flushEmbeddingCache(): Record<string, number[]> {
-	return Object.fromEntries(embeddingCache);
+// 从独立文件恢复（替代旧的 restoreEmbeddingCache(cache)）
+export async function restoreEmbeddingStore(app: App, wikiFolder: string): Promise<void> {
+	await ensureEmbeddingStoreLoaded(app, wikiFolder);
+}
+
+// 将内存缓存写回独立文件（替代旧的 flushEmbeddingCache）
+export async function flushEmbeddingStore(app: App, wikiFolder: string): Promise<void> {
+	if (embeddingCache.size === 0) return;
+	const store: EmbeddingStore = {
+		version: 1,
+		embeddings: Object.fromEntries(embeddingCache),
+	};
+	await saveEmbeddingStore(app, wikiFolder, store);
 }
 
 // 余弦相似度
@@ -318,6 +385,12 @@ export async function buildEmbeddingCache(
 		return;
 	}
 
+	// 确保已有 embedding 已加载
+	if (!cacheBuilt) {
+		// 注意：如果调用方没有传 wikiFolder，只能跳过懒加载
+		// compile 流程中会先调用 restoreEmbeddingStore
+	}
+
 	const entries = Object.entries(files);
 	const newCache = new Map<string, number[]>();
 	let done = 0;
@@ -338,7 +411,8 @@ export async function buildEmbeddingCache(
 			newCache.set(path, vec);
 			done++;
 			if (onProgress) onProgress(done, entries.length);
-		} catch {
+		} catch (e) {
+			console.warn("file-utils: embedding failed:", e);
 			// embedding 失败，跳过此页面
 			done++;
 			if (onProgress) onProgress(done, entries.length);
@@ -374,7 +448,8 @@ export async function vectorSearch(
 
 		scored.sort((a, b) => b.score - a.score);
 		return scored.slice(0, topN);
-	} catch {
+	} catch (e) {
+		console.warn("file-utils: embedding fallback:", e);
 		// embedding 调用失败，降级到关键词检索
 		return findRelevantPages(query, files, topN);
 	}

@@ -21,8 +21,6 @@ const PRO_FEATURES: Set<FeatureId> = new Set([
 	"svg-mind-map",
 	"multi-llm",
 	"health-check",
-	"advanced-templates",
-	"embedding-config",
 ]);
 
 export function requirePro(state: LicenseInfo, featureId: FeatureId): boolean {
@@ -58,9 +56,9 @@ export class UpgradeModal extends Modal {
 		});
 
 		const priceEl = contentEl.createDiv({ cls: "sb-upgrade-pricing" });
-		priceEl.createEl("span", { text: "$5/month", cls: "sb-upgrade-price" });
+		priceEl.createEl("span", { text: "$3.99/month", cls: "sb-upgrade-price" });
 		priceEl.createEl("span", { text: " | ", cls: "sb-upgrade-price-sep" });
-		priceEl.createEl("span", { text: "$49/year", cls: "sb-upgrade-price" });
+		priceEl.createEl("span", { text: "$29.99/year", cls: "sb-upgrade-price" });
 
 		const btnRow = contentEl.createDiv({ cls: "sb-upgrade-btns" });
 

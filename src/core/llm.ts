@@ -93,9 +93,9 @@ export async function callLLM(
 			return await adapter(messages, options, settings);
 		} catch (e: unknown) {
 			lastError = e instanceof Error ? e : new Error(String(e));
-			const msg = lastError.message;
-			if (msg.includes("401") || msg.includes("403")) throw e;
-			if (msg.includes("429") && attempt < maxRetries) {
+			const status = (e as any)?.status || 0;
+			if (status === 401 || status === 403) throw e;
+			if (status === 429 && attempt < maxRetries) {
 				await new Promise(r => setTimeout(r, Math.min(5000 * Math.pow(2, attempt), 60000)));
 				continue;
 			}
@@ -107,6 +107,85 @@ export async function callLLM(
 		}
 	}
 	throw lastError;
+}
+
+// 批量调用：每个任务独立重试，批次间可配延迟
+export interface BatchTask {
+	messages: Array<{ role: string; content: string }>;
+	options: LLMOptions;
+}
+
+export interface BatchResult {
+	index: number;
+	status: "fulfilled" | "rejected";
+	value?: string;
+	reason?: string;
+}
+
+export interface BatchOptions {
+	concurrency?: number;       // 并发数，默认 5
+	batchDelay?: number;        // 批次间延迟 ms，默认 500
+	perItemRetry?: number;      // 单项重试次数，默认 3
+	signal?: AbortSignal;
+}
+
+export async function callLLMBatch(
+	tasks: BatchTask[],
+	settings: PluginSettings,
+	batchOpts: BatchOptions = {},
+): Promise<BatchResult[]> {
+	const concurrency = batchOpts.concurrency ?? 5;
+	const batchDelay = batchOpts.batchDelay ?? 500;
+	const perItemRetry = batchOpts.perItemRetry ?? 3;
+	const results: BatchResult[] = new Array(tasks.length);
+
+	for (let i = 0; i < tasks.length; i += concurrency) {
+		if (batchOpts.signal?.aborted) {
+			for (let j = i; j < tasks.length; j++) {
+				results[j] = { index: j, status: "rejected", reason: "编译已取消" };
+			}
+			break;
+		}
+
+		const batch = tasks.slice(i, i + concurrency);
+		const batchResults = await Promise.allSettled(batch.map(async (task, idx) => {
+			const globalIdx = i + idx;
+			let lastErr: string = "未知错误";
+			for (let attempt = 0; attempt <= perItemRetry; attempt++) {
+				try {
+					const value = await callLLM(task.messages, settings, {
+						...task.options,
+						signal: batchOpts.signal,
+					});
+					return { index: globalIdx, status: "fulfilled" as const, value };
+				} catch (e) {
+					lastErr = e instanceof Error ? e.message : String(e);
+					if (attempt < perItemRetry) {
+						const delay = Math.min(1000 * Math.pow(2, attempt), 15000);
+						await new Promise(r => setTimeout(r, delay));
+					}
+				}
+			}
+			return { index: globalIdx, status: "rejected" as const, reason: lastErr };
+		}));
+
+		for (let j = 0; j < batchResults.length; j++) {
+			const r = batchResults[j];
+			if (r.status === "fulfilled") {
+				results[r.value.index] = r.value;
+			} else {
+				const idx = i + j;
+				results[idx] = { index: idx, status: "rejected", reason: String((r as PromiseRejectedResult).reason || "未知错误") };
+			}
+		}
+
+		// 批次间延迟，防止限流
+		if (i + concurrency < tasks.length && batchDelay > 0) {
+			await new Promise(r => setTimeout(r, batchDelay));
+		}
+	}
+
+	return results;
 }
 
 // 流式调用（对话面板用，桌面端 fetch 可用）
@@ -150,8 +229,10 @@ async function callOpenAIStream(
 		throw new Error(`API 错误 (${res.status}): ${err}`);
 	}
 
-	const reader = res.body!.getReader();
+	if (!res.body) throw new Error("API 返回了空响应体");
+	const reader = res.body.getReader();
 	const decoder = new TextDecoder();
+		try {
 	let fullText = "";
 	let buffer = "";
 
@@ -171,10 +252,13 @@ async function callOpenAIStream(
 					fullText += text;
 					onChunk(text);
 				}
-			} catch {}
+			} catch (e) { console.warn("llm:", e) }
 		}
 	}
-	return fullText;
+			return fullText;
+		} finally {
+			reader.cancel();
+		}
 }
 
 async function callAnthropicStream(
@@ -211,7 +295,9 @@ async function callAnthropicStream(
 		throw new Error(`API 错误 (${res.status}): ${err}`);
 	}
 
-	const reader = res.body!.getReader();
+	if (!res.body) throw new Error("API 返回了空响应体");
+	const reader = res.body.getReader();
+		try {
 	const decoder = new TextDecoder();
 	let fullText = "";
 	let buffer = "";
@@ -230,8 +316,11 @@ async function callAnthropicStream(
 					fullText += d.delta.text;
 					onChunk(d.delta.text);
 				}
-			} catch {}
+			} catch (e) { console.warn("llm:", e) }
 		}
 	}
-	return fullText;
+			return fullText;
+		} finally {
+			reader.cancel();
+		}
 }
