@@ -2,72 +2,129 @@
 
 /* === 编译面板（右侧栏） === */
 .second-brain-compile {
-	padding: 12px;
+	padding: 12px 10px 14px;
 	display: flex;
 	flex-direction: column;
-	gap: 10px;
+	gap: 12px;
 	height: 100%;
+	min-height: 0;
+	box-sizing: border-box;
 }
 
-.sb-btn-row {
+.sb-compile-toolbar.sb-btn-row {
 	display: flex;
-	gap: 8px;
+	flex-wrap: wrap;
+	align-items: stretch;
+	gap: 6px;
 }
 
-.sb-btn-row button {
-	flex: 1;
-}
-
-.sb-status {
+.sb-compile-toolbar.sb-btn-row button {
 	font-size: 12px;
+	line-height: 1.2;
+}
+
+.sb-compile-btn-primary.mod-cta {
+	flex: 1.35;
+	min-width: 100px;
+}
+
+.sb-compile-btn-secondary {
+	flex: 1;
+	min-width: 88px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--button-radius, 4px);
+	background: var(--background-primary);
 	color: var(--text-muted);
+}
+
+.sb-compile-btn-secondary:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+	border-color: var(--background-modifier-border-hover);
+}
+
+.sb-compile-toolbar .sb-cancel-btn {
+	flex: 0 0 auto;
+	min-width: 64px;
+}
+
+.sb-compile-progress-card {
+	flex-shrink: 0;
+	padding: 11px 12px;
+	background: color-mix(in srgb, var(--background-secondary) 88%, var(--background-primary) 12%);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
 }
 
 .sb-progress-wrap {
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
+	gap: 8px;
 }
 
 .sb-progress-label {
 	font-size: 11px;
-	color: var(--text-muted);
+	line-height: 1.4;
+	min-height: 2.8em;
+	color: var(--text-normal);
+	opacity: 0.92;
 }
 
 .sb-progress-bar {
-	height: 6px;
+	height: 8px;
 	background: var(--background-modifier-border);
-	border-radius: 3px;
+	border-radius: 999px;
 	overflow: hidden;
+	box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
 .sb-progress-fill {
 	height: 100%;
 	background: var(--interactive-accent);
-	transition: width 0.3s ease;
+	transition: width 0.35s ease;
 	width: 0%;
+	border-radius: 999px;
 }
 
 .sb-log {
 	flex: 1;
+	min-height: 0;
 	overflow-y: auto;
 	font-family: var(--font-monospace);
-	font-size: 12px;
-	border-top: 1px solid var(--background-modifier-border);
-	padding-top: 8px;
+	font-size: 11px;
+	line-height: 1.45;
+	padding: 10px 10px 8px;
+	margin-top: 2px;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	-webkit-overflow-scrolling: touch;
 }
 
 .sb-log-line {
-	padding: 3px 0;
-	border-bottom: 1px solid var(--background-modifier-border);
+	padding: 5px 0 5px 8px;
+	margin: 0 -4px;
+	border-radius: 4px;
+	border-left: 2px solid transparent;
 }
 
-.sb-log-line.ok {
-	color: var(--text-success);
+.sb-log-line + .sb-log-line {
+	border-top: 1px solid var(--background-modifier-border);
 }
 
-.sb-log-line.err {
+.second-brain-compile .sb-log-line.ok {
+	color: var(--text-muted);
+	border-left-color: var(--background-modifier-border);
+}
+
+.second-brain-compile .sb-log-line.err {
 	color: var(--text-error);
+	border-left-color: color-mix(in srgb, var(--text-error) 38%, var(--background-modifier-border) 62%);
+}
+
+.second-brain-compile .sb-log-line.warn {
+	color: var(--text-muted);
+	border-left-color: color-mix(in srgb, var(--text-faint) 55%, var(--background-modifier-border) 45%);
 }
 
 /* === 对话面板（主编辑区全宽） === */
@@ -595,38 +652,59 @@ pre:hover .sb-copy-btn {
 }
 
 /* ============================================
-   Wiki 预览面板 — Modern Polish
+   Wiki 预览 — 阅读优先 / 索引清晰
    ============================================ */
 
 .second-brain-wiki {
+	--sb-wiki-radius: 12px;
+	--sb-wiki-radius-sm: 8px;
+	--sb-wiki-border: var(--background-modifier-border);
+	--sb-wiki-surface: color-mix(in srgb, var(--background-secondary) 92%, var(--background-primary));
+	--sb-wiki-card-bg: color-mix(in srgb, var(--background-primary) 65%, var(--background-secondary));
 	display: flex;
 	flex-direction: column;
 	height: 100%;
-	background: var(--background-primary);
+	background: linear-gradient(
+		165deg,
+		color-mix(in srgb, var(--background-secondary) 55%, var(--background-primary)) 0%,
+		var(--background-primary) 42%,
+		var(--background-primary) 100%
+	);
+	font-feature-settings: "kern" 1, "liga" 1;
 }
 
-/* 工具栏 — 样式在文件末尾 (Issue #1 refactor) */
+.second-brain-wiki .sb-wiki-toolbar {
+	background: color-mix(in srgb, var(--background-primary) 88%, transparent);
+	backdrop-filter: blur(8px);
+}
 
 .sb-wiki-search {
 	flex: 1;
-	padding: 9px 14px 9px 32px;
-	border: 1px solid var(--background-modifier-border);
-	border-radius: 8px;
-	background: var(--background-secondary);
+	min-width: 0;
+	padding: 10px 14px 10px 36px;
+	border: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 85%, transparent);
+	border-radius: 10px;
+	background: var(--sb-wiki-card-bg, var(--background-secondary));
 	color: var(--text-normal);
-	font-size: 14px;
+	font-size: 13px;
 	font-family: var(--font-text);
-	transition: border-color 0.15s linear, background 0.15s linear, box-shadow 0.15s linear;
-	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='7.5' cy='7.5' r='5.5'/%3E%3Cline x1='12' y1='12' x2='15' y2='15'/%3E%3C/svg%3E");
+	transition:
+		border-color 0.18s ease,
+		background 0.18s ease,
+		box-shadow 0.18s ease;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23999' stroke-opacity='0.55' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='7.5' cy='7.5' r='5.5'/%3E%3Cline x1='12' y1='12' x2='15' y2='15'/%3E%3C/svg%3E");
 	background-repeat: no-repeat;
-	background-position: 10px center;
+	background-position: 12px center;
+	box-shadow: inset 0 1px 0 color-mix(in srgb, var(--background-primary) 60%, transparent);
 }
 
 .sb-wiki-search:focus {
 	outline: none;
-	border-color: var(--interactive-accent);
-	background-color: var(--background-primary);
-	box-shadow: 0 0 0 3px rgba(var(--interactive-accent-rgb), 0.12);
+	border-color: color-mix(in srgb, var(--interactive-accent) 55%, var(--sb-wiki-border, var(--background-modifier-border)));
+	background: var(--background-primary);
+	box-shadow:
+		0 0 0 3px color-mix(in srgb, var(--interactive-accent) 16%, transparent),
+		inset 0 1px 0 transparent;
 }
 
 .sb-wiki-search::placeholder {
@@ -634,76 +712,178 @@ pre:hover .sb-copy-btn {
 }
 
 .sb-wiki-refresh {
-	padding: 9px 16px;
-	border: 1px solid var(--background-modifier-border);
-	border-radius: 8px;
-	background: transparent;
+	padding: 10px 16px;
+	border: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 90%, transparent);
+	border-radius: 10px;
+	background: var(--sb-wiki-surface, var(--background-secondary));
 	color: var(--text-muted);
 	cursor: pointer;
-	font-size: 13px;
+	font-size: 12px;
+	font-weight: 500;
 	flex-shrink: 0;
-	transition: all 0.15s linear;
+	transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
 }
 
 .sb-wiki-refresh:hover {
 	background: var(--background-modifier-hover);
 	color: var(--text-normal);
-	border-color: var(--background-modifier-border-hover);
+	border-color: color-mix(in srgb, var(--interactive-accent) 28%, var(--sb-wiki-border, var(--background-modifier-border)));
 }
 
-/* 内容区 */
+.sb-wiki-refresh:active {
+	transform: scale(0.98);
+}
+
+/* 主滚动区 */
 .sb-wiki-body {
 	flex: 1;
 	overflow-y: auto;
-	padding: 24px 28px;
+	overflow-x: hidden;
+	padding: 20px 22px 28px;
 	scroll-behavior: smooth;
 }
 
-/* 统计栏 — pill badges */
+/* 顶部概览条（可展开） */
+.sb-wiki-overview-toggle {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: stretch;
+	gap: 8px;
+	margin: 0 0 20px;
+	padding: 12px 14px;
+	background: var(--sb-wiki-surface, var(--background-secondary));
+	border: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 80%, transparent);
+	border-radius: var(--sb-wiki-radius, 12px);
+	cursor: pointer;
+	transition: border-color 0.18s ease, box-shadow 0.18s ease;
+	box-shadow: 0 1px 0 color-mix(in srgb, var(--background-primary) 70%, transparent);
+}
+
+.sb-wiki-overview-toggle:hover {
+	border-color: color-mix(in srgb, var(--interactive-accent) 35%, var(--sb-wiki-border, var(--background-modifier-border)));
+	box-shadow: 0 4px 20px color-mix(in srgb, var(--background-modifier-box-shadow) 35%, transparent);
+}
+
+.sb-wiki-overview-toggle.sb-overview-expanded {
+	border-color: color-mix(in srgb, var(--interactive-accent) 45%, var(--sb-wiki-border, var(--background-modifier-border)));
+}
+
+.sb-wiki-overview-detail {
+	margin: -8px 0 20px;
+	padding: 14px 16px 16px;
+	background: color-mix(in srgb, var(--background-primary) 40%, var(--background-secondary));
+	border: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 75%, transparent);
+	border-top: none;
+	border-radius: 0 0 var(--sb-wiki-radius, 12px) var(--sb-wiki-radius, 12px);
+}
+
+.sb-wiki-search-hint {
+	font-size: 12px;
+	color: var(--text-muted);
+	margin: 0 0 14px;
+	padding: 8px 12px;
+	background: var(--sb-wiki-surface, var(--background-secondary));
+	border-radius: var(--sb-wiki-radius-sm, 8px);
+	border: 1px dashed color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 90%, transparent);
+}
+
+.sb-wiki-load-more {
+	display: block;
+	width: 100%;
+	max-width: 320px;
+	margin: 20px auto 8px;
+	padding: 10px 18px;
+	font-size: 12px;
+	font-weight: 500;
+	color: var(--text-muted);
+	background: var(--sb-wiki-surface, var(--background-secondary));
+	border: 1px solid var(--sb-wiki-border, var(--background-modifier-border));
+	border-radius: 999px;
+	cursor: pointer;
+	transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.sb-wiki-load-more:hover {
+	color: var(--interactive-accent);
+	border-color: color-mix(in srgb, var(--interactive-accent) 40%, var(--sb-wiki-border, var(--background-modifier-border)));
+	background: var(--background-modifier-hover);
+}
+
+/* 统计 pill（与概览条内一致） */
 .sb-wiki-stats {
 	display: flex;
 	align-items: center;
-	gap: 12px;
-	margin-bottom: 28px;
+	gap: 10px;
+	margin-bottom: 24px;
+	flex-wrap: wrap;
 }
 
 .sb-stat-item {
 	display: inline-flex;
 	align-items: center;
-	gap: 5px;
-	padding: 6px 14px;
-	background: var(--background-secondary);
-	border: 1px solid var(--background-modifier-border);
-	border-radius: 20px;
-	transition: border-color 0.15s linear;
+	gap: 6px;
+	padding: 8px 14px;
+	background: color-mix(in srgb, var(--background-primary) 35%, var(--background-secondary));
+	border: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 85%, transparent);
+	border-radius: 999px;
+	transition: border-color 0.15s ease, transform 0.12s ease;
 }
 
 .sb-stat-item:hover {
-	border-color: var(--interactive-accent);
+	border-color: color-mix(in srgb, var(--interactive-accent) 40%, var(--sb-wiki-border, var(--background-modifier-border)));
+	transform: translateY(-1px);
 }
 
 .sb-stat-num {
-	font-size: 14px;
+	font-size: 15px;
 	font-weight: 700;
+	font-variant-numeric: tabular-nums;
 	color: var(--interactive-accent);
+	letter-spacing: -0.02em;
 }
 
 .sb-stat-label {
-	font-size: 11px;
-	color: var(--text-muted);
-	letter-spacing: 0.3px;
-}
-
-/* 分区标题 */
-.sb-wiki-h2 {
-	font-size: 13px;
+	font-size: 10px;
 	font-weight: 600;
 	color: var(--text-muted);
-	margin: 28px 0 12px;
-	padding: 0;
-	letter-spacing: 0.5px;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
+.second-brain-wiki .sb-growth-reviewed .sb-stat-num {
+	color: var(--text-success);
+}
+
+.second-brain-wiki .sb-growth-draft .sb-stat-num {
+	color: var(--text-warning);
+}
+
+/* 分区标题 — 左 accent，非纯大写墙 */
+.sb-wiki-h2 {
+	position: relative;
+	font-size: 11px;
+	font-weight: 700;
+	color: var(--text-muted);
+	margin: 32px 0 14px;
+	padding: 0 0 0 12px;
+	letter-spacing: 0.06em;
 	text-transform: uppercase;
 	border-bottom: none;
+}
+
+.sb-wiki-h2::before {
+	content: "";
+	position: absolute;
+	left: 0;
+	top: 0.25em;
+	bottom: 0.25em;
+	width: 3px;
+	border-radius: 2px;
+	background: linear-gradient(
+		180deg,
+		color-mix(in srgb, var(--interactive-accent) 85%, transparent),
+		color-mix(in srgb, var(--interactive-accent) 25%, transparent)
+	);
 }
 
 .sb-wiki-h2:first-child {
@@ -711,61 +891,96 @@ pre:hover .sb-copy-btn {
 }
 
 .sb-wiki-h3 {
-	font-size: 12px;
+	font-size: 13px;
 	font-weight: 600;
-	color: var(--text-faint);
-	margin: 12px 0 8px;
-	letter-spacing: 0.3px;
+	color: var(--text-normal);
+	margin: 18px 0 10px;
+	letter-spacing: -0.01em;
+	opacity: 0.92;
 }
 
 /* 卡片网格 */
 .sb-wiki-grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-	gap: 8px;
-	margin-bottom: 12px;
+	grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+	gap: 12px;
+	margin-bottom: 16px;
 }
 
 .sb-wiki-card {
-	padding: 14px 16px;
-	background: transparent;
-	border: 1px solid var(--background-modifier-border);
-	border-radius: 8px;
+	padding: 16px 16px 14px;
+	background: var(--sb-wiki-card-bg, var(--background-secondary));
+	border: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 88%, transparent);
+	border-radius: var(--sb-wiki-radius, 12px);
 	cursor: pointer;
-	transition: border-color 0.15s linear, box-shadow 0.15s linear, background 0.15s linear;
 	position: relative;
+	transition:
+		border-color 0.18s ease,
+		box-shadow 0.22s ease,
+		background 0.18s ease,
+		transform 0.16s ease;
+	box-shadow: 0 1px 2px color-mix(in srgb, var(--background-modifier-box-shadow) 25%, transparent);
+}
+
+.sb-wiki-card::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity 0.2s ease;
+	background: linear-gradient(
+		135deg,
+		color-mix(in srgb, var(--interactive-accent) 10%, transparent) 0%,
+		transparent 48%
+	);
 }
 
 .sb-wiki-card:hover {
-	border-color: var(--interactive-accent);
-	background: var(--background-secondary);
+	border-color: color-mix(in srgb, var(--interactive-accent) 45%, var(--sb-wiki-border, var(--background-modifier-border)));
+	background: color-mix(in srgb, var(--background-primary) 20%, var(--background-secondary));
 	box-shadow:
-		0 4px 6px 0px rgba(0, 0, 0, 0.04),
-		0 1px 3px 1px rgba(0, 0, 0, 0.02);
+		0 8px 28px color-mix(in srgb, var(--background-modifier-box-shadow) 45%, transparent),
+		0 0 0 1px color-mix(in srgb, var(--interactive-accent) 12%, transparent);
+	transform: translateY(-2px);
+}
+
+.sb-wiki-card:hover::before {
+	opacity: 1;
 }
 
 .sb-wiki-card:active {
-	transform: translateY(1px);
+	transform: translateY(0);
+	transition-duration: 0.08s;
+}
+
+.sb-wiki-card-semantic {
+	border-style: dashed;
+	border-color: color-mix(in srgb, var(--interactive-accent) 35%, var(--sb-wiki-border, var(--background-modifier-border)));
 }
 
 .sb-wiki-card-title {
-	font-size: 14px;
+	font-size: 15px;
 	font-weight: 600;
-	color: var(--text-accent) !important;
-	text-decoration: none !important;
+	color: var(--text-accent);
+	text-decoration: none;
 	display: block;
-	margin-bottom: 4px;
+	margin-bottom: 6px;
 	line-height: 1.35;
+	letter-spacing: -0.02em;
 }
 
 .sb-wiki-card-title:hover {
-	text-decoration: underline !important;
+	text-decoration: underline;
+	text-underline-offset: 3px;
+	text-decoration-color: color-mix(in srgb, var(--text-accent) 45%, transparent);
 }
 
 .sb-wiki-card-desc {
 	font-size: 12px;
 	color: var(--text-muted);
-	line-height: 1.5;
+	line-height: 1.55;
 	margin: 0;
 	display: -webkit-box;
 	-webkit-line-clamp: 2;
@@ -775,314 +990,362 @@ pre:hover .sb-copy-btn {
 
 .sb-wiki-card-tags {
 	display: flex;
-	gap: 4px;
-	margin-top: 8px;
+	gap: 6px;
+	margin-top: 10px;
 	flex-wrap: wrap;
 }
 
 .sb-wiki-tag {
 	font-size: 10px;
-	padding: 2px 8px;
-	background: var(--background-primary-alt);
-	color: var(--text-faint);
-	border-radius: 10px;
-	letter-spacing: 0.2px;
+	font-weight: 600;
+	padding: 3px 9px;
+	background: color-mix(in srgb, var(--background-modifier-hover) 80%, var(--background-primary));
+	color: var(--text-muted);
+	border-radius: 999px;
+	letter-spacing: 0.02em;
+	border: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 70%, transparent);
 }
 
-/* 面包屑导航 */
+/* 单页顶栏 */
 .sb-wiki-breadcrumb {
 	display: flex;
 	align-items: center;
-	gap: 10px;
-	margin-bottom: 20px;
-	padding: 10px 0;
-	border-bottom: 1px solid var(--background-modifier-border);
+	flex-wrap: wrap;
+	gap: 10px 12px;
+	margin-bottom: 18px;
+	padding: 12px 14px;
+	background: var(--sb-wiki-surface, var(--background-secondary));
+	border: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 82%, transparent);
+	border-radius: var(--sb-wiki-radius, 12px);
+	box-shadow: 0 1px 0 color-mix(in srgb, var(--background-primary) 65%, transparent);
 }
 
 .sb-wiki-back {
 	font-size: 12px;
-	padding: 5px 14px;
-	border: 1px solid var(--background-modifier-border);
-	border-radius: 6px;
-	background: transparent;
+	font-weight: 600;
+	padding: 8px 14px;
+	border: none;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--background-modifier-hover) 70%, transparent);
 	color: var(--text-muted);
 	cursor: pointer;
-	transition: all 0.15s linear;
+	transition: background 0.15s ease, color 0.15s ease;
 }
 
 .sb-wiki-back:hover {
-	background: var(--background-secondary);
+	background: var(--background-modifier-hover);
 	color: var(--text-normal);
-	border-color: var(--background-modifier-border-hover);
 }
 
 .sb-wiki-breadcrumb-title {
-	font-size: 16px;
-	font-weight: 600;
+	flex: 1;
+	min-width: 120px;
+	font-size: 17px;
+	font-weight: 700;
 	color: var(--text-normal);
-	letter-spacing: -0.2px;
+	letter-spacing: -0.03em;
+	line-height: 1.25;
 }
 
-/* Wiki 单页：侧栏大纲 + 正文（相对链接解析依赖 sourcePath） */
+/* 单页：大纲 + 正文 */
 .sb-wiki-page-wrap {
 	display: flex;
 	align-items: flex-start;
-	gap: 16px;
+	gap: 20px;
 }
 
 .sb-wiki-toc-col {
 	display: none;
-	flex: 0 0 min(160px, 28%);
-	max-height: calc(100vh - 120px);
+	flex: 0 0 min(176px, 30%);
+	max-height: min(72vh, 640px);
+	overflow-x: hidden;
 	overflow-y: auto;
-	padding: 8px 10px;
-	border: 1px solid var(--background-modifier-border);
-	border-radius: 8px;
-	background: var(--background-secondary);
+	padding: 12px 12px 14px;
+	border: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 80%, transparent);
+	border-radius: var(--sb-wiki-radius, 12px);
+	background: color-mix(in srgb, var(--background-secondary) 88%, var(--background-primary));
 	position: sticky;
-	top: 4px;
+	top: 6px;
+	box-shadow: inset 1px 0 0 color-mix(in srgb, var(--interactive-accent) 35%, transparent);
 }
 
 .sb-wiki-toc-title {
-	font-size: 11px;
-	font-weight: 600;
+	font-size: 10px;
+	font-weight: 700;
 	text-transform: uppercase;
-	letter-spacing: 0.04em;
-	color: var(--text-muted);
-	margin-bottom: 8px;
+	letter-spacing: 0.08em;
+	color: var(--text-faint);
+	margin-bottom: 10px;
+	padding-bottom: 8px;
+	border-bottom: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 70%, transparent);
 }
 
 .sb-wiki-toc-nav {
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
+	gap: 2px;
 }
 
 .sb-wiki-toc-link {
 	font-size: 12px;
-	line-height: 1.35;
+	line-height: 1.4;
 	color: var(--text-muted);
 	text-decoration: none;
-	border-radius: 4px;
-	padding: 2px 4px;
+	border-radius: 6px;
+	padding: 5px 8px;
 	word-break: break-word;
+	border: 1px solid transparent;
+	transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
 }
 
 .sb-wiki-toc-link:hover {
 	color: var(--text-normal);
-	background: var(--background-modifier-hover);
+	background: color-mix(in srgb, var(--interactive-accent) 10%, var(--background-modifier-hover));
+	border-color: color-mix(in srgb, var(--interactive-accent) 18%, transparent);
 }
 
 .sb-wiki-toc-level-1 {
-	font-weight: 600;
+	font-weight: 700;
+	color: var(--text-normal);
 }
 
 .sb-wiki-toc-level-2 {
-	padding-left: 6px;
+	padding-left: 8px;
+	font-weight: 500;
 }
 
 .sb-wiki-toc-level-3 {
-	padding-left: 14px;
+	padding-left: 16px;
 	font-size: 11px;
+	opacity: 0.95;
 }
 
 .sb-wiki-page-wrap .sb-wiki-page-content {
 	flex: 1;
 	min-width: 0;
+	max-width: 65ch;
+}
+
+@media (max-width: 520px) {
+	.second-brain-wiki .sb-wiki-page-wrap {
+		flex-direction: column;
+	}
+
+	.second-brain-wiki .sb-wiki-toc-col {
+		position: relative;
+		top: 0;
+		max-height: 200px;
+		width: 100%;
+		flex: none;
+		box-shadow: inset 0 3px 0 color-mix(in srgb, var(--interactive-accent) 40%, transparent);
+	}
+
+	.second-brain-wiki .sb-wiki-page-wrap .sb-wiki-page-content {
+		max-width: none;
+	}
 }
 
 .sb-wiki-edit-btn {
 	font-size: 11px;
-	padding: 4px 12px;
-	border: 1px solid var(--background-modifier-border);
-	border-radius: 6px;
-	background: transparent;
+	font-weight: 600;
+	padding: 7px 14px;
+	border: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 90%, transparent);
+	border-radius: 999px;
+	background: var(--background-primary);
 	color: var(--text-muted);
 	cursor: pointer;
 	margin-left: auto;
-	transition: all 0.15s linear;
+	transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
 }
 
 .sb-wiki-edit-btn:hover {
-	background: var(--background-secondary);
+	background: var(--background-modifier-hover);
 	color: var(--text-normal);
-	border-color: var(--background-modifier-border-hover);
+	border-color: color-mix(in srgb, var(--interactive-accent) 35%, var(--sb-wiki-border, var(--background-modifier-border)));
 }
 
-/* 页面内容渲染 — typography polish */
+/* 正文排版 */
 .sb-wiki-page-content {
-	line-height: 1.75;
+	line-height: 1.72;
 	color: var(--text-normal);
 	font-size: 14px;
 }
 
 .sb-wiki-page-content h1 {
-	font-size: 1.5em;
+	font-size: 1.55em;
 	font-weight: 700;
-	margin: 0 0 0.5em;
-	padding-bottom: 0.3em;
-	border-bottom: 1px solid var(--background-modifier-border);
-	letter-spacing: -0.3px;
+	margin: 0 0 0.45em;
+	padding-bottom: 0.35em;
+	border-bottom: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 85%, transparent);
+	letter-spacing: -0.035em;
 	color: var(--text-normal);
 }
 
 .sb-wiki-page-content h2 {
-	font-size: 1.2em;
+	font-size: 1.22em;
 	font-weight: 600;
-	margin: 1.4em 0 0.5em;
+	margin: 1.35em 0 0.45em;
 	color: var(--text-normal);
-	letter-spacing: -0.2px;
+	letter-spacing: -0.025em;
 }
 
 .sb-wiki-page-content h3 {
-	font-size: 1.05em;
+	font-size: 1.06em;
 	font-weight: 600;
-	margin: 1.2em 0 0.4em;
+	margin: 1.1em 0 0.38em;
 	color: var(--text-normal);
+	opacity: 0.95;
 }
 
 .sb-wiki-page-content p {
-	margin: 0.6em 0;
+	margin: 0.55em 0;
 }
 
 .sb-wiki-page-content ul,
 .sb-wiki-page-content ol {
-	margin: 0.5em 0;
-	padding-left: 1.8em;
+	margin: 0.45em 0;
+	padding-left: 1.65em;
 }
 
 .sb-wiki-page-content li {
-	margin: 0.2em 0;
+	margin: 0.18em 0;
 }
 
 .sb-wiki-page-content li::marker {
-	color: var(--text-faint);
+	color: color-mix(in srgb, var(--text-faint) 80%, var(--interactive-accent));
 }
 
 .sb-wiki-page-content blockquote {
-	margin: 0.8em 0;
-	padding: 0.7em 1.2em;
-	border-left: 3px solid var(--interactive-accent);
-	background: var(--background-primary-alt);
-	border-radius: 0 6px 6px 0;
+	margin: 0.85em 0;
+	padding: 0.75em 1rem 0.75em 1.1rem;
+	border-left: 3px solid color-mix(in srgb, var(--interactive-accent) 75%, var(--text-muted));
+	background: color-mix(in srgb, var(--background-secondary) 55%, var(--background-primary));
+	border-radius: 0 var(--sb-wiki-radius-sm, 8px) var(--sb-wiki-radius-sm, 8px) 0;
 	color: var(--text-muted);
 }
 
 .sb-wiki-page-content pre {
-	margin: 0.8em 0;
-	border-radius: 8px;
+	margin: 0.85em 0;
+	border-radius: var(--sb-wiki-radius-sm, 8px);
 	overflow-x: auto;
-	border: 1px solid var(--background-modifier-border);
+	border: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 88%, transparent);
 }
 
 .sb-wiki-page-content pre code {
 	display: block;
-	padding: 14px 18px;
+	padding: 14px 16px;
 	font-family: var(--font-monospace);
-	font-size: 13px;
-	line-height: 1.6;
-	background: var(--background-primary-alt);
-	border-radius: 8px;
+	font-size: 12.5px;
+	line-height: 1.58;
+	background: color-mix(in srgb, var(--background-primary-alt) 92%, var(--background-secondary));
+	border-radius: var(--sb-wiki-radius-sm, 8px);
 }
 
 .sb-wiki-page-content code {
 	font-family: var(--font-monospace);
-	font-size: 0.88em;
-	padding: 2px 6px;
-	border-radius: 4px;
-	background: var(--background-primary-alt);
+	font-size: 0.86em;
+	padding: 2px 7px;
+	border-radius: 5px;
+	background: color-mix(in srgb, var(--background-primary-alt) 85%, var(--background-secondary));
 	color: var(--text-muted);
+	border: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 55%, transparent);
 }
 
 .sb-wiki-page-content a.internal-link {
 	color: var(--text-accent);
 	text-decoration: none;
 	cursor: pointer;
-	border-bottom: 1px solid transparent;
-	transition: border-color 0.15s linear;
+	border-bottom: 1px dotted color-mix(in srgb, var(--text-accent) 45%, transparent);
+	transition: border-color 0.15s ease, color 0.15s ease;
 }
 
 .sb-wiki-page-content a.internal-link:hover {
-	border-bottom-color: var(--text-accent);
+	border-bottom-style: solid;
+	border-bottom-color: color-mix(in srgb, var(--text-accent) 70%, transparent);
 }
 
 .sb-wiki-page-content a.internal-link.is-unresolved {
-	opacity: 0.5;
+	opacity: 0.48;
+	border-bottom-color: var(--text-faint);
 }
 
 .sb-wiki-page-content table {
 	border-collapse: collapse;
 	width: 100%;
-	margin: 0.8em 0;
-	border: 1px solid var(--background-modifier-border);
-	border-radius: 6px;
+	margin: 0.85em 0;
+	border: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 90%, transparent);
+	border-radius: var(--sb-wiki-radius-sm, 8px);
 	overflow: hidden;
 }
 
 .sb-wiki-page-content th,
 .sb-wiki-page-content td {
-	border: 1px solid var(--background-modifier-border);
-	padding: 8px 14px;
+	border: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 75%, transparent);
+	padding: 9px 14px;
 	text-align: left;
 }
 
 .sb-wiki-page-content th {
-	background: var(--background-secondary);
+	background: color-mix(in srgb, var(--background-secondary) 70%, var(--background-primary));
 	font-weight: 600;
-	font-size: 0.92em;
-	letter-spacing: 0.2px;
+	font-size: 0.9em;
+	letter-spacing: 0.02em;
 }
 
 .sb-wiki-page-content tr:hover td {
-	background: var(--background-modifier-hover);
+	background: color-mix(in srgb, var(--background-modifier-hover) 55%, transparent);
 }
 
 /* 反向链接 */
 .sb-wiki-backlinks-title {
-	font-size: 11px;
-	font-weight: 600;
-	color: var(--text-faint);
-	margin: 28px 0 10px;
-	padding-top: 16px;
-	border-top: 1px solid var(--background-modifier-border);
+	font-size: 10px;
+	font-weight: 700;
+	color: var(--text-muted);
+	margin: 32px 0 12px;
+	padding-top: 18px;
+	border-top: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 85%, transparent);
 	text-transform: uppercase;
-	letter-spacing: 0.5px;
+	letter-spacing: 0.07em;
 }
 
 .sb-wiki-backlinks-grid {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 6px;
+	gap: 8px;
 }
 
 .sb-wiki-backlink-chip {
 	font-size: 12px;
-	padding: 5px 14px;
-	background: transparent;
-	border: 1px solid var(--background-modifier-border);
-	border-radius: 16px;
-	color: var(--text-accent) !important;
-	text-decoration: none !important;
+	font-weight: 500;
+	padding: 6px 14px;
+	background: var(--sb-wiki-card-bg, var(--background-secondary));
+	border: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 88%, transparent);
+	border-radius: 999px;
+	color: var(--text-accent);
+	text-decoration: none;
 	cursor: pointer;
-	transition: all 0.15s linear;
+	transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.18s ease;
 }
 
 .sb-wiki-backlink-chip:hover {
-	border-color: var(--interactive-accent);
-	background: var(--background-secondary);
-	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+	border-color: color-mix(in srgb, var(--interactive-accent) 45%, var(--sb-wiki-border, var(--background-modifier-border)));
+	background: color-mix(in srgb, var(--background-modifier-hover) 80%, var(--background-primary));
+	box-shadow: 0 4px 14px color-mix(in srgb, var(--background-modifier-box-shadow) 30%, transparent);
 }
 
-/* === 审核横幅 === */
+/* 审核横幅 */
 .sb-draft-banner {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 10px 16px;
+	gap: 12px;
+	flex-wrap: wrap;
+	padding: 12px 16px;
 	margin-bottom: 16px;
-	border: 1px solid var(--text-warning);
-	border-radius: 8px;
-	background: color-mix(in srgb, var(--text-warning) 8%, var(--background-primary));
+	border: 1px solid color-mix(in srgb, var(--text-warning) 45%, var(--sb-wiki-border, var(--background-modifier-border)));
+	border-radius: var(--sb-wiki-radius, 12px);
+	background: color-mix(in srgb, var(--text-warning) 9%, var(--background-primary));
+	box-shadow: 0 1px 0 color-mix(in srgb, var(--text-warning) 12%, transparent);
 }
 
 .sb-draft-label {
@@ -1093,104 +1356,108 @@ pre:hover .sb-copy-btn {
 
 .sb-draft-review-btn {
 	font-size: 12px;
-	padding: 4px 14px;
-	border: 1px solid var(--text-warning);
-	border-radius: 4px;
-	background: transparent;
+	font-weight: 600;
+	padding: 6px 16px;
+	border: 1px solid color-mix(in srgb, var(--text-warning) 55%, transparent);
+	border-radius: 999px;
+	background: var(--background-primary);
 	color: var(--text-warning);
 	cursor: pointer;
-	transition: all 0.15s;
+	transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
 .sb-draft-review-btn:hover {
 	background: var(--text-warning);
-	color: var(--background-primary);
+	color: var(--text-on-accent);
+	border-color: var(--text-warning);
 }
 
 .sb-reviewed-banner {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 10px 16px;
+	gap: 12px;
+	flex-wrap: wrap;
+	padding: 12px 16px;
 	margin-bottom: 16px;
-	border: 1px solid var(--text-success);
-	border-radius: 8px;
-	background: color-mix(in srgb, var(--text-success) 8%, var(--background-primary));
+	border: 1px solid color-mix(in srgb, var(--text-success) 45%, var(--sb-wiki-border, var(--background-modifier-border)));
+	border-radius: var(--sb-wiki-radius, 12px);
+	background: color-mix(in srgb, var(--text-success) 9%, var(--background-primary));
+	box-shadow: 0 1px 0 color-mix(in srgb, var(--text-success) 12%, transparent);
 }
 
 .sb-reviewed-banner .sb-draft-label {
 	color: var(--text-success);
 }
 
-.sb-reviewed-banner .sb-draft-review-btn {
-	display: none;
-}
-
-/* 空状态 */
 .sb-wiki-empty {
 	text-align: center;
-	padding: 80px 24px;
-	color: var(--text-faint);
+	padding: 64px 20px 72px;
+	color: var(--text-muted);
 	font-size: 14px;
+	line-height: 1.55;
 }
 
 .sb-wiki-empty::before {
 	content: "";
 	display: block;
-	width: 48px;
-	height: 48px;
-	margin: 0 auto 16px;
-	border-radius: 50%;
-	background: var(--background-secondary);
-	border: 1px solid var(--background-modifier-border);
+	width: 56px;
+	height: 56px;
+	margin: 0 auto 18px;
+	border-radius: 16px;
+	background:
+		linear-gradient(145deg, color-mix(in srgb, var(--interactive-accent) 22%, transparent), transparent 55%),
+		var(--background-secondary);
+	border: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 80%, transparent);
+	box-shadow: 0 6px 24px color-mix(in srgb, var(--background-modifier-box-shadow) 35%, transparent);
 }
 
-/* === 思维导图 === */
-
-/* 视图切换按钮组 */
+/* 视图切换：索引 / MOC */
 .sb-wiki-view-toggle {
-	display: flex;
+	display: inline-flex;
 	gap: 0;
-	margin-right: 4px;
+	margin-right: 6px;
+	padding: 3px;
+	border-radius: 10px;
+	background: color-mix(in srgb, var(--background-secondary) 80%, var(--background-primary));
+	border: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 75%, transparent);
 }
 
 .sb-wiki-view-btn {
-	padding: 6px 14px;
+	padding: 7px 16px;
 	font-size: 12px;
-	border: 1px solid var(--background-modifier-border);
+	font-weight: 600;
+	border: none;
+	border-radius: 8px;
 	background: transparent;
 	color: var(--text-muted);
 	cursor: pointer;
-	transition: all 0.15s linear;
+	transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.sb-wiki-view-btn:first-child {
-	border-radius: 6px 0 0 6px;
-}
-
+.sb-wiki-view-btn:first-child,
 .sb-wiki-view-btn:last-child {
-	border-radius: 0 6px 6px 0;
-	border-left: none;
+	border-radius: 8px;
 }
 
 .sb-wiki-view-btn:hover {
-	background: var(--background-modifier-hover);
 	color: var(--text-normal);
+	background: color-mix(in srgb, var(--background-modifier-hover) 65%, transparent);
 }
 
 .sb-wiki-view-btn.active {
 	background: var(--interactive-accent);
 	color: var(--text-on-accent);
-	border-color: var(--interactive-accent);
+	box-shadow: 0 2px 10px color-mix(in srgb, var(--interactive-accent) 35%, transparent);
 }
 
 .sb-wiki-view-btn.active + .sb-wiki-view-btn {
-	border-left-color: var(--interactive-accent);
+	border-left: none;
 }
 
 
-/* === Health Bar === */
-.sb-health-bar {
+/* === Health Bar (settings strip — must not match wiki progress track) === */
+.sb-health-bar:has(.sb-health-item) {
 	display: flex;
 	align-items: center;
 	gap: 12px;
@@ -1334,16 +1601,19 @@ pre:hover .sb-copy-btn {
 	opacity: 0.9;
 }
 
-/* === Cancel Button === */
+/* === Cancel Button（编译侧栏：克制destructive样式）=== */
 .sb-cancel-btn {
 	font-size: 12px;
-	padding: 4px 14px;
-	border: 1px solid var(--text-error);
-	border-radius: 4px;
+	padding: 4px 12px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
 	background: transparent;
-	color: var(--text-error);
+	color: var(--text-muted);
 	cursor: pointer;
-	transition: all 0.15s;
+	transition:
+		background 0.15s ease,
+		color 0.15s ease,
+		border-color 0.15s ease;
 	font-family: inherit;
 	line-height: 1;
 	min-height: unset;
@@ -1351,8 +1621,9 @@ pre:hover .sb-copy-btn {
 }
 
 .sb-cancel-btn:hover {
-	background: var(--text-error);
-	color: var(--text-on-accent);
+	background: color-mix(in srgb, var(--text-error) 10%, var(--background-modifier-hover));
+	color: var(--text-error);
+	border-color: color-mix(in srgb, var(--text-error) 35%, var(--background-modifier-border));
 }
 
 /* === Time Estimate === */
@@ -1370,24 +1641,22 @@ pre:hover .sb-copy-btn {
 	align-items: stretch;
 	gap: 10px;
 	padding: 12px 14px;
-	background: var(--background-secondary);
+	background: color-mix(in srgb, var(--background-secondary) 90%, var(--background-primary) 10%);
 	border: 1px solid var(--background-modifier-border);
-	border-radius: 10px;
+	border-radius: 8px;
 	margin-bottom: 8px;
-	border-left: 3px solid var(--text-success);
-	box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
 }
 
 .sb-compile-summary--errors {
-	border-left-color: var(--text-error);
+	border-color: color-mix(in srgb, var(--text-error) 22%, var(--background-modifier-border));
 }
 
 .sb-compile-summary-header {
-	font-size: 11px;
-	font-weight: 700;
-	letter-spacing: 0.04em;
-	text-transform: uppercase;
-	color: var(--text-success);
+	font-size: 12px;
+	font-weight: 600;
+	letter-spacing: 0.01em;
+	text-transform: none;
+	color: var(--text-normal);
 }
 
 .sb-compile-summary--errors .sb-compile-summary-header {
@@ -1421,7 +1690,12 @@ pre:hover .sb-copy-btn {
 	gap: 10px;
 	flex-wrap: wrap;
 	font-size: 12px;
+	color: var(--text-muted);
+}
+
+.sb-compile-summary-fail > span:first-child {
 	color: var(--text-error);
+	font-weight: 500;
 }
 
 .sb-compile-guide {
@@ -1442,13 +1716,16 @@ pre:hover .sb-copy-btn {
 
 .sb-retry-btn {
 	font-size: 11px;
-	padding: 3px 12px;
-	border: 1px solid var(--text-warning);
-	border-radius: 4px;
-	background: transparent;
-	color: var(--text-warning);
+	padding: 4px 12px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	background: var(--background-primary);
+	color: var(--text-muted);
 	cursor: pointer;
-	transition: all 0.15s;
+	transition:
+		background 0.15s ease,
+		color 0.15s ease,
+		border-color 0.15s ease;
 	font-family: inherit;
 	line-height: 1;
 	min-height: unset;
@@ -1456,45 +1733,30 @@ pre:hover .sb-copy-btn {
 }
 
 .sb-retry-btn:hover {
-	background: var(--text-warning);
-	color: var(--background-primary);
-}
-
-/* === Wiki Sort Dropdown === */
-.sb-wiki-sort {
-	padding: 6px 10px;
-	border: 1px solid var(--background-modifier-border);
-	border-radius: 6px;
-	background: var(--background-secondary);
+	background: var(--background-modifier-hover);
 	color: var(--text-normal);
-	font-size: 12px;
-	cursor: pointer;
-	flex-shrink: 0;
-	transition: border-color 0.15s;
+	border-color: color-mix(in srgb, var(--interactive-accent) 45%, var(--background-modifier-border));
 }
 
-.sb-wiki-sort:focus {
-	outline: none;
-	border-color: var(--interactive-accent);
-}
-
-/* === Wiki Card Status Badges === */
+/* === Wiki Card status stripe === */
 .sb-wiki-card-draft {
-	border-left: 3px solid var(--text-warning);
+	border-left: 3px solid color-mix(in srgb, var(--text-warning) 75%, transparent);
+	background: color-mix(in srgb, var(--text-warning) 4%, var(--sb-wiki-card-bg, var(--background-secondary)));
 }
 
 .sb-wiki-card-reviewed {
-	border-left: 3px solid var(--text-success);
+	border-left: 3px solid color-mix(in srgb, var(--text-success) 75%, transparent);
+	background: color-mix(in srgb, var(--text-success) 4%, var(--sb-wiki-card-bg, var(--background-secondary)));
 }
 
 /* === Wiki Page Metadata === */
 .sb-wiki-meta {
 	display: flex;
 	align-items: center;
-	gap: 16px;
-	padding: 8px 0;
-	margin-bottom: 12px;
-	border-bottom: 1px solid var(--background-modifier-border);
+	gap: 10px 12px;
+	padding: 10px 0 14px;
+	margin-bottom: 4px;
+	border-bottom: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 82%, transparent);
 	flex-wrap: wrap;
 }
 
@@ -1949,27 +2211,33 @@ pre:hover .sb-copy-btn {
 	color: #a16207;
 }
 
-/* === 审核状态角标 === */
+/* Wiki 卡片角标 */
 .sb-wiki-status-badge {
 	position: absolute;
-	top: 6px;
-	right: 6px;
-	font-size: 10px;
-	font-weight: 600;
-	padding: 2px 6px;
-	border-radius: 8px;
+	top: 10px;
+	right: 10px;
+	font-size: 9px;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	padding: 4px 8px;
+	border-radius: 999px;
 	pointer-events: none;
+	backdrop-filter: blur(6px);
 }
+
 .sb-status-draft {
-	background: rgba(217, 119, 6, 0.15);
-	color: #b45309;
-	border: 1px solid rgba(217, 119, 6, 0.3);
+	background: color-mix(in srgb, var(--text-warning) 16%, var(--background-primary));
+	color: var(--text-warning);
+	border: 1px solid color-mix(in srgb, var(--text-warning) 38%, transparent);
 }
+
 .sb-status-reviewed {
-	background: rgba(5, 150, 105, 0.12);
-	color: #059669;
-	border: 1px solid rgba(5, 150, 105, 0.25);
+	background: color-mix(in srgb, var(--text-success) 14%, var(--background-primary));
+	color: var(--text-success);
+	border: 1px solid color-mix(in srgb, var(--text-success) 35%, transparent);
 }
+
 .sb-wiki-card {
 	position: relative;
 }
@@ -2013,102 +2281,159 @@ pre:hover .sb-copy-btn {
 	to { transform: rotate(360deg); }
 }
 
-/* === Wiki Toolbar Rows (Issue #1) === */
+/* Wiki 工具栏 */
 .sb-wiki-toolbar {
 	display: flex;
 	flex-direction: column;
 	gap: 0;
-	padding: 12px 20px;
-	border-bottom: 1px solid var(--background-modifier-border);
+	padding: 14px 18px 12px;
+	border-bottom: 1px solid color-mix(in srgb, var(--background-modifier-border) 85%, transparent);
 	flex-shrink: 0;
-	background: var(--background-primary);
+	background: color-mix(in srgb, var(--background-primary) 92%, var(--background-secondary));
 }
+
 .sb-wiki-toolbar-row1 {
 	display: flex;
-	gap: 8px;
+	gap: 10px;
 	align-items: center;
 }
+
 .sb-wiki-toolbar-row2 {
 	display: flex;
-	gap: 8px;
+	gap: 10px;
 	align-items: center;
-	margin-top: 8px;
+	margin-top: 10px;
+	flex-wrap: wrap;
 	position: relative;
 }
+
+.sb-wiki-sort {
+	padding: 8px 12px;
+	font-size: 12px;
+	font-weight: 500;
+	color: var(--text-normal);
+	background: var(--sb-wiki-card-bg, var(--background-secondary));
+	border: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 85%, transparent);
+	border-radius: 10px;
+	cursor: pointer;
+	min-height: 36px;
+	transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.second-brain-wiki .sb-wiki-sort:focus {
+	outline: none;
+	border-color: color-mix(in srgb, var(--interactive-accent) 45%, var(--sb-wiki-border, var(--background-modifier-border)));
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--interactive-accent) 12%, transparent);
+}
+
 .sb-wiki-more-btn {
-	padding: 6px 12px;
-	border: 1px solid var(--background-modifier-border);
-	border-radius: 6px;
-	background: transparent;
+	padding: 7px 14px;
+	min-height: 36px;
+	border: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 88%, transparent);
+	border-radius: 10px;
+	background: var(--sb-wiki-surface, var(--background-secondary));
 	color: var(--text-muted);
 	cursor: pointer;
-	font-size: 14px;
+	font-size: 16px;
 	font-weight: 700;
+	line-height: 1;
+	letter-spacing: 0.05em;
+	transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
+
 .sb-wiki-more-btn:hover {
 	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+	border-color: color-mix(in srgb, var(--interactive-accent) 28%, var(--sb-wiki-border, var(--background-modifier-border)));
 }
+
 .sb-wiki-dropdown {
 	position: absolute;
-	top: 100%;
+	top: calc(100% + 6px);
 	left: 0;
 	display: none;
 	flex-direction: column;
-	gap: 2px;
+	gap: 0;
 	background: var(--background-primary);
-	border: 1px solid var(--background-modifier-border);
-	border-radius: 6px;
-	box-shadow: 0 4px 12px rgba(0,0,0,0.12);
-	z-index: 20;
+	border: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 88%, transparent);
+	border-radius: var(--sb-wiki-radius-sm, 8px);
+	box-shadow:
+		0 12px 40px color-mix(in srgb, var(--background-modifier-box-shadow) 45%, transparent),
+		0 0 0 1px color-mix(in srgb, var(--interactive-accent) 8%, transparent);
+	z-index: 50;
 	overflow: hidden;
-	min-width: 140px;
+	min-width: 168px;
 }
+
 .sb-wiki-dropdown-item {
-	padding: 8px 16px;
+	padding: 10px 16px;
 	border: none;
+	border-bottom: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 55%, transparent);
 	background: transparent;
 	color: var(--text-normal);
 	cursor: pointer;
 	text-align: left;
 	font-size: 13px;
-	white-space: nowrap;
-}
-.sb-wiki-dropdown-item:hover {
-	background: var(--background-modifier-hover);
+	font-weight: 500;
+	transition: background 0.12s ease;
 }
 
-/* === Generate Article Button (Issue #2) === */
+.sb-wiki-dropdown-item:last-child {
+	border-bottom: none;
+}
+
+.sb-wiki-dropdown-item:hover {
+	background: color-mix(in srgb, var(--interactive-accent) 8%, var(--background-modifier-hover));
+}
+
+/* 生成文章 */
 .sb-wiki-generate-btn {
 	font-size: 11px;
-	padding: 4px 12px;
-	border: 1px solid var(--interactive-accent);
-	border-radius: 6px;
-	background: var(--interactive-accent);
+	font-weight: 600;
+	padding: 7px 14px;
+	border: none;
+	border-radius: 999px;
+	background: linear-gradient(
+		135deg,
+		color-mix(in srgb, var(--interactive-accent) 100%, transparent),
+		color-mix(in srgb, var(--interactive-accent) 78%, #000) 100%
+	);
 	color: var(--text-on-accent);
 	cursor: pointer;
-	margin-left: 8px;
-	transition: all 0.15s linear;
+	margin-left: 6px;
+	box-shadow: 0 2px 12px color-mix(in srgb, var(--interactive-accent) 28%, transparent);
+	transition: transform 0.12s ease, box-shadow 0.18s ease, opacity 0.15s ease;
 }
+
 .sb-wiki-generate-btn:hover {
-	opacity: 0.85;
+	box-shadow: 0 4px 18px color-mix(in srgb, var(--interactive-accent) 38%, transparent);
+	transform: translateY(-1px);
 }
+
+.sb-wiki-generate-btn:active {
+	transform: translateY(0);
+}
+
 .sb-wiki-generate-btn:disabled {
 	opacity: 0.5;
 	cursor: not-allowed;
+	transform: none;
+	box-shadow: none;
 }
 
-/* === Metadata Badges (Issue #12) === */
+/* 页内 meta 标签 */
 .sb-wiki-meta-badge {
 	display: inline-flex;
 	align-items: center;
-	gap: 4px;
-	padding: 4px 12px;
-	background: var(--background-secondary);
-	border: 1px solid var(--background-modifier-border);
-	border-radius: 12px;
-	font-size: 12px;
-	margin-right: 6px;
+	gap: 5px;
+	padding: 5px 12px;
+	background: color-mix(in srgb, var(--background-secondary) 88%, var(--background-primary));
+	border: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 78%, transparent);
+	border-radius: 999px;
+	font-size: 11px;
+	margin-right: 4px;
 }
+
 .sb-wiki-meta-value {
 	color: var(--text-normal);
 	font-weight: 600;
@@ -2149,10 +2474,10 @@ pre:hover .sb-copy-btn {
 	margin-bottom: 8px;
 }
 
-/* === Compile Stage Indicator (Issue #8) === */
+/* === Compile Stage Indicator（单accent + 灰阶）=== */
 .sb-compile-stages {
 	display: flex;
-	gap: 8px 10px;
+	gap: 6px 8px;
 	margin-top: 2px;
 	flex-wrap: wrap;
 	justify-content: space-between;
@@ -2160,16 +2485,18 @@ pre:hover .sb-copy-btn {
 .sb-compile-stage-dot {
 	display: flex;
 	align-items: center;
-	gap: 5px;
-	opacity: 0.38;
-	transition: opacity 0.25s ease, transform 0.2s ease;
+	gap: 6px;
+	opacity: 0.42;
+	transition:
+		opacity 0.22s ease,
+		transform 0.2s ease;
 }
 .sb-compile-stage-dot.sb-compile-stage-done {
-	opacity: 0.78;
+	opacity: 0.72;
 }
 .sb-compile-stage-dot.sb-compile-stage-active {
 	opacity: 1;
-	transform: translateY(-1px);
+	transform: translateY(-0.5px);
 }
 .sb-compile-stage-dot.sb-compile-stage-active .sb-compile-stage-label {
 	color: var(--text-normal);
@@ -2179,16 +2506,30 @@ pre:hover .sb-copy-btn {
 	color: var(--text-muted);
 }
 .sb-compile-stage-icon {
-	width: 8px;
-	height: 8px;
+	width: 6px;
+	height: 6px;
 	border-radius: 50%;
 	flex-shrink: 0;
-	box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
+	background: var(--text-faint);
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--background-primary) 35%, transparent);
+	transition:
+		background 0.2s ease,
+		box-shadow 0.2s ease;
+}
+.sb-compile-stage-dot.sb-compile-stage-done .sb-compile-stage-icon {
+	background: color-mix(in srgb, var(--text-muted) 65%, var(--text-faint) 35%);
+}
+.sb-compile-stage-dot.sb-compile-stage-active .sb-compile-stage-icon {
+	background: var(--interactive-accent);
+	box-shadow:
+		0 0 0 2px color-mix(in srgb, var(--interactive-accent) 22%, transparent),
+		inset 0 0 0 1px color-mix(in srgb, var(--background-primary) 25%, transparent);
 }
 .sb-compile-stage-label {
 	font-size: 10px;
 	color: var(--text-faint);
 	line-height: 1.2;
+	letter-spacing: 0.01em;
 	transition: color 0.2s ease;
 }
 .sb-compile-current-file {
@@ -2242,11 +2583,12 @@ pre:hover .sb-copy-btn {
 	align-items: center;
 	gap: 12px;
 }
-.sb-health-bar {
+.sb-health-row > .sb-health-bar {
 	flex: 1;
-	height: 6px;
+	min-width: 0;
+	height: 8px;
 	background: var(--background-modifier-border);
-	border-radius: 3px;
+	border-radius: 4px;
 	overflow: hidden;
 }
 .sb-health-fill {
@@ -2327,7 +2669,7 @@ pre:hover .sb-copy-btn {
 .sb-compile-history {
 	margin-bottom: 4px;
 	padding: 10px 10px 8px;
-	background: var(--background-secondary);
+	background: color-mix(in srgb, var(--background-secondary) 88%, var(--background-primary) 12%);
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 8px;
 }
@@ -2354,23 +2696,25 @@ pre:hover .sb-copy-btn {
 }
 .sb-history-tag {
 	font-size: 9px;
-	padding: 1px 6px;
-	border-radius: 8px;
+	padding: 2px 7px;
+	border-radius: 6px;
 	font-weight: 600;
 	text-transform: uppercase;
-	letter-spacing: 0.3px;
+	letter-spacing: 0.04em;
+	background: var(--background-primary);
+	color: var(--text-muted);
+	border: 1px solid var(--background-modifier-border);
+}
+.sb-history-tag-full,
+.sb-history-tag-incremental,
+.sb-history-tag-single {
+	background: var(--background-primary);
+	color: var(--text-muted);
+	border: 1px solid var(--background-modifier-border);
 }
 .sb-history-tag-full {
-	background: rgba(139, 92, 246, 0.15);
-	color: #8b5cf6;
-}
-.sb-history-tag-incremental {
-	background: rgba(34, 197, 94, 0.15);
-	color: #22c55e;
-}
-.sb-history-tag-single {
-	background: rgba(59, 130, 246, 0.15);
-	color: #3b82f6;
+	font-weight: 700;
+	color: var(--text-normal);
 }
 .sb-history-date {
 	color: var(--text-muted);
@@ -2481,88 +2825,95 @@ pre:hover .sb-copy-btn {
 	flex-shrink: 0;
 }
 
-/* === Phase 4: Feature 2 — Compile Stats Badges === */
+/* === Compile Stats Badges（摘要内：统一中性tile）=== */
 .sb-compile-stat-badge {
 	display: inline-flex;
 	flex-direction: column;
 	align-items: center;
 	padding: 8px 16px;
-	border-radius: 8px;
+	border-radius: 6px;
 	min-width: 70px;
+	border: 1px solid var(--background-modifier-border);
+	background: color-mix(in srgb, var(--background-primary) 82%, var(--background-secondary) 18%);
 }
 .sb-compile-stat-num {
-	font-size: 20px;
-	font-weight: 700;
+	font-size: 18px;
+	font-weight: 600;
 	line-height: 1;
+	color: var(--text-normal);
+	font-variant-numeric: tabular-nums;
+	letter-spacing: -0.02em;
 }
 .sb-compile-stat-label {
 	font-size: 10px;
-	margin-top: 2px;
-}
-.sb-stat-new {
-	background: rgba(34, 197, 94, 0.1);
-	color: #22c55e;
-}
-.sb-stat-modified {
-	background: rgba(59, 130, 246, 0.1);
-	color: #3b82f6;
-}
-.sb-stat-relations {
-	background: rgba(139, 92, 246, 0.1);
-	color: #8b5cf6;
-}
-.sb-stat-total {
-	background: rgba(234, 179, 8, 0.1);
-	color: #eab308;
+	margin-top: 4px;
+	color: var(--text-muted);
+	font-weight: 500;
+	letter-spacing: 0.02em;
 }
 
-/* === Phase 4: Feature 3 — Source Citations === */
+/* Wiki 素材来源 */
 .sb-wiki-sources {
-	margin: 8px 0;
-	padding: 10px 14px;
-	background: var(--background-secondary);
-	border-radius: 8px;
-	border: 1px solid var(--background-modifier-border);
+	margin: 10px 0 14px;
+	padding: 12px 14px 14px;
+	background: color-mix(in srgb, var(--background-secondary) 75%, var(--background-primary));
+	border-radius: var(--sb-wiki-radius-sm, 8px);
+	border: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 80%, transparent);
+	box-shadow: inset 0 1px 0 color-mix(in srgb, var(--background-primary) 50%, transparent);
 }
+
 .sb-wiki-sources-title {
-	font-size: 12px;
-	margin: 0 0 8px;
+	font-size: 10px;
+	font-weight: 700;
+	margin: 0 0 10px;
 	color: var(--text-muted);
-	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
 }
+
 .sb-wiki-source-group {
 	display: flex;
-	align-items: center;
-	gap: 6px;
+	align-items: flex-start;
+	gap: 8px;
 	flex-wrap: wrap;
-	margin-bottom: 6px;
+	margin-bottom: 8px;
 }
+
 .sb-wiki-source-type-label {
 	font-size: 10px;
 	color: var(--text-faint);
-	font-weight: 600;
-	min-width: 60px;
+	font-weight: 700;
+	min-width: 52px;
+	padding-top: 4px;
+	letter-spacing: 0.02em;
 }
+
 .sb-wiki-source-chip {
 	font-size: 11px;
-	padding: 2px 8px;
-	border-radius: 4px;
+	font-weight: 500;
+	padding: 4px 10px;
+	border-radius: 999px;
 	cursor: pointer;
 	text-decoration: none;
-	transition: opacity 0.15s;
+	transition: transform 0.12s ease, box-shadow 0.15s ease, opacity 0.15s ease;
 }
+
 .sb-wiki-source-chip:hover {
-	opacity: 0.8;
+	opacity: 1;
+	transform: translateY(-1px);
+	box-shadow: 0 3px 10px color-mix(in srgb, var(--background-modifier-box-shadow) 28%, transparent);
 }
+
 .sb-wiki-source-original {
-	background: rgba(34, 197, 94, 0.12);
-	color: #22c55e;
-	border: 1px solid rgba(34, 197, 94, 0.25);
+	background: color-mix(in srgb, var(--text-success) 12%, var(--background-primary));
+	color: var(--text-success);
+	border: 1px solid color-mix(in srgb, var(--text-success) 32%, transparent);
 }
+
 .sb-wiki-source-reference {
-	background: rgba(59, 130, 246, 0.12);
-	color: #3b82f6;
-	border: 1px solid rgba(59, 130, 246, 0.25);
+	background: color-mix(in srgb, var(--interactive-accent) 10%, var(--background-primary));
+	color: var(--interactive-accent);
+	border: 1px solid color-mix(in srgb, var(--interactive-accent) 28%, transparent);
 }
 
 /* === Phase 4: Feature 4 — Section Regenerate === */
@@ -2626,21 +2977,31 @@ pre:hover .sb-copy-btn {
 .sb-growth-progress-wrap {
 	display: flex;
 	align-items: center;
-	gap: 8px;
-	margin-left: auto;
+	gap: 10px;
+	flex-wrap: wrap;
+	width: 100%;
+	margin-top: 4px;
 }
+
 .sb-growth-progress-bar {
-	width: 100px;
-	height: 6px;
-	background: var(--background-modifier-border);
-	border-radius: 3px;
+	flex: 1;
+	min-width: 140px;
+	height: 8px;
+	background: color-mix(in srgb, var(--background-modifier-border) 85%, var(--background-primary));
+	border-radius: 999px;
 	overflow: hidden;
+	box-shadow: inset 0 1px 2px color-mix(in srgb, var(--background-primary) 40%, transparent);
 }
+
 .sb-growth-progress-fill {
 	height: 100%;
-	background: #22c55e;
-	border-radius: 3px;
-	transition: width 0.3s ease;
+	background: linear-gradient(
+		90deg,
+		color-mix(in srgb, var(--text-success) 90%, #fff),
+		var(--text-success)
+	);
+	border-radius: 999px;
+	transition: width 0.35s ease;
 }
 
 /* === Phase 4: Feature 6 — Chat Free Quota === */
@@ -2688,28 +3049,40 @@ pre:hover .sb-copy-btn {
 	border-color: rgba(234, 179, 8, 0.3);
 }
 
-/* === Recent Updates Card Date === */
+/* 最近更新卡片日期 */
 .sb-wiki-card-date {
 	font-size: 10px;
-	color: var(--text-faint);
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+	color: var(--text-muted);
 	margin-left: auto;
 	white-space: nowrap;
+	padding: 2px 8px;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--background-modifier-hover) 55%, transparent);
 }
+
 .sb-wiki-card .sb-wiki-card-title + .sb-wiki-card-date {
 	display: block;
-	margin: 2px 0 0;
+	margin: 4px 0 0;
+	width: fit-content;
+	max-width: 100%;
 }
 
 /* === 使用统计 === */
 .sb-usage-stats {
-	margin: 8px 0;
-	padding: 10px;
-	background: var(--background-secondary);
+	margin: 0;
+	padding: 10px 12px;
+	background: color-mix(in srgb, var(--background-secondary) 88%, var(--background-primary) 12%);
+	border: 1px solid var(--background-modifier-border);
 	border-radius: 8px;
 }
 .sb-stats-title {
 	margin: 0 0 8px;
-	font-size: 13px;
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
 	color: var(--text-muted);
 }
 .sb-stats-grid {
@@ -2722,7 +3095,8 @@ pre:hover .sb-copy-btn {
 	flex-direction: column;
 	align-items: center;
 	padding: 6px 10px;
-	background: var(--background-primary);
+	background: color-mix(in srgb, var(--background-primary) 82%, var(--background-secondary) 18%);
+	border: 1px solid var(--background-modifier-border);
 	border-radius: 6px;
 	min-width: 60px;
 }
