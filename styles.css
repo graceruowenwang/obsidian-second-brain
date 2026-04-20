@@ -1395,6 +1395,28 @@ pre:hover .sb-copy-btn {
 	padding: 8px 0;
 }
 
+.sb-beta-banner {
+	margin: 0 0 16px;
+	padding: 12px 14px;
+	border-radius: 8px;
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.sb-beta-banner-title {
+	font-weight: 600;
+	font-size: 13px;
+	margin-bottom: 4px;
+	letter-spacing: 0.2px;
+}
+
+.sb-beta-banner-desc {
+	font-size: 12px;
+	line-height: 1.55;
+	opacity: 0.92;
+}
+
 .sb-license-status {
 	display: flex;
 	align-items: center;

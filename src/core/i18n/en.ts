@@ -312,6 +312,8 @@ export const en = {
 		"license.step1": "Follow our WeChat account, send \"buy\"",
 		"license.step2": "Scan QR code to pay 30 CNY / $5 USD",
 		"license.step3": "Send \"paid\" to get activation code, enter it here",
+		"license.betaBannerTitle": "Beta · All features free",
+		"license.betaBannerDesc": "The plugin is in public beta. All Pro features are currently unlocked for everyone. Once payments go live it will become a 30 CNY / $5 USD one-time purchase; users who activate before that are unaffected.",
 		"license.proBadge": "PRO",
 		"license.proBadgeTitle": "Pro Feature",
 		"license.upgradeTitle": "Buy Full Version",

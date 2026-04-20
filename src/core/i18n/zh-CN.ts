@@ -320,6 +320,8 @@ export const zhCN: typeof import("./en").en = {
 		"license.step1": "关注微信公众号，发送「购买」",
 		"license.step2": "扫码支付 30 元",
 		"license.step3": "发送「已付款」获取激活码，在此输入",
+		"license.betaBannerTitle": "Beta 阶段 · 全功能免费使用",
+		"license.betaBannerDesc": "插件正处于公开 Beta 阶段，所有 Pro 功能暂时对所有用户免费开放。支付渠道上线后将转为 30 元一次性买断，届时已激活的用户不受影响。",
 		"license.proBadge": "PRO",
 		"license.proBadgeTitle": "Pro 功能",
 		"license.upgradeTitle": "购买完整版",

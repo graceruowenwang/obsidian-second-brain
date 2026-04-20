@@ -4,7 +4,7 @@ import { Notice, Setting } from "obsidian";
 import type SecondBrain from "../main";
 import { DEFAULT_LICENSE, type LicenseInfo } from "../types";
 import { t } from "../core/i18n";
-import { validateLicense, activateLicense, deactivateLicense, isPro, getTrialDaysLeft, isTrialActive } from "../core/license";
+import { validateLicense, activateLicense, deactivateLicense, isPro, getTrialDaysLeft, isTrialActive, BETA_MODE } from "../core/license";
 
 const COMPARE_FEATURES = [
 	"manualCompile", "wikiBrowse", "deepseek",
@@ -21,6 +21,13 @@ export function renderLicenseSettings(containerEl: HTMLElement, plugin: SecondBr
 	const section = containerEl.createEl("details", { cls: "sb-settings-section", attr: { open: "" } });
 	section.createEl("summary", { text: t("license.sectionTitle", lang) });
 	const content = section.createDiv({ cls: "sb-license-section" });
+
+	// --- Beta 阶段横幅 ---
+	if (BETA_MODE) {
+		const banner = content.createDiv({ cls: "sb-beta-banner" });
+		banner.createEl("div", { text: t("license.betaBannerTitle", lang), cls: "sb-beta-banner-title" });
+		banner.createEl("div", { text: t("license.betaBannerDesc", lang), cls: "sb-beta-banner-desc" });
+	}
 
 	// --- Free vs Pro 对比表 ---
 	renderCompareTable(content, lang, state);

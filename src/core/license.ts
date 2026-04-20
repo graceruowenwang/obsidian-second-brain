@@ -3,6 +3,14 @@
 import type { LicenseInfo } from "../types";
 import { DEFAULT_LICENSE } from "../types";
 
+// === Beta 阶段开关 ===
+// true  : 所有 Pro 功能免费使用、免费聊天无限额度（适用于面包多审核期间 / 早鸟阶段）
+// false : 正式付费模式（恢复原有激活码 + 试用期 + 每月免费额度的完整逻辑）
+//
+// 切换到 false 后用户无感知升级：已激活 Pro 的继续 Pro，未激活的回到
+// Free 档 + 14 天试用。只需要改这一行然后重新发布即可。
+export const BETA_MODE = true;
+
 const LICENSE_API = "https://sb-license.ruowenwang.site";
 
 // 预生成的 license key SHA256 哈希（离线验证用）
@@ -199,6 +207,8 @@ export async function deactivateLicense(key: string, instanceId: string | null):
 }
 
 export function isPro(state: LicenseInfo): boolean {
+	// Beta 期间统一返回 Pro，所有付费门控临时通过。正式版只需把 BETA_MODE 改 false。
+	if (BETA_MODE) return true;
 	if (state.plan !== "pro") return false;
 	if (state.status === "active") return true;
 	if (state.status === "trial") {

@@ -312,6 +312,8 @@ export const ja: typeof import("./en").en = {
 		"license.step1": "WeChat 公式アカウントをフォロー、「buy」を送信",
 		"license.step2": "QR コードで 30 元 / $5 支払い",
 		"license.step3": "「paid」を送信してアクティベーションコードを取得",
+		"license.betaBannerTitle": "Beta · 全機能無料で利用可能",
+		"license.betaBannerDesc": "プラグインは公開 Beta 段階です。すべての Pro 機能が一時的に無料で解放されています。決済が有効になり次第、30 CNY / $5 USD 買い切り版へ移行します。それ以前に認証済みのユーザーは影響を受けません。",
 		"license.proBadge": "PRO",
 		"license.proBadgeTitle": "Pro 機能",
 		"license.upgradeTitle": "フル版を購入",
