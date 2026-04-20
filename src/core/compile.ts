@@ -52,12 +52,13 @@ async function migrateEmbeddingsIfNeeded(
 	app: App,
 	wikiFolder: string,
 	cache: CompileCache,
+	settings: PluginSettings,
 ): Promise<void> {
 	if (cache.version >= 2) return;
 	const legacy = (cache as any).embeddings as Record<string, number[]> | undefined;
 	if (legacy && Object.keys(legacy).length > 0) {
 		try {
-			await migrateEmbeddingsToStore(app, wikiFolder, cache as any);
+			await migrateEmbeddingsToStore(app, wikiFolder, cache as any, settings);
 		} catch (e) {
 			// 迁移失败：保留原字段，版本号不升级，下次 runCompile 再试
 			console.warn("compile: embedding migration failed, will retry next run:", e);
@@ -336,8 +337,8 @@ async function phaseLoad(ctx: CompileContext): Promise<void> {
 	// 加载并迁移缓存（分两步：同步结构迁移 + 异步 embedding 迁移）
 	let cache = (await getStorage(app, ctx.plugin).loadData()) as CompileCache || emptyCache();
 	cache = migrateCache(cache);
-	await migrateEmbeddingsIfNeeded(app, settings.wikiFolder, cache);
-	await restoreEmbeddingStore(app, settings.wikiFolder);
+	await migrateEmbeddingsIfNeeded(app, settings.wikiFolder, cache, settings);
+	await restoreEmbeddingStore(app, settings.wikiFolder, settings);
 	ctx.cache = cache;
 
 	// Diff 指纹
@@ -435,7 +436,7 @@ async function phaseFinalize(ctx: CompileContext): Promise<CompileResult> {
 
 	// 更新指纹 + 保存缓存
 	updateFingerprints(allFiles, cache);
-	await flushEmbeddingStore(ctx.app, wikiFolder);
+	await flushEmbeddingStore(ctx.app, wikiFolder, settings);
 	await getStorage(ctx.app, ctx.plugin).saveData(cache);
 
 	onProgress({ step: 4, stepName: "完成", detail: "编译完成", percent: 100 });

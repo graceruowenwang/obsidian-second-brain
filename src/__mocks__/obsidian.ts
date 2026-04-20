@@ -15,6 +15,9 @@ export type App = unknown;
 export type Editor = unknown;
 export type MarkdownView = unknown;
 
-export async function requestUrl(_opts: unknown): Promise<{ status: number; json: unknown; text: string }> {
+export async function requestUrl(_opts: {
+	signal?: AbortSignal;
+	[key: string]: unknown;
+}): Promise<{ status: number; json: unknown; text: string }> {
 	return { status: 200, json: {}, text: "" };
 }

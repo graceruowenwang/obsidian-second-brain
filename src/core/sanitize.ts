@@ -1,9 +1,10 @@
 // LLM 输出净化 — 过滤危险 HTML 标签和属性，防 XSS
+// 注意：输入可能是整篇 Markdown，不能用 innerHTML 解析整串（会破坏 <https://...> 等语法）。
 
 const DANGEROUS_TAGS = new Set([
 	"script", "iframe", "object", "embed", "applet",
 	"form", "input", "button", "select", "textarea",
-	"link", "meta", "base", "noscript",
+	"link", "meta", "base", "noscript", "style",
 ]);
 
 const SAFE_TAGS = new Set([
@@ -18,35 +19,78 @@ const SAFE_TAGS = new Set([
 	"abbr", "cite", "kbd", "var", "samp",
 ]);
 
-const ON_EVENT_RE = /\s+on\w+\s*=/gi;
+function escapeRegExp(s: string): string {
+	return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
-export function sanitizeLLMOutput(content: string): string {
+/** 成对 / 自闭合 / 落单 开合标签一并剥除，循环直到稳定（处理嵌套同名标签） */
+function removeDangerousTagBlocks(content: string): string {
 	let safe = content;
-
-	// 移除危险标签及其内容
 	for (const tag of DANGEROUS_TAGS) {
-		const openRe = new RegExp(`<${tag}\\b[^>]*>`, "gi");
-		const closeRe = new RegExp(`</${tag}>`, "gi");
-		safe = safe.replace(openRe, "").replace(closeRe, "");
+		const t = escapeRegExp(tag);
+		let prev: string;
+		do {
+			prev = safe;
+			const paired = new RegExp(`<${t}(?:\\s[^>]*)?>\\s*[\\s\\S]*?<\\/${t}\\s*>`, "gi");
+			safe = safe.replace(paired, "");
+			safe = safe.replace(new RegExp(`<${t}(?:\\s[^>]*)?/\\s*>`, "gi"), "");
+			safe = safe.replace(new RegExp(`<${t}(?:\\s[^>]*)?>`, "gi"), "");
+			safe = safe.replace(new RegExp(`<\\/\\s*${t}\\s*>`, "gi"), "");
+		} while (safe !== prev);
 	}
+	return safe;
+}
 
-	// 移除 on* 事件属性
-	safe = safe.replace(ON_EVENT_RE, " data-removed=");
+function stripEventHandlers(content: string): string {
+	return content.replace(/\s+on[a-z][a-z0-9-]*\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "");
+}
 
-	// 移除 javascript: / data: / vbscript: 协议的 href/src
+function neutralizeDangerousUrls(content: string): string {
+	let safe = content;
+	safe = safe.replace(/(href|src)\s*=\s*"([^"]*)"/gi, (m, attr: string, val: string) => {
+		const v = val.trim().toLowerCase();
+		return /^(javascript|data|vbscript):/.test(v) ? `${attr}="#"` : m;
+	});
+	safe = safe.replace(/(href|src)\s*=\s*'([^']*)'/gi, (m, attr: string, val: string) => {
+		const v = val.trim().toLowerCase();
+		return /^(javascript|data|vbscript):/.test(v) ? `${attr}='#'` : m;
+	});
 	safe = safe.replace(
-		/(href|src)\s*=\s*["']?\s*(javascript|data|vbscript)\s*:[^"'>\s]*/gi,
-		'$1="#"'
+		/(href|src)\s*=\s*([^\s"'=<>`]+)/gi,
+		(m, attr: string, val: string) => {
+			const v = val.trim().toLowerCase();
+			return /^(javascript|data|vbscript):/.test(v) ? `${attr}="#"` : m;
+		},
 	);
+	return safe;
+}
 
-	// 保留未知标签但 strip 非白名单标签的属性（保守策略：只保留白名单标签的全部内容）
-	for (const match of safe.matchAll(/<\/?([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>/g)) {
-		const fullMatch = match[0];
-		const tagName = match[1].toLowerCase();
-		if (!SAFE_TAGS.has(tagName) && !DANGEROUS_TAGS.has(tagName)) {
-			safe = safe.replace(fullMatch, "");
+/**
+ * 移除非白名单标签的整段标记（仅处理形如 `<tag ...>` / `</tag>` 的 token，避免误伤 `<https://...>`：
+ * 要求标签名后紧跟空白、`>` 或 `/`，因此 `<https:` 不会匹配。
+ */
+function stripUnknownHtmlTags(safe: string): string {
+	let out = safe;
+	const re = /<\/?([a-zA-Z][a-zA-Z0-9-]*)(?=[\s/>])[^>]*>/g;
+	const matches: RegExpExecArray[] = [];
+	let m: RegExpExecArray | null;
+	re.lastIndex = 0;
+	while ((m = re.exec(safe)) !== null) {
+		const name = m[1].toLowerCase();
+		if (!SAFE_TAGS.has(name) && !DANGEROUS_TAGS.has(name)) {
+			matches.push(m);
 		}
 	}
+	for (const match of matches.reverse()) {
+		out = out.slice(0, match.index) + out.slice(match.index + match[0].length);
+	}
+	return out;
+}
 
+export function sanitizeLLMOutput(content: string): string {
+	let safe = removeDangerousTagBlocks(content);
+	safe = stripEventHandlers(safe);
+	safe = neutralizeDangerousUrls(safe);
+	safe = stripUnknownHtmlTags(safe);
 	return safe;
 }

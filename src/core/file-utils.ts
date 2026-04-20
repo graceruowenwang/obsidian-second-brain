@@ -3,7 +3,10 @@
 
 import { App, TFile, TFolder, TAbstractFile } from "obsidian";
 import { requestUrl } from "obsidian";
-import type { CompileCache, Fingerprint, PluginSettings, EmbeddingStore } from "../types";
+import type {
+	CompileCache, Fingerprint, PluginSettings,
+	EmbeddingStore, EmbeddingStoreMeta, EmbeddingStoreV2,
+} from "../types";
 
 export type StorageLike = { loadData: () => Promise<any>; saveData: (data: any) => Promise<void> };
 
@@ -256,10 +259,54 @@ export function totalAnalysisCount(analysis: { concepts?: unknown[]; entities?: 
 const EMBEDDING_CACHE_DIR = ".cache";
 const EMBEDDING_CACHE_FILE = "embeddings.json";
 
+export function normalizeEmbeddingBaseUrl(url: string): string {
+	return url.replace(/\/+$/, "");
+}
+
+export function embeddingMetaForSettings(settings: PluginSettings, dim: number): EmbeddingStoreMeta {
+	return {
+		baseUrl: normalizeEmbeddingBaseUrl(settings.embeddingBaseUrl),
+		model: settings.embeddingModel,
+		dim,
+	};
+}
+
+function inferDimFromEmbeddings(embeddings: Record<string, number[]>): number {
+	for (const v of Object.values(embeddings)) {
+		if (Array.isArray(v) && v.length > 0 && v.every(n => typeof n === "number" && Number.isFinite(n))) {
+			return v.length;
+		}
+	}
+	return 0;
+}
+
+function metaMatchesDisk(meta: EmbeddingStoreMeta, settings: PluginSettings, dimFromData: number): boolean {
+	const want = embeddingMetaForSettings(settings, dimFromData || meta.dim);
+	return meta.baseUrl === want.baseUrl && meta.model === want.model && meta.dim === want.dim && meta.dim > 0;
+}
+
+/** 解析 OpenAI-compatible /embeddings 响应体，失败时抛出带上下文的 Error */
+export function parseEmbeddingResponseBody(body: unknown): number[] {
+	const data = (body as { data?: unknown })?.data;
+	if (!Array.isArray(data) || data.length === 0) {
+		const preview = typeof body === "object" && body !== null
+			? JSON.stringify(body).slice(0, 280)
+			: String(body).slice(0, 280);
+		throw new Error(`Embedding 响应结构异常（无 data[]）: ${preview}`);
+	}
+	const emb = (data[0] as { embedding?: unknown })?.embedding;
+	if (!Array.isArray(emb) || emb.length === 0 || !emb.every(x => typeof x === "number" && Number.isFinite(x))) {
+		throw new Error("Embedding 响应结构异常（无有效 embedding 向量）");
+	}
+	return emb as number[];
+}
+
 class EmbeddingManager {
 	private cache = new Map<string, number[]>();
 	private built = false;
 	private loaded = false;
+	/** 当前内存向量对应的 API 身份；与磁盘 v2.meta 一致 */
+	private activeMeta: EmbeddingStoreMeta | null = null;
 
 	private storePath(wikiFolder: string): string {
 		return `${wikiFolder}/${EMBEDDING_CACHE_DIR}/${EMBEDDING_CACHE_FILE}`;
@@ -269,21 +316,52 @@ class EmbeddingManager {
 		this.cache = new Map();
 		this.built = false;
 		this.loaded = false;
+		this.activeMeta = null;
 	}
 
 	get isBuilt(): boolean { return this.built; }
 	get size(): number { return this.cache.size; }
 
-	async load(app: App, wikiFolder: string): Promise<void> {
+	private clearIncompatibleStore(): void {
+		this.cache = new Map();
+		this.built = false;
+		this.activeMeta = null;
+	}
+
+	async load(app: App, wikiFolder: string, settings?: PluginSettings): Promise<void> {
 		if (this.loaded) return;
 		const file = app.vault.getAbstractFileByPath(this.storePath(wikiFolder));
 		if (file instanceof TFile) {
 			try {
 				const raw = await app.vault.read(file);
-				const store: EmbeddingStore = JSON.parse(raw);
-				if (store.version === 1 && store.embeddings) {
-					this.cache = new Map(Object.entries(store.embeddings));
-					this.built = true;
+				const store = JSON.parse(raw) as EmbeddingStore;
+				const emb = store?.embeddings;
+				if (!emb || typeof emb !== "object") {
+					this.loaded = true;
+					return;
+				}
+				const dim = inferDimFromEmbeddings(emb);
+				if (store.version === 2 && "meta" in store && store.meta) {
+					if (dim > 0 && store.meta.dim !== dim) {
+						console.warn("file-utils: embedding store dim mismatch, ignoring disk cache");
+						this.clearIncompatibleStore();
+					} else if (settings && !metaMatchesDisk(store.meta, settings, dim)) {
+						console.warn("file-utils: embedding model/baseUrl 与设置不一致，忽略磁盘向量缓存");
+						this.clearIncompatibleStore();
+					} else {
+						this.cache = new Map(Object.entries(emb));
+						this.built = this.cache.size > 0;
+						this.activeMeta = store.meta;
+					}
+				} else if (store.version === 1) {
+					// 旧格式：无法得知当初用的 model/url，仅在能提供 settings 时按当前身份接纳并在下次 flush 写成 v2
+					if (settings && dim > 0) {
+						this.cache = new Map(Object.entries(emb));
+						this.built = this.cache.size > 0;
+						this.activeMeta = embeddingMetaForSettings(settings, dim);
+					} else {
+						console.warn("file-utils: 检测到 v1 embedding 缓存但无 settings，跳过加载（请重新编译以重建向量）");
+					}
 				}
 			} catch (e) {
 				console.warn("file-utils: embedding store load failed:", e);
@@ -292,13 +370,22 @@ class EmbeddingManager {
 		this.loaded = true;
 	}
 
-	async migrate(app: App, wikiFolder: string, data: { embeddings?: Record<string, number[]> }): Promise<void> {
+	async migrate(
+		app: App,
+		wikiFolder: string,
+		data: { embeddings?: Record<string, number[]> },
+		settings: PluginSettings,
+	): Promise<void> {
 		if (!data.embeddings || Object.keys(data.embeddings).length === 0) return;
-		const store: EmbeddingStore = { version: 1, embeddings: data.embeddings };
+		const dim = inferDimFromEmbeddings(data.embeddings);
+		if (dim <= 0) return;
+		const meta = embeddingMetaForSettings(settings, dim);
+		const store: EmbeddingStoreV2 = { version: 2, meta, embeddings: data.embeddings };
 		await this.saveStore(app, wikiFolder, store);
 		this.cache = new Map(Object.entries(data.embeddings));
 		this.built = true;
 		this.loaded = true;
+		this.activeMeta = meta;
 		delete data.embeddings;
 	}
 
@@ -315,10 +402,16 @@ class EmbeddingManager {
 		}
 	}
 
-	async flush(app: App, wikiFolder: string): Promise<void> {
+	async flush(app: App, wikiFolder: string, settings: PluginSettings): Promise<void> {
 		if (this.cache.size === 0) return;
+		const first = this.cache.values().next().value as number[] | undefined;
+		const dim = first?.length ?? this.activeMeta?.dim ?? 0;
+		if (dim <= 0) return;
+		const meta = embeddingMetaForSettings(settings, dim);
+		this.activeMeta = meta;
 		await this.saveStore(app, wikiFolder, {
-			version: 1,
+			version: 2,
+			meta,
 			embeddings: Object.fromEntries(this.cache),
 		});
 	}
@@ -330,6 +423,7 @@ class EmbeddingManager {
 		files: Record<string, string>,
 		settings: PluginSettings,
 		onProgress?: (done: number, total: number) => void,
+		signal?: AbortSignal,
 	): Promise<void> {
 		if (!settings.embeddingApiKey && !settings.apiKey) {
 			this.built = false;
@@ -341,24 +435,38 @@ class EmbeddingManager {
 		let done = 0;
 
 		for (const [path, content] of entries) {
+			if (signal?.aborted) break;
+			let reused = false;
 			if (this.cache.has(path)) {
-				newCache.set(path, this.cache.get(path)!);
-				done++;
-				continue;
+				const existing = this.cache.get(path)!;
+				const dimOk = !this.activeMeta || existing.length === this.activeMeta.dim;
+				if (dimOk) {
+					newCache.set(path, existing);
+					reused = true;
+				}
 			}
-			try {
-				const stripped = content.replace(/^---\n[\s\S]*?\n---\n*/, "");
-				const vec = await getEmbedding(stripped.slice(0, 500), settings);
-				newCache.set(path, vec);
-			} catch (e) {
-				console.warn("file-utils: embedding failed:", e);
+			if (!reused) {
+				try {
+					const stripped = content.replace(/^---\n[\s\S]*?\n---\n*/, "");
+					const vec = await getEmbedding(stripped.slice(0, 500), settings, signal);
+					if (this.activeMeta && vec.length !== this.activeMeta.dim) {
+						console.warn("file-utils: embedding dim changed mid-build, clearing cache");
+						newCache.clear();
+						this.activeMeta = embeddingMetaForSettings(settings, vec.length);
+					} else if (!this.activeMeta) {
+						this.activeMeta = embeddingMetaForSettings(settings, vec.length);
+					}
+					newCache.set(path, vec);
+				} catch (e) {
+					console.warn("file-utils: embedding failed:", e);
+				}
 			}
 			done++;
 			if (onProgress) onProgress(done, entries.length);
 		}
 
 		this.cache = newCache;
-		this.built = true;
+		this.built = this.cache.size > 0;
 	}
 
 	async search(
@@ -366,14 +474,16 @@ class EmbeddingManager {
 		files: Record<string, string>,
 		settings: PluginSettings,
 		topN = 5,
+		signal?: AbortSignal,
 	): Promise<Array<{ filePath: string; content: string; score: number }>> {
 		if (!this.built || this.cache.size === 0) {
 			return findRelevantPages(query, files, topN);
 		}
 		try {
-			const queryVec = await getEmbedding(query, settings);
+			const queryVec = await getEmbedding(query, settings, signal);
 			const scored: Array<{ filePath: string; content: string; score: number }> = [];
 			for (const [path, vec] of this.cache) {
+				if (queryVec.length !== vec.length) continue;
 				const similarity = cosineSimilarity(queryVec, vec);
 				if (similarity > 0.3) {
 					scored.push({ filePath: path, content: files[path] || "", score: similarity });
@@ -401,39 +511,70 @@ function cosineSimilarity(a: number[], b: number[]): number {
 	return dot / (Math.sqrt(normA) * Math.sqrt(normB) || 1);
 }
 
-async function getEmbedding(text: string, settings: PluginSettings): Promise<number[]> {
-	const url = settings.embeddingBaseUrl.replace(/\/+$/, "") + "/embeddings";
+async function getEmbedding(text: string, settings: PluginSettings, signal?: AbortSignal): Promise<number[]> {
+	const url = normalizeEmbeddingBaseUrl(settings.embeddingBaseUrl) + "/embeddings";
 	const apiKey = settings.embeddingApiKey || settings.apiKey;
-	const res = await requestUrl({
-		url,
-		method: "POST",
-		headers: {
-			"Content-Type": "application/json",
-			Authorization: `Bearer ${apiKey}`,
-		},
-		body: JSON.stringify({
-			model: settings.embeddingModel,
-			input: text.slice(0, 2000),
-		}),
-	});
-	return res.json.data[0].embedding;
+	let res;
+	try {
+		res = await requestUrl({
+			url,
+			method: "POST",
+			throw: false,
+			...(signal ? { signal } : {}),
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${apiKey}`,
+			},
+			body: JSON.stringify({
+				model: settings.embeddingModel,
+				input: text.slice(0, 2000),
+			}),
+		});
+	} catch (e) {
+		throw new Error(`Embedding 网络请求失败: ${(e as Error).message}`);
+	}
+
+	if (res.status < 200 || res.status >= 300) {
+		const bodyText = typeof res.json === "object" && res.json !== null
+			? JSON.stringify(res.json).slice(0, 300)
+			: (res.text || "").slice(0, 300);
+		throw new Error(`Embedding API ${res.status}: ${bodyText}`);
+	}
+
+	return parseEmbeddingResponseBody(res.json);
 }
 
 // 兼容导出
-export async function migrateEmbeddingsToStore(app: App, wikiFolder: string, cache: { embeddings?: Record<string, number[]> }): Promise<void> {
-	return embeddingManager.migrate(app, wikiFolder, cache);
+export async function migrateEmbeddingsToStore(
+	app: App,
+	wikiFolder: string,
+	cache: { embeddings?: Record<string, number[]> },
+	settings: PluginSettings,
+): Promise<void> {
+	return embeddingManager.migrate(app, wikiFolder, cache, settings);
 }
-export async function restoreEmbeddingStore(app: App, wikiFolder: string): Promise<void> {
-	return embeddingManager.load(app, wikiFolder);
+export async function restoreEmbeddingStore(app: App, wikiFolder: string, settings?: PluginSettings): Promise<void> {
+	return embeddingManager.load(app, wikiFolder, settings);
 }
-export async function flushEmbeddingStore(app: App, wikiFolder: string): Promise<void> {
-	return embeddingManager.flush(app, wikiFolder);
+export async function flushEmbeddingStore(app: App, wikiFolder: string, settings: PluginSettings): Promise<void> {
+	return embeddingManager.flush(app, wikiFolder, settings);
 }
-export async function buildEmbeddingCache(files: Record<string, string>, settings: PluginSettings, onProgress?: (done: number, total: number) => void): Promise<void> {
-	return embeddingManager.build(files, settings, onProgress);
+export async function buildEmbeddingCache(
+	files: Record<string, string>,
+	settings: PluginSettings,
+	onProgress?: (done: number, total: number) => void,
+	signal?: AbortSignal,
+): Promise<void> {
+	return embeddingManager.build(files, settings, onProgress, signal);
 }
-export async function vectorSearch(query: string, files: Record<string, string>, settings: PluginSettings, topN = 5): Promise<Array<{ filePath: string; content: string; score: number }>> {
-	return embeddingManager.search(query, files, settings, topN);
+export async function vectorSearch(
+	query: string,
+	files: Record<string, string>,
+	settings: PluginSettings,
+	topN = 5,
+	signal?: AbortSignal,
+): Promise<Array<{ filePath: string; content: string; score: number }>> {
+	return embeddingManager.search(query, files, settings, topN, signal);
 }
 export function clearEmbeddingCache(): void {
 	embeddingManager.reset();

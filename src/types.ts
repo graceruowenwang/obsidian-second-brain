@@ -121,11 +121,27 @@ export interface UsageStats {
 	lastWeekDate: string;
 }
 
-// Embedding 独立存储，与主缓存分离
-export interface EmbeddingStore {
+/** 与磁盘 embedding 缓存绑定的 API 身份（模型/端点/维度） */
+export interface EmbeddingStoreMeta {
+	baseUrl: string;
+	model: string;
+	dim: number;
+}
+
+/** 旧格式：无 meta，加载后会在下次 flush 时按当前 settings 写入 v2 */
+export interface EmbeddingStoreV1 {
 	version: 1;
 	embeddings: Record<string, number[]>;
 }
+
+/** 当前格式：切换 model/baseUrl 或维度不一致时丢弃缓存 */
+export interface EmbeddingStoreV2 {
+	version: 2;
+	meta: EmbeddingStoreMeta;
+	embeddings: Record<string, number[]>;
+}
+
+export type EmbeddingStore = EmbeddingStoreV1 | EmbeddingStoreV2;
 
 export interface ValidationIssue {
 	field: string;

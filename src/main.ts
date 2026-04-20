@@ -41,7 +41,7 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 		let release!: () => void;
 		this.compileLock = new Promise<void>((resolve) => { release = resolve; });
 		try {
-			await prev;
+			await prev.catch(() => void 0);
 			return await fn();
 		} finally {
 			release();

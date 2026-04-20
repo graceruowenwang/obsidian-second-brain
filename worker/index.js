@@ -1,15 +1,33 @@
 // Second Brain License API — Cloudflare Worker
 // 激活码管理 + 面包多支付集成
 
-const HEADERS = {
-	"Content-Type": "application/json",
-	"Access-Control-Allow-Origin": "*",
+const CORS_BASE = {
 	"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 	"Access-Control-Allow-Headers": "Content-Type, X-Admin-Token",
 };
 
-function json(data, status = 200) {
-	return new Response(JSON.stringify(data), { status, headers: HEADERS });
+const HEADERS_PUBLIC = {
+	"Content-Type": "application/json",
+	"Access-Control-Allow-Origin": "*",
+	...CORS_BASE,
+};
+
+// 管理接口不使用 *：降低浏览器端被第三方页面滥用的面（仍须带 X-Admin-Token）
+const HEADERS_ADMIN = {
+	"Content-Type": "application/json",
+	...CORS_BASE,
+};
+
+function isAdminApiPath(pathname) {
+	return pathname === "/generate" || pathname.startsWith("/admin/");
+}
+
+function json(data, status = 200, headers = HEADERS_PUBLIC) {
+	return new Response(JSON.stringify(data), { status, headers });
+}
+
+function jsonAdmin(data, status = 200) {
+	return json(data, status, HEADERS_ADMIN);
 }
 
 function generateKey() {
@@ -93,7 +111,9 @@ async function verifyMbdSignature(request, rawBody, env) {
 export default {
 	async fetch(request, env) {
 		if (request.method === "OPTIONS") {
-			return new Response(null, { status: 204, headers: HEADERS });
+			const pathname = new URL(request.url).pathname;
+			const h = isAdminApiPath(pathname) ? HEADERS_ADMIN : HEADERS_PUBLIC;
+			return new Response(null, { status: 204, headers: h });
 		}
 
 		const url = new URL(request.url);
@@ -386,13 +406,13 @@ if (autoCheck) {
 
 async function handleGenerate(request, env) {
 	const token = request.headers.get("X-Admin-Token");
-	if (token !== env.ADMIN_TOKEN) return json({ error: "Unauthorized" }, 401);
+	if (token !== env.ADMIN_TOKEN) return jsonAdmin({ error: "Unauthorized" }, 401);
 
 	const body = await request.json().catch(() => ({}));
 	const key = body.key || generateKey();
 
 	const existing = await env.LICENSE.get(`license:${key}`, "json");
-	if (existing) return json({ error: "Key already exists" }, 409);
+	if (existing) return jsonAdmin({ error: "Key already exists" }, 409);
 
 	await env.LICENSE.put(`license:${key}`, JSON.stringify({
 		status: "inactive",
@@ -404,7 +424,7 @@ async function handleGenerate(request, env) {
 		source: body.source || "admin",
 	}));
 
-	return json({ key });
+	return jsonAdmin({ key });
 }
 
 async function handleActivate(request, env) {
@@ -480,7 +500,7 @@ async function handleDeactivate(request, env) {
 
 async function handleAdminList(request, env, url) {
 	const token = request.headers.get("X-Admin-Token");
-	if (token !== env.ADMIN_TOKEN) return json({ error: "Unauthorized" }, 401);
+	if (token !== env.ADMIN_TOKEN) return jsonAdmin({ error: "Unauthorized" }, 401);
 
 	const prefix = url.searchParams.get("prefix") || "license:";
 	const cursor = url.searchParams.get("cursor") || undefined;
@@ -497,7 +517,7 @@ async function handleAdminList(request, env, url) {
 		});
 	}
 
-	return json({
+	return jsonAdmin({
 		keys,
 		cursor: result.cursor || null,
 		list_complete: result.list_complete,
@@ -506,26 +526,26 @@ async function handleAdminList(request, env, url) {
 
 async function handleAdminRevoke(request, env) {
 	const token = request.headers.get("X-Admin-Token");
-	if (token !== env.ADMIN_TOKEN) return json({ error: "Unauthorized" }, 401);
+	if (token !== env.ADMIN_TOKEN) return jsonAdmin({ error: "Unauthorized" }, 401);
 
 	const body = await request.json().catch(() => ({}));
 	const licenseKey = (body.key || "").trim().toUpperCase();
-	if (!licenseKey) return json({ error: "Missing key" }, 400);
+	if (!licenseKey) return jsonAdmin({ error: "Missing key" }, 400);
 
 	const data = await env.LICENSE.get(`license:${licenseKey}`, "json");
-	if (!data) return json({ error: "Key not found" }, 404);
+	if (!data) return jsonAdmin({ error: "Key not found" }, 404);
 
 	if (data.instanceId) {
 		await env.LICENSE.delete(`instance:${data.instanceId}`);
 	}
 
 	await env.LICENSE.delete(`license:${licenseKey}`);
-	return json({ revoked: true, key: licenseKey });
+	return jsonAdmin({ revoked: true, key: licenseKey });
 }
 
 async function handleAdminStats(request, env) {
 	const token = request.headers.get("X-Admin-Token");
-	if (token !== env.ADMIN_TOKEN) return json({ error: "Unauthorized" }, 401);
+	if (token !== env.ADMIN_TOKEN) return jsonAdmin({ error: "Unauthorized" }, 401);
 
 	let total = 0, active = 0, inactive = 0;
 	let cursor = undefined;
@@ -541,5 +561,5 @@ async function handleAdminStats(request, env) {
 		cursor = result.list_complete ? undefined : result.cursor;
 	} while (cursor);
 
-	return json({ total, active, inactive });
+	return jsonAdmin({ total, active, inactive });
 }

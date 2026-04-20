@@ -98,10 +98,15 @@ ${relatedLinks.join("\n")}
 `;
 }
 
-const UNSAFE_FILENAME_RE = /[<>:"/\\|?*]/g;
+const UNSAFE_FILENAME_RE = /[<>:"/\\|?*\x00-\x1f]/g;
+const RESERVED_WIN = /^(CON|PRN|AUX|NUL|COM[0-9]|LPT[0-9])$/i;
 
 function sanitizeFilename(name: string): string {
-	return name.replace(UNSAFE_FILENAME_RE, "_");
+	let s = name.replace(UNSAFE_FILENAME_RE, "_").trim().replace(/\.+$/, "");
+	if (!s) s = "_untitled";
+	if (RESERVED_WIN.test(s)) s = `_${s}`;
+	if (s.length > 200) s = s.slice(0, 200);
+	return s;
 }
 
 export async function runGapDetection(
@@ -124,7 +129,7 @@ export async function runGapDetection(
 		for (const [name, info] of Object.entries(cache.gapPages)) {
 			if (allReal.has(name)) {
 				const levelDir = info.level || "方法框架";
-				const stubPath = `concepts/${levelDir}/${name}.md`;
+				const stubPath = `concepts/${levelDir}/${sanitizeFilename(name)}.md`;
 				try { await deleteWikiFile(app, wikiFolder, stubPath); } catch (e) { console.warn("gap-detection: failed to delete stale stub", stubPath, e); }
 				delete cache.gapPages[name];
 				if (cache.indexEntries) delete cache.indexEntries[name];

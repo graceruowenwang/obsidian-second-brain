@@ -50,6 +50,7 @@ async function callOpenAICompatible(
 			url,
 			method: "POST",
 			throw: false,
+			...(options.signal ? { signal: options.signal } : {}),
 			headers: {
 				"Content-Type": "application/json",
 				Authorization: `Bearer ${settings.apiKey}`,
@@ -106,6 +107,7 @@ async function callAnthropic(
 			url,
 			method: "POST",
 			throw: false,
+			...(options.signal ? { signal: options.signal } : {}),
 			headers: {
 				"Content-Type": "application/json",
 				"x-api-key": settings.apiKey,
