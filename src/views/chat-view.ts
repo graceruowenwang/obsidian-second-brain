@@ -2,6 +2,7 @@
 
 import { ItemView, WorkspaceLeaf, Notice, MarkdownRenderer, Component } from "obsidian";
 import { callLLMStream } from "../core/llm";
+import { sanitizeLLMOutput } from "../core/sanitize";
 import { readWikiFiles, filesToMap, vectorSearch, buildEmbeddingCache } from "../core/file-utils";
 import type { SecondBrainPlugin } from "../types";
 import { openPluginSettings } from "../types";
@@ -290,17 +291,16 @@ export class ChatView extends ItemView {
 			// 更新上下文指示器
 			this.updateContextIndicator();
 
-			// 最终渲染（确保完整）
+			// 最终渲染（净化后确保安全）
+			const safeFullText = sanitizeLLMOutput(fullText);
 			msgContentEl.empty();
-			MarkdownRenderer.render(this.app, fullText, msgContentEl, "", this.component);
+			MarkdownRenderer.render(this.app, safeFullText, msgContentEl, "", this.component);
 
 			if (pages.length > 0) {
 					const srcEl = msgContentEl.createDiv({ cls: "sb-sources" });
 					srcEl.createEl("span", { text: t("chat.refLabel", lang) });
 					for (const p of pages) {
 						const link = srcEl.createEl("a", { text: p.filePath, cls: "sb-source-link" });
-						// 分数标签
-							// const scoreBadge = link.createEl("span", { text: `${scorePct}%`, cls: "sb-source-score" });
 						link.addEventListener("click", (e) => {
 							e.preventDefault();
 							const fullPath = this.plugin.settings.wikiFolder + "/" + p.filePath;
@@ -346,7 +346,6 @@ export class ChatView extends ItemView {
 
 	private addAiMessagePlaceholder(): HTMLElement {
 		const msgEl = this.messagesEl.createDiv({ cls: "sb-msg sb-msg-ai" });
-		// const avatar = msgEl.createDiv({ cls: "sb-avatar sb-avatar-ai", text: "AI" });
 		const bubble = msgEl.createDiv({ cls: "sb-bubble" });
 		bubble.createDiv({ cls: "sb-ai-content", text: "" });
 		// 加载指示器
@@ -385,7 +384,6 @@ export class ChatView extends ItemView {
 				img.parentElement?.replaceChild(link, img);
 
 				const preview = link.createDiv({ cls: "sb-img-preview" });
-				// const previewImg = preview.createEl("img", { attr: { src } });
 				const actions = preview.createDiv({ cls: "sb-img-preview-actions" });
 				const dlBtn = actions.createEl("button", { text: t("chat.download", lang), cls: "sb-img-preview-btn" });
 				const openBtn = actions.createEl("button", { text: t("chat.fullscreen", lang), cls: "sb-img-preview-btn" });

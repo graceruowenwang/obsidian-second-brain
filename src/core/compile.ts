@@ -17,19 +17,62 @@ import type { TemplateConfig } from "./templates";
 import type { PluginSettings, Analysis, CompileCache, ProgressEvent, ValidationIssue, CompileReport, ChangeImpact, CompileResult } from "../types";
 import { recordCompile, emptyStats } from "./usage-stats";
 import { appendWeeklyReport } from "./weekly-report";
-
-/** 单次 LLM 调用最大输入字符数 */
-const MAX_CHARS = 60000;
-/** 分析接口最大输出 token 数 */
-const ANALYSIS_MAX_TOKENS = 4000;
-/** 编译历史最大条目数 */
-const MAX_COMPILE_HISTORY = 50;
+import {
+	MAX_LLM_INPUT_CHARS, ANALYSIS_MAX_TOKENS, MAX_COMPILE_HISTORY,
+	SLICE_INCREMENTAL_FILE, SLICE_FULL_ANALYSIS_FILE,
+} from "./constants";
 
 import { parseAnalysisJSON, getPagePath, generatePages, checkAborted, PageGenResult, validateAnalysis, mergeAnalysis } from "./compile-pages";
 import { buildDependencyGraph } from "./compile-analysis";
 import { CompileLogBuilder, saveCompileLog } from "./compile-log";
 import { runGapDetection } from "./compile-gap-detection";
 import { runLinkEnrichment } from "./compile-link-enrichment";
+
+// === 缓存迁移 ===
+
+// 同步迁移：纯字段结构变更。embedding 异步迁移由 runCompile 单独执行。
+function migrateCache(cache: CompileCache): CompileCache {
+	if (!cache.version || cache.version < 1) cache = emptyCache();
+	if (!cache.fingerprints) cache = emptyCache();
+	if (!cache.failedPages) cache.failedPages = {};
+	if (!cache.dependencies) cache.dependencies = {};
+
+	// v2→v3: 添加 compileHistory（与 v1→v2 的 embedding 异步迁移无依赖）
+	if (cache.version < 3 && cache.version >= 2) {
+		if (!cache.compileHistory) cache.compileHistory = [];
+		cache.version = 3;
+	}
+
+	return cache;
+}
+
+// v1→v2 异步迁移：把 data.json 里的 embeddings 移到 wiki/.cache/embeddings.json
+// 迁移成功后才删除 cache.embeddings 字段并升级版本号。
+async function migrateEmbeddingsIfNeeded(
+	app: App,
+	wikiFolder: string,
+	cache: CompileCache,
+): Promise<void> {
+	if (cache.version >= 2) return;
+	const legacy = (cache as any).embeddings as Record<string, number[]> | undefined;
+	if (legacy && Object.keys(legacy).length > 0) {
+		try {
+			await migrateEmbeddingsToStore(app, wikiFolder, cache as any);
+		} catch (e) {
+			// 迁移失败：保留原字段，版本号不升级，下次 runCompile 再试
+			console.warn("compile: embedding migration failed, will retry next run:", e);
+			return;
+		}
+	}
+	delete (cache as any).embeddings;
+	cache.version = 2;
+
+	// 顺延到 v3
+	if (cache.version < 3) {
+		if (!cache.compileHistory) cache.compileHistory = [];
+		cache.version = 3;
+	}
+}
 
 // === 步骤 1-2：读取素材 + AI 分析 ===
 
@@ -56,13 +99,13 @@ async function runAnalysis(
 	if (canIncremental && cache.analysis && cache.analysis.concepts) {
 		onProgress({ step: 2, stepName: "AI 增量分析", detail: `分析 ${changedFiles.length} 个变化文件...`, percent: 30 });
 		const existingNames = [...(cache.analysis.concepts || []).map(c => c.name), ...(cache.analysis.entities || []).map(e => e.name)];
-		const changedMaterials = changedFiles.filter(f => !f.path.includes("_usage")).map(f => `--- 文件: ${f.path} ---\n${f.content.slice(0, 3000)}`).join("\n\n");
+		const changedMaterials = changedFiles.filter(f => !f.path.includes("_usage")).map(f => `--- 文件: ${f.path} ---\n${f.content.slice(0, SLICE_INCREMENTAL_FILE)}`).join("\n\n");
 		if (!changedMaterials) {
 			return { analysis: cache.analysis, validationIssues: [] };
 		}
 		checkAborted(signal);
 		const result = await callLLM(
-			[{ role: "system", content: tpl.analysisSystemPrompt }, { role: "user", content: buildIncrementalAnalyzePrompt(changedMaterials.slice(0, MAX_CHARS), existingNames, tpl) }],
+			[{ role: "system", content: tpl.analysisSystemPrompt }, { role: "user", content: buildIncrementalAnalyzePrompt(changedMaterials.slice(0, MAX_LLM_INPUT_CHARS), existingNames, tpl) }],
 			settings, { maxTokens: ANALYSIS_MAX_TOKENS, signal },
 		);
 		const incrementalResult = parseAnalysisJSON(result);
@@ -72,10 +115,10 @@ async function runAnalysis(
 	}
 
 	onProgress({ step: 2, stepName: "AI 分析素材", detail: "正在提取概念...", percent: 30 });
-	const analysisMaterials = allFiles.filter(f => !f.path.includes("_usage")).map(f => `--- 文件: ${f.path} ---\n${f.content.slice(0, 2000)}`).join("\n\n");
+	const analysisMaterials = allFiles.filter(f => !f.path.includes("_usage")).map(f => `--- 文件: ${f.path} ---\n${f.content.slice(0, SLICE_FULL_ANALYSIS_FILE)}`).join("\n\n");
 	checkAborted(signal);
 	const result = await callLLM(
-		[{ role: "system", content: tpl.analysisSystemPrompt }, { role: "user", content: buildAnalyzePrompt(analysisMaterials.slice(0, MAX_CHARS), tpl) }],
+		[{ role: "system", content: tpl.analysisSystemPrompt }, { role: "user", content: buildAnalyzePrompt(analysisMaterials.slice(0, MAX_LLM_INPUT_CHARS), tpl) }],
 		settings, { maxTokens: ANALYSIS_MAX_TOKENS, signal },
 	);
 	const parsed = parseAnalysisJSON(result);
@@ -250,6 +293,223 @@ function buildChangeImpact(
 		.filter(imp => imp.affectedPages.length > 0);
 }
 
+// === 阶段函数 ===
+
+interface CompileContext {
+	app: App;
+	settings: PluginSettings;
+	plugin?: { loadData: () => Promise<any>; saveData: (data: any) => Promise<void> };
+	signal?: AbortSignal;
+	onProgress: (e: ProgressEvent) => void;
+	forceRecompile: boolean;
+	startTime: number;
+
+	// 阶段间共享状态
+	cache: CompileCache;
+	tpl: TemplateConfig;
+	allFiles: Array<{ path: string; content: string }>;
+	changedFiles: Array<{ path: string; content: string }>;
+	oldAnalysis: Analysis | null;
+	newAnalysis: Analysis | null;
+	validationIssues: ValidationIssue[];
+	genResult: PageGenResult | null;
+	gapDetected: number;
+	stubsGenerated: number;
+	linksAdded: number;
+	logBuilder: CompileLogBuilder;
+}
+
+/** 阶段 1: 加载素材和缓存 */
+async function phaseLoad(ctx: CompileContext): Promise<void> {
+	const { app, settings, onProgress, signal } = ctx;
+	checkAborted(signal);
+
+	// 加载模板配置
+	ctx.tpl = await loadTemplateConfig(app, settings.templateFile, settings.language);
+
+	// 读取素材
+	onProgress({ step: 1, stepName: "读取素材", detail: "正在扫描...", percent: 15 });
+	const allFiles = await readRawFiles(app, settings.rawFolder);
+	if (allFiles.length === 0) throw new Error(`${settings.rawFolder}/ 目录为空`);
+	ctx.allFiles = allFiles;
+
+	// 加载并迁移缓存（分两步：同步结构迁移 + 异步 embedding 迁移）
+	let cache = (await getStorage(app, ctx.plugin).loadData()) as CompileCache || emptyCache();
+	cache = migrateCache(cache);
+	await migrateEmbeddingsIfNeeded(app, settings.wikiFolder, cache);
+	await restoreEmbeddingStore(app, settings.wikiFolder);
+	ctx.cache = cache;
+
+	// Diff 指纹
+	const { changed } = diffFingerprints(allFiles, cache);
+	ctx.changedFiles = changed;
+	const hasChanges = changed.length > 0;
+	onProgress({ step: 1, stepName: "读取素材", detail: `${allFiles.length} 个文件，${hasChanges ? changed.length + " 个有变化" : "全部未变化"}`, percent: 25 });
+}
+
+/** 阶段 2: AI 分析 */
+async function phaseAnalyze(ctx: CompileContext): Promise<void> {
+	const { cache, allFiles, changedFiles, tpl, settings, onProgress, signal } = ctx;
+	checkAborted(signal);
+
+	if (changedFiles.length === 0 && !ctx.forceRecompile && cache.analysis) {
+		onProgress({ step: 2, stepName: "检查", detail: "素材无变化，跳过编译", percent: 100 });
+		return;
+	}
+
+	ctx.oldAnalysis = ctx.forceRecompile ? null : cache.analysis;
+	const analysisResult = await runAnalysis(allFiles, changedFiles, cache, tpl, settings, ctx.forceRecompile, onProgress, signal);
+	ctx.newAnalysis = analysisResult.analysis;
+	ctx.validationIssues = analysisResult.validationIssues;
+
+	const cc = ctx.newAnalysis!.concepts?.length || 0;
+	const ce = ctx.newAnalysis!.entities?.length || 0;
+	const cs = ctx.newAnalysis!.sources?.length || 0;
+	onProgress({ step: 2, stepName: "AI 分析", detail: `提取：${cc} 概念 + ${ce} 实体 + ${cs} 来源`, percent: 40 });
+}
+
+/** 阶段 3: 页面生成 */
+async function phaseGenerate(ctx: CompileContext): Promise<void> {
+	const { cache, allFiles, changedFiles, tpl, settings, oldAnalysis, newAnalysis, onProgress, signal } = ctx;
+	checkAborted(signal);
+
+	ctx.genResult = await generatePages(newAnalysis!, oldAnalysis, changedFiles, allFiles, tpl, settings, cache, settings.wikiFolder, ctx.app, onProgress, ctx.plugin, signal);
+
+	// 页面生成成功后才更新 cache.analysis
+	cache.analysis = newAnalysis;
+	cache.analysisTime = new Date().toISOString();
+
+	// Checkpoint：分析 + 指纹立即落盘，保护后续增强阶段失败时不丢主路径成果。
+	// 这样即便 phaseEnrich 抛异常，下一次 runCompile 看到的指纹已是最新的，
+	// 不会再重复花 token 跑全量分析。
+	try {
+		updateFingerprints(allFiles, cache);
+		await getStorage(ctx.app, ctx.plugin).saveData(cache);
+	} catch (e) {
+		console.warn("compile: checkpoint save failed, continuing:", e);
+	}
+}
+
+/** 阶段 4: 知识增强（缺口检测 + 补链） */
+async function phaseEnrich(ctx: CompileContext): Promise<void> {
+	const { cache, settings, newAnalysis, allFiles, onProgress, signal } = ctx;
+
+	// 缺口检测
+	ctx.gapDetected = 0;
+	ctx.stubsGenerated = 0;
+	if (!signal?.aborted && settings.enableGapDetection) {
+		onProgress({ step: 3, stepName: "缺口检测", detail: "扫描知识缺口...", percent: 85 });
+		const wikiFilesForGap = await readWikiFiles(ctx.app, settings.wikiFolder);
+		const gapResult = await runGapDetection(wikiFilesForGap, newAnalysis!, ctx.tpl, ctx.app, settings.wikiFolder, cache, signal);
+		ctx.gapDetected = gapResult.gaps.length;
+		ctx.stubsGenerated = gapResult.stubsGenerated;
+		ctx.logBuilder.setGapDetected(ctx.gapDetected, ctx.stubsGenerated);
+	}
+
+	// 智能补链
+	ctx.linksAdded = 0;
+	if (!signal?.aborted && settings.enableLinkEnrichment) {
+		onProgress({ step: 3, stepName: "智能补链", detail: "发现语义连接...", percent: 90 });
+		const wikiFilesForLink = await readWikiFiles(ctx.app, settings.wikiFolder);
+		const linkResult = await runLinkEnrichment(
+			wikiFilesForLink, ctx.tpl, settings, ctx.app, settings.wikiFolder,
+			(done: number, total: number) => onProgress({ step: 3, stepName: "智能补链", detail: `${done}/${total} 页`, percent: 90 + Math.round((done / total) * 5) }),
+			signal,
+		);
+		ctx.linksAdded = linkResult.applied;
+		ctx.logBuilder.setLinksAdded(ctx.linksAdded);
+	}
+
+	// 更新依赖图
+	cache.dependencies = buildDependencyGraph(newAnalysis!, allFiles);
+}
+
+/** 阶段 5: 索引生成 + 持久化 + 日志 */
+async function phaseFinalize(ctx: CompileContext): Promise<CompileResult> {
+	const { cache, settings, newAnalysis, changedFiles, allFiles, onProgress } = ctx;
+	const wikiFolder = settings.wikiFolder;
+
+	// 生成索引
+	onProgress({ step: 4, stepName: "生成索引", detail: "更新 index.md...", percent: 95 });
+	await buildIndex(newAnalysis!, ctx.tpl, cache, wikiFolder, ctx.app);
+
+	// 更新指纹 + 保存缓存
+	updateFingerprints(allFiles, cache);
+	await flushEmbeddingStore(ctx.app, wikiFolder);
+	await getStorage(ctx.app, ctx.plugin).saveData(cache);
+
+	onProgress({ step: 4, stepName: "完成", detail: "编译完成", percent: 100 });
+
+	// 保存编译日志
+	const cc = newAnalysis!.concepts?.length || 0;
+	const ce = newAnalysis!.entities?.length || 0;
+	const cs = newAnalysis!.sources?.length || 0;
+	try {
+		ctx.logBuilder.setTotalPages(cc + ce + cs)
+			.setGenerated(ctx.genResult!.generated)
+			.setSkipped(ctx.genResult!.skippedByDiff)
+			.setProtected(ctx.genResult!.protectedByReview)
+			.setRemoved(ctx.genResult!.removed);
+		for (const err of ctx.genResult!.errors) {
+			ctx.logBuilder.addFailed(err.path, err.name, err.error);
+		}
+		const compileLog = ctx.logBuilder.build();
+		await saveCompileLog(ctx.app, wikiFolder, compileLog);
+	} catch (e) {
+		console.error("compile: failed to save compile log:", e);
+	}
+
+	// 构建编译报告
+	const report = buildCompileReport(ctx.oldAnalysis, newAnalysis!, ctx.genResult!, ctx.validationIssues, ctx.startTime);
+	const changeImpact = buildChangeImpact(changedFiles, newAnalysis!);
+
+	// 追加编译历史
+	if (!cache.compileHistory) cache.compileHistory = [];
+	cache.compileHistory.unshift({
+		date: new Date().toISOString(),
+		action: ctx.forceRecompile ? "full" : "incremental",
+		added: report.newConcepts.map(c => c.title || c.name),
+		modified: report.modifiedConcepts.map(c => c.title || c.name),
+		removed: report.deletedConcepts.map(c => c.title || c.name),
+		conflicts: [],
+		durationMs: report.durationMs,
+		totalPages: report.totalPages,
+	});
+	if (cache.compileHistory.length > MAX_COMPILE_HISTORY) cache.compileHistory = cache.compileHistory.slice(0, MAX_COMPILE_HISTORY);
+
+	// 记录使用统计
+	if (!cache.usageStats) cache.usageStats = emptyStats();
+	recordCompile(cache.usageStats, {
+		success: ctx.genResult!.errors.length === 0,
+		durationMs: report.durationMs,
+		conceptsCount: cc,
+		entitiesCount: ce,
+	});
+
+	// 每周知识报告（异步，不阻塞）
+	appendWeeklyReport(ctx.app, wikiFolder, cache).catch(e => {
+		console.error("compile: weekly report failed:", e);
+	});
+
+	return {
+		conceptsCount: cc,
+		entitiesCount: ce,
+		sourcesCount: cs,
+		changed: changedFiles.length,
+		skippedByDiff: ctx.genResult!.skippedByDiff,
+		generated: ctx.genResult!.generated,
+		removed: ctx.genResult!.removed,
+		protectedByReview: ctx.genResult!.protectedByReview,
+		errors: ctx.genResult!.errors,
+		reused: false,
+		report,
+		changeImpact,
+		gapDetected: ctx.gapDetected,
+		stubsGenerated: ctx.stubsGenerated,
+		linksAdded: ctx.linksAdded,
+	};
+}
+
 // === 主编译流程（编排函数） ===
 
 export async function runCompile(
@@ -261,172 +521,58 @@ export async function runCompile(
 	signal?: AbortSignal,
 ): Promise<CompileResult> {
 	checkAborted(signal);
-	const startTime = Date.now();
-	const { rawFolder, wikiFolder } = settings;
 
-	// 初始化编译日志
-	const logBuilder = new CompileLogBuilder(forceRecompile ? "full" : "incremental");
-
-	// 加载模板配置
-	const tpl = await loadTemplateConfig(app, settings.templateFile, settings.language);
-
-	// 步骤 1：读取素材
-	onProgress({ step: 1, stepName: "读取素材", detail: "正在扫描...", percent: 15 });
-	const allFiles = await readRawFiles(app, rawFolder);
-	if (allFiles.length === 0) throw new Error(`${rawFolder}/ 目录为空`);
-
-	// 加载缓存
-	let cache: CompileCache = (await getStorage(app, plugin).loadData()) as CompileCache || emptyCache();
-		if (!cache.version || cache.version < 1) cache = emptyCache();
-	if (!cache.fingerprints) cache = emptyCache();
-	if (!cache.failedPages) cache.failedPages = {};
-		if (!cache.dependencies) cache.dependencies = {};
-		// v1→v2 迁移：embedding 移到独立文件
-		if (cache.version < 2) {
-			if ((cache as any).embeddings && Object.keys((cache as any).embeddings).length > 0) {
-				await migrateEmbeddingsToStore(app, wikiFolder, cache as any);
-			}
-			delete (cache as any).embeddings;
-			cache.version = 2;
-		}
-
-		// v2->v3: add compileHistory
-		if (cache.version < 3) {
-			if (!cache.compileHistory) cache.compileHistory = [];
-			cache.version = 3;
-		}
-		await restoreEmbeddingStore(app, wikiFolder);
-
-	const { changed: changedFiles } = diffFingerprints(allFiles, cache);
-	const hasChanges = changedFiles.length > 0;
-
-	onProgress({ step: 1, stepName: "读取素材", detail: `${allFiles.length} 个文件，${hasChanges ? changedFiles.length + " 个有变化" : "全部未变化"}`, percent: 25 });
-
-	if (!hasChanges && !forceRecompile && cache.analysis) {
-		onProgress({ step: 2, stepName: "检查", detail: "素材无变化，跳过编译", percent: 100 });
-		return { conceptsCount: cache.analysis.concepts?.length || 0, entitiesCount: cache.analysis.entities?.length || 0, sourcesCount: cache.analysis.sources?.length || 0, changed: 0, skippedByDiff: totalAnalysisCount(cache.analysis), generated: 0, errors: [], reused: true, removed: 0, protectedByReview: 0 };
-	}
-
-	// 步骤 2：AI 分析
-	const oldAnalysis = forceRecompile ? null : cache.analysis;
-	const analysisResult = await runAnalysis(allFiles, changedFiles, cache, tpl, settings, forceRecompile, onProgress, signal);
-	const newAnalysis = analysisResult.analysis;
-	const validationIssues = analysisResult.validationIssues;
-
-	const cc = newAnalysis.concepts?.length || 0;
-	const ce = newAnalysis.entities?.length || 0;
-	const cs = newAnalysis.sources?.length || 0;
-	onProgress({ step: 2, stepName: "AI 分析", detail: `提取：${cc} 概念 + ${ce} 实体 + ${cs} 来源`, percent: 40 });
-
-	// 步骤 3：diff + 页面生成
-	const genResult = await generatePages(newAnalysis, oldAnalysis, changedFiles, allFiles, tpl, settings, cache, wikiFolder, app, onProgress, plugin, signal);
-
-	// Phase 2b: 页面生成成功后才更新 cache.analysis
-	cache.analysis = newAnalysis;
-	cache.analysisTime = new Date().toISOString();
-
-	// P2: 知识缺口检测
-	let gapDetected = 0, stubsGenerated = 0;
-	if (!signal?.aborted && settings.enableGapDetection) {
-		onProgress({ step: 3, stepName: "缺口检测", detail: "扫描知识缺口...", percent: 85 });
-		const wikiFilesForGap = await readWikiFiles(app, wikiFolder);
-		const gapResult = await runGapDetection(wikiFilesForGap, newAnalysis, tpl, app, wikiFolder, cache, signal);
-		gapDetected = gapResult.gaps.length;
-		stubsGenerated = gapResult.stubsGenerated;
-		logBuilder.setGapDetected(gapDetected, stubsGenerated);
-	}
-
-	// P1: 智能补链
-	let linksAdded = 0;
-	if (!signal?.aborted && settings.enableLinkEnrichment) {
-		onProgress({ step: 3, stepName: "智能补链", detail: "发现语义连接...", percent: 90 });
-		const wikiFilesForLink = await readWikiFiles(app, wikiFolder);
-		const linkResult = await runLinkEnrichment(
-			wikiFilesForLink, tpl, settings, app, wikiFolder,
-			(done: number, total: number) => onProgress({ step: 3, stepName: "智能补链", detail: `${done}/${total} 页`, percent: 90 + Math.round((done / total) * 5) }),
-			signal,
-		);
-		linksAdded = linkResult.applied;
-		logBuilder.setLinksAdded(linksAdded);
-	}
-
-	// 更新依赖图
-	cache.dependencies = buildDependencyGraph(newAnalysis, allFiles);
-
-	// 步骤 4：生成索引
-	onProgress({ step: 4, stepName: "生成索引", detail: "更新 index.md...", percent: 95 });
-	await buildIndex(newAnalysis, tpl, cache, wikiFolder, app);
-
-	// 更新指纹 + 保存
-	updateFingerprints(allFiles, cache);
-	await flushEmbeddingStore(app, wikiFolder);
-	await getStorage(app, plugin).saveData(cache);
-
-	onProgress({ step: 4, stepName: "完成", detail: "编译完成", percent: 100 });
-
-	// 保存编译日志
-	try {
-		logBuilder.setTotalPages(cc + ce + cs)
-			.setGenerated(genResult.generated)
-			.setSkipped(genResult.skippedByDiff)
-			.setProtected(genResult.protectedByReview)
-			.setRemoved(genResult.removed);
-		for (const err of genResult.errors) {
-			logBuilder.addFailed(err.path, err.name, err.error);
-		}
-		const compileLog = logBuilder.build();
-		await saveCompileLog(app, wikiFolder, compileLog);
-	} catch (e) {
-		console.error("compile: failed to save compile log:", e);
-	}
-
-	// 构建编译报告
-	const report = buildCompileReport(oldAnalysis, newAnalysis, genResult, validationIssues, startTime);
-	const changeImpact = buildChangeImpact(changedFiles, newAnalysis);
-
-	// Append compile history
-	if (!cache.compileHistory) cache.compileHistory = [];
-	cache.compileHistory.unshift({
-		date: new Date().toISOString(),
-		action: forceRecompile ? "full" : "incremental",
-		added: report.newConcepts.map(c => c.title || c.name),
-		modified: report.modifiedConcepts.map(c => c.title || c.name),
-		removed: report.deletedConcepts.map(c => c.title || c.name),
-		conflicts: [],
-		durationMs: report.durationMs,
-		totalPages: report.totalPages,
-	});
-	if (cache.compileHistory.length > MAX_COMPILE_HISTORY) cache.compileHistory = cache.compileHistory.slice(0, MAX_COMPILE_HISTORY);
-
-		// 记录使用统计
-	if (!cache.usageStats) cache.usageStats = emptyStats();
-	recordCompile(cache.usageStats, {
-		success: genResult.errors.length === 0,
-		durationMs: report.durationMs,
-		conceptsCount: cc,
-		entitiesCount: ce,
-	});
-
-	// 每周知识报告（异步，不阻塞）
-	appendWeeklyReport(app, wikiFolder, cache).catch(e => {
-		console.error("compile: weekly report failed:", e);
-	});
-
-	return {
-		conceptsCount: cc,
-		entitiesCount: ce,
-		sourcesCount: cs,
-		changed: changedFiles.length,
-		skippedByDiff: genResult.skippedByDiff,
-		generated: genResult.generated,
-		removed: genResult.removed,
-		protectedByReview: genResult.protectedByReview,
-		errors: genResult.errors,
-		reused: false,
-		report,
-		changeImpact,
-		gapDetected,
-		stubsGenerated,
-		linksAdded,
+	const ctx: CompileContext = {
+		app,
+		settings,
+		plugin,
+		signal,
+		onProgress,
+		forceRecompile,
+		startTime: Date.now(),
+		cache: emptyCache(),
+		tpl: {} as TemplateConfig,
+		allFiles: [],
+		changedFiles: [],
+		oldAnalysis: null,
+		newAnalysis: null,
+		validationIssues: [],
+		genResult: null,
+		gapDetected: 0,
+		stubsGenerated: 0,
+		linksAdded: 0,
+		logBuilder: new CompileLogBuilder(forceRecompile ? "full" : "incremental"),
 	};
+
+	// 阶段 1: 加载
+	await phaseLoad(ctx);
+
+	// 短路：无变化且不强制重编译
+	if (ctx.changedFiles.length === 0 && !forceRecompile && ctx.cache.analysis) {
+		onProgress({ step: 2, stepName: "检查", detail: "素材无变化，跳过编译", percent: 100 });
+		return {
+			conceptsCount: ctx.cache.analysis.concepts?.length || 0,
+			entitiesCount: ctx.cache.analysis.entities?.length || 0,
+			sourcesCount: ctx.cache.analysis.sources?.length || 0,
+			changed: 0,
+			skippedByDiff: totalAnalysisCount(ctx.cache.analysis),
+			generated: 0,
+			errors: [],
+			reused: true,
+			removed: 0,
+			protectedByReview: 0,
+		};
+	}
+
+	// 阶段 2: 分析
+	await phaseAnalyze(ctx);
+
+	// 阶段 3: 生成
+	await phaseGenerate(ctx);
+
+	// 阶段 4: 增强
+	await phaseEnrich(ctx);
+
+	// 阶段 5: 收尾
+	return phaseFinalize(ctx);
 }

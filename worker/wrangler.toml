@@ -2,11 +2,23 @@ name = "sb-license"
 main = "index.js"
 compatibility_date = "2024-12-01"
 
+routes = [
+  { pattern = "sb-license.ruowenwang.site", custom_domain = true }
+]
+
 [vars]
-ADMIN_TOKEN = "SShOSLD9sjFwH8f9HkKe3qNNjn0gWUuyJbFce0TIHqw="
-AFDIAN_USER_ID = "1dbba46cc36f11f0a97f52540025c377"
-AFDIAN_TOKEN = "bDAhmtSYH47KTePvRuGqkVBx3NFgUcrQ"
-EXPECTED_AMOUNT = "3000"
+# 公开变量（可入库）
+MBD_PRODUCT_URL = "替换为你的面包多商品链接"
+
+# 以下为 Secret，请勿在此文件写明文，改用 `wrangler secret put <NAME>`：
+#   ADMIN_TOKEN        管理后台鉴权 token（/generate /admin/*）
+#   MBD_APP_ID         面包多 AppID（查订单时使用）
+#   MBD_WEBHOOK_SECRET 面包多 Webhook 签名密钥（/webhook/mbd 校验用）
+#
+# 本地开发：可在 worker/.dev.vars 中写入（已被 .gitignore），例如：
+#   ADMIN_TOKEN="..."
+#   MBD_APP_ID="..."
+#   MBD_WEBHOOK_SECRET="..."
 
 [[kv_namespaces]]
 binding = "LICENSE"

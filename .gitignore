@@ -1,3 +1,21 @@
 node_modules/
 second-brain.zip
 CLAUDE.md
+
+# 构建产物
+main.js.map
+*.map
+
+# Worker 构建与密钥（切勿入库）
+worker/main.js
+worker/.wrangler/
+worker/codes.txt
+worker/codes-log.txt
+worker/hashes.txt
+worker/.dev.vars
+worker/local/
+
+# 本地环境
+.env
+.env.*
+.DS_Store

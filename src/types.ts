@@ -214,6 +214,7 @@ export type SecondBrainPlugin = Plugin & {
 	activateView(viewType: string): Promise<void>;
 	saveLicenseInfo(): Promise<void>;
 	saveSettings(): Promise<void>;
+	runWithCompileLock<T>(fn: () => Promise<T>): Promise<T>;
 };
 
 export function openPluginSettings(app: App) {

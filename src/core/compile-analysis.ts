@@ -4,6 +4,7 @@
 import type { Analysis, ValidationIssue } from "../types";
 import type { TemplateConfig } from "./templates";
 import { AnalysisSchema, parseAnalysisPartial } from "./schemas";
+import { sanitizeLLMOutput } from "./sanitize";
 
 export type AnalysisItem = {
 	_type: "concept" | "entity" | "source";
@@ -152,7 +153,7 @@ export function validateWikilinks(content: string, validPageNames: Set<string>):
 }
 
 export function postProcessPage(content: string, itemType: "concept" | "entity" | "source" | "synthesis", item: { name: string; title?: string; level?: string }, tpl: TemplateConfig, validPageNames: Set<string>): string {
-	let page = content;
+	let page = sanitizeLLMOutput(content);
 	const firstFm = page.indexOf("---");
 	if (firstFm > 0) {
 		page = page.slice(firstFm);

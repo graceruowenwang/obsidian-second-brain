@@ -1,10 +1,9 @@
-// License 验证模块 — 离线哈希验证 + 爱发电订单号在线激活
+// License 验证模块 — 在线 (Worker API) + 离线 (SHA256 哈希) 双重验证
 
 import type { LicenseInfo } from "../types";
 import { DEFAULT_LICENSE } from "../types";
 
-// Cloudflare Worker 地址（部署后替换）
-const WORKER_URL = "https://sb-license.graceruowenwang.workers.dev";
+const LICENSE_API = "https://sb-license.ruowenwang.site";
 
 // 预生成的 license key SHA256 哈希（离线验证用）
 const VALID_HASHES = new Set([
@@ -52,97 +51,151 @@ async function sha256(text: string): Promise<string> {
 	return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
-// 通过爱发电订单号在线激活：调用 Cloudflare Worker 验证订单
-export async function activateByOrder(orderId: string, instanceName: string): Promise<{ licenseInfo: LicenseInfo; licenseKey: string }> {
-	if (!checkRateLimit()) {
-		throw new Error("Rate limit exceeded. Please try again later.");
+// --- 在线验证 (Worker API) ---
+
+async function onlineActivate(key: string, instanceName: string): Promise<LicenseInfo | null> {
+	try {
+		const resp = await fetch(`${LICENSE_API}/activate`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ license_key: key, instance_name: instanceName }),
+		});
+		if (!resp.ok) return null;
+		const data = await resp.json();
+		if (!data.activated) return null;
+		return {
+			key,
+			status: "active",
+			plan: "pro",
+			expiresAt: null,
+			lastValidated: new Date().toISOString(),
+			graceStart: null,
+			trialStart: null,
+			instanceId: instanceName,
+			freeChatUsed: 0,
+			freeChatMonth: "",
+		};
+	} catch {
+		return null;
 	}
-
-	const resp = await fetch(`${WORKER_URL}/activate-order`, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ order_id: orderId, instance_name: instanceName }),
-	});
-
-	const data = await resp.json() as { activated?: boolean; license_key?: string; error?: string };
-
-	if (!data.activated || !data.license_key) {
-		throw new Error(data.error || "Activation failed");
-	}
-
-	const licenseInfo: LicenseInfo = {
-		key: data.license_key,
-		status: "active",
-		plan: "pro",
-		expiresAt: null,
-		lastValidated: new Date().toISOString(),
-		graceStart: null,
-		trialStart: null,
-		instanceId: instanceName,
-		freeChatUsed: 0,
-		freeChatMonth: "",
-	};
-
-	return { licenseInfo, licenseKey: data.license_key };
 }
 
-// 离线激活：验证 key 哈希是否在预置列表中
-export async function activateLicense(key: string): Promise<LicenseInfo> {
+async function onlineValidate(key: string, instanceId: string | null): Promise<LicenseInfo | null> {
+	try {
+		const resp = await fetch(`${LICENSE_API}/validate`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ license_key: key, instance_id: instanceId }),
+		});
+		if (!resp.ok) return null;
+		const data = await resp.json();
+		if (!data.valid) return null;
+		return {
+			key,
+			status: "active",
+			plan: "pro",
+			expiresAt: null,
+			lastValidated: new Date().toISOString(),
+			graceStart: null,
+			trialStart: null,
+			instanceId: instanceId,
+			freeChatUsed: 0,
+			freeChatMonth: "",
+		};
+	} catch {
+		return null;
+	}
+}
+
+async function onlineDeactivate(key: string, instanceId: string): Promise<boolean> {
+	try {
+		const resp = await fetch(`${LICENSE_API}/deactivate`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ license_key: key, instance_id: instanceId }),
+		});
+		return resp.ok;
+	} catch {
+		return false;
+	}
+}
+
+// --- 离线验证 (SHA256 哈希) ---
+
+async function offlineVerify(key: string): Promise<boolean> {
+	const trimmed = key.trim().toUpperCase();
+	const hash = await sha256(trimmed);
+	return VALID_HASHES.has(hash);
+}
+
+// --- 公开 API ---
+
+export async function activateLicense(key: string, instanceName?: string): Promise<LicenseInfo> {
 	if (!checkRateLimit()) {
 		throw new Error("Rate limit exceeded. Please try again later.");
 	}
 
 	const trimmed = key.trim().toUpperCase();
-	const hash = await sha256(trimmed);
 
-	if (!VALID_HASHES.has(hash)) {
-		return { ...DEFAULT_LICENSE, key: trimmed, status: "invalid" };
+	// 优先尝试在线验证
+	if (instanceName) {
+		const onlineResult = await onlineActivate(trimmed, instanceName);
+		if (onlineResult) return onlineResult;
 	}
 
-	return {
-		key: trimmed,
-		status: "active",
-		plan: "pro",
-		expiresAt: null,
-		lastValidated: new Date().toISOString(),
-		graceStart: null,
-		trialStart: null,
-		instanceId: null,
-		freeChatUsed: 0,
-		freeChatMonth: "",
-	};
+	// 回退到离线验证
+	if (await offlineVerify(trimmed)) {
+		return {
+			key: trimmed,
+			status: "active",
+			plan: "pro",
+			expiresAt: null,
+			lastValidated: new Date().toISOString(),
+			graceStart: null,
+			trialStart: null,
+			instanceId: instanceName || null,
+			freeChatUsed: 0,
+			freeChatMonth: "",
+		};
+	}
+
+	return { ...DEFAULT_LICENSE, key: trimmed, status: "invalid" };
 }
 
-// 离线验证：重新检查 key
-export async function validateLicense(_key: string, _instanceId?: string | null): Promise<LicenseInfo> {
+export async function validateLicense(key: string, instanceId?: string | null): Promise<LicenseInfo> {
 	if (!checkRateLimit()) {
 		throw new Error("Rate limit exceeded. Please try again later.");
 	}
 
-	const trimmed = _key.trim().toUpperCase();
-	const hash = await sha256(trimmed);
+	const trimmed = key.trim().toUpperCase();
 
-	if (!VALID_HASHES.has(hash)) {
-		return { ...DEFAULT_LICENSE, key: trimmed, status: "invalid" };
+	// 优先尝试在线验证
+	const onlineResult = await onlineValidate(trimmed, instanceId || null);
+	if (onlineResult) return onlineResult;
+
+	// 回退到离线验证
+	if (await offlineVerify(trimmed)) {
+		return {
+			key: trimmed,
+			status: "active",
+			plan: "pro",
+			expiresAt: null,
+			lastValidated: new Date().toISOString(),
+			graceStart: null,
+			trialStart: null,
+			instanceId: instanceId || null,
+			freeChatUsed: 0,
+			freeChatMonth: "",
+		};
 	}
 
-	return {
-		key: trimmed,
-		status: "active",
-		plan: "pro",
-		expiresAt: null,
-		lastValidated: new Date().toISOString(),
-		graceStart: null,
-		trialStart: null,
-		instanceId: _instanceId || null,
-		freeChatUsed: 0,
-		freeChatMonth: "",
-	};
+	return { ...DEFAULT_LICENSE, key: trimmed, status: "invalid" };
 }
 
-// 停用（离线，仅清除本地状态）
-export async function deactivateLicense(_key: string, _instanceId: string | null): Promise<void> {
-	// 离线模式无需服务端调用
+export async function deactivateLicense(key: string, instanceId: string | null): Promise<void> {
+	if (key && instanceId) {
+		await onlineDeactivate(key, instanceId);
+	}
 }
 
 export function isPro(state: LicenseInfo): boolean {
@@ -159,9 +212,15 @@ export function isPro(state: LicenseInfo): boolean {
 	return false;
 }
 
-export function needsRevalidation(_state: LicenseInfo): boolean {
-	// 离线模式不需要后台重新验证
-	return false;
+// 上次成功验证超过该时长则需要重新联网校验（Pro 用户启动时、定期触发）
+const REVALIDATION_INTERVAL = 7 * 24 * 60 * 60 * 1000;
+
+export function needsRevalidation(state: LicenseInfo): boolean {
+	if (state.plan !== "pro") return false;
+	if (!state.lastValidated) return true;
+	const last = new Date(state.lastValidated).getTime();
+	if (Number.isNaN(last)) return true;
+	return Date.now() - last >= REVALIDATION_INTERVAL;
 }
 
 export function enterGraceIfNeeded(state: LicenseInfo): LicenseInfo {

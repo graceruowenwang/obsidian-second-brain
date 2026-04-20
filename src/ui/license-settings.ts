@@ -4,7 +4,7 @@ import { Notice, Setting } from "obsidian";
 import type SecondBrain from "../main";
 import { DEFAULT_LICENSE, type LicenseInfo } from "../types";
 import { t } from "../core/i18n";
-import { validateLicense, activateLicense, activateByOrder, deactivateLicense, isPro, getTrialDaysLeft, isTrialActive } from "../core/license";
+import { validateLicense, activateLicense, deactivateLicense, isPro, getTrialDaysLeft, isTrialActive } from "../core/license";
 
 const COMPARE_FEATURES = [
 	"manualCompile", "wikiBrowse", "deepseek",
@@ -43,62 +43,24 @@ export function renderLicenseSettings(containerEl: HTMLElement, plugin: SecondBr
 		statusRow.createEl("span", { text: t("license.expiresAt", lang, { date: d }), cls: "sb-license-expires" });
 	}
 
-	// 爱发电订单号激活（仅未激活时显示，放在最前面）
+	// 购买引导（仅未激活时显示）
 	if (!isPro(state)) {
-		const orderSection = content.createDiv({ cls: "sb-license-order-section" });
+		const purchaseSection = content.createDiv({ cls: "sb-license-purchase-section" });
 
-		// 购买链接 + 订单激活
-		const purchaseRow = orderSection.createDiv({ cls: "sb-license-purchase" });
-		const purchaseLink = purchaseRow.createEl("a", {
-			text: t("license.goBuy", lang),
-			href: t("license.purchaseUrl", lang),
+		const stepsEl = purchaseSection.createDiv({ cls: "sb-license-steps" });
+		const steps = [
+			t("license.step1", lang),
+			t("license.step2", lang),
+			t("license.step3", lang),
+		];
+		steps.forEach((step, i) => {
+			const row = stepsEl.createDiv({ cls: "sb-license-step" });
+			row.createEl("span", { text: `${i + 1}`, cls: "sb-license-step-num" });
+			row.createEl("span", { text: step, cls: "sb-license-step-text" });
 		});
-		purchaseLink.setAttribute("target", "_blank");
 
-		let orderInput: HTMLInputElement | null = null;
-		new Setting(orderSection)
-			.setName(t("license.orderLabel", lang))
-			.setDesc(t("license.orderDesc", lang))
-			.addText((text) => {
-				text.setPlaceholder(t("license.orderPlaceholder", lang));
-				orderInput = text.inputEl;
-			})
-			.addButton((btn) => {
-				btn.setButtonText(t("license.orderActivate", lang));
-				btn.setClass("mod-cta");
-				btn.onClick(async () => {
-					const orderId = orderInput?.value?.trim();
-					if (!orderId) {
-						new Notice(t("license.orderFail", lang));
-						return;
-					}
-					btn.setDisabled(true);
-					try {
-						const instanceName = plugin.app.vault.getName();
-						const { licenseInfo, licenseKey } = await activateByOrder(orderId, instanceName);
-						plugin.licenseInfo = licenseInfo;
-						plugin.settings.licenseKey = licenseKey;
-						await plugin.saveSettings();
-						await plugin.saveLicenseInfo();
-						new Notice(t("license.orderSuccess", lang));
-						plugin.refreshSettingsTab();
-					} catch (e: unknown) {
-						const msg = e instanceof Error ? e.message : String(e);
-						if (msg?.includes("not found") || msg?.includes("not paid")) {
-							new Notice(t("license.orderNotFound", lang));
-						} else if (msg?.includes("Rate limit")) {
-							new Notice(t("license.rateLimit", lang));
-						} else {
-							new Notice(t("license.orderFail", lang));
-						}
-					} finally {
-						btn.setDisabled(false);
-					}
-				});
-			});
-
-		// 分隔线
-		content.createEl("div", { cls: "sb-license-divider", text: t("license.orKey", lang) });
+		const priceEl = purchaseSection.createDiv({ cls: "sb-upgrade-pricing" });
+		priceEl.createEl("span", { text: "30 CNY / $5 USD one-time", cls: "sb-upgrade-price" });
 	}
 
 	// License Key 输入
@@ -126,7 +88,7 @@ export function renderLicenseSettings(containerEl: HTMLElement, plugin: SecondBr
 		}
 		activateBtn.disabled = true;
 		try {
-			const result = await activateLicense(key);
+			const result = await activateLicense(key, plugin.app.vault.getName());
 			plugin.licenseInfo = result;
 			await plugin.saveLicenseInfo();
 			new Notice(t("license.activationSuccess", lang));
@@ -182,16 +144,6 @@ export function renderLicenseSettings(containerEl: HTMLElement, plugin: SecondBr
 			const trialHint = content.createDiv({ cls: "sb-trial-hint" });
 			trialHint.createEl("span", { text: t("pro.trialStarted", lang).split("!")[0] + " — " + t("pro.trialDaysLeft", lang, { days: 14 }) });
 		}
-	}
-
-	// 购买链接
-	if (!isPro(state)) {
-		const linkRow = content.createDiv({ cls: "sb-license-purchase" });
-		const link = linkRow.createEl("a", {
-			text: t("license.getPro", lang),
-			href: t("license.purchaseUrl", lang),
-		});
-		link.setAttribute("target", "_blank");
 	}
 }
 

@@ -19,6 +19,7 @@ import type { AnalysisItem } from "./compile-analysis";
 import {
 	findRelevantMaterials,
 } from "./compile-materials";
+import { MATERIAL_CONCEPT_CHARS, MATERIAL_ENTITY_CHARS, MATERIAL_SOURCE_CHARS, PAGE_HEAD_CHECK_CHARS } from "./constants";
 
 const BATCH = 5;
 
@@ -36,20 +37,20 @@ export async function buildTask(item: AnalysisItem, allFiles: Array<{ path: stri
 	const desc = item.desc || "";
 	if (item._type === "concept") {
 		const c = item as Concept;
-		const materials = await findRelevantMaterials(c.name, desc || c.title, allFiles, settings, 10000);
+		const materials = await findRelevantMaterials(c.name, desc || c.title, allFiles, settings, MATERIAL_CONCEPT_CHARS);
 		return { name: c.title || c.name, path: pagePath, prompt: buildConceptPrompt(c, materials, concepts, tpl), system: tpl.editorSystemPrompt, temp: 0.4, item };
 	} else if (item._type === "entity") {
 		const e = item as Entity;
-		const materials = await findRelevantMaterials(e.name, desc, allFiles, settings, 8000);
+		const materials = await findRelevantMaterials(e.name, desc, allFiles, settings, MATERIAL_ENTITY_CHARS);
 		return { name: e.name, path: pagePath, prompt: buildEntityPrompt(e, materials, concepts, tpl), system: tpl.editorSystemPrompt, temp: 0.3, item };
 	} else {
 		const s = item as Source;
 		let sourceContent = "";
 		if (s.source_file) {
 			const sourceFile = allFiles.find(f => f.path === s.source_file || f.path.endsWith("/" + s.source_file));
-			if (sourceFile) sourceContent = sourceFile.content.slice(0, 10000);
+			if (sourceFile) sourceContent = sourceFile.content.slice(0, MATERIAL_SOURCE_CHARS);
 		}
-		if (!sourceContent) sourceContent = await findRelevantMaterials(s.name, desc, allFiles, settings, 8000);
+		if (!sourceContent) sourceContent = await findRelevantMaterials(s.name, desc, allFiles, settings, MATERIAL_ENTITY_CHARS);
 		return { name: s.name, path: pagePath, prompt: buildSourcePrompt(s, sourceContent, concepts, tpl), system: tpl.editorSystemPrompt, temp: 0.3, item };
 	}
 }
@@ -191,7 +192,7 @@ export async function generatePages(
 		if (existingFile instanceof TFile) {
 			try {
 				const existingContent = await app.vault.cachedRead(existingFile);
-				const head = existingContent.slice(0, 500);
+				const head = existingContent.slice(0, PAGE_HEAD_CHECK_CHARS);
 				if (/^type:\s*["']?moc["']?/m.test(head)) {
 					syncProtected.push(item);
 					continue;

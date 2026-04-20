@@ -12,6 +12,31 @@ export interface LLMOptions {
 	signal?: AbortSignal;
 }
 
+// 统一异常类型，便于重试决策
+export class LLMError extends Error {
+	constructor(
+		message: string,
+		readonly status: number = 0,
+		readonly retryable: boolean = false,
+		readonly body?: string,
+	) {
+		super(message);
+		this.name = "LLMError";
+	}
+}
+
+// 判定 HTTP 状态是否可重试：429 / 5xx / 网络错误（status=0）可重试，4xx 其他不可
+function isRetryableStatus(status: number): boolean {
+	if (status === 0) return true; // 网络错误
+	if (status === 429) return true;
+	if (status >= 500 && status < 600) return true;
+	return false;
+}
+
+function tryStringify(v: unknown): string {
+	try { return typeof v === "string" ? v : JSON.stringify(v); } catch { return String(v); }
+}
+
 // DeepSeek / OpenAI / OpenRouter / 任何 OpenAI 兼容 API
 async function callOpenAICompatible(
 	messages: Array<{ role: string; content: string }>,
@@ -19,22 +44,48 @@ async function callOpenAICompatible(
 	settings: PluginSettings
 ): Promise<string> {
 	const url = settings.baseUrl.replace(/\/+$/, "") + "/chat/completions";
-	const res = await requestUrl({
-		url,
-		method: "POST",
-		headers: {
-			"Content-Type": "application/json",
-			Authorization: `Bearer ${settings.apiKey}`,
-		},
-		body: JSON.stringify({
-			model: settings.model,
-			messages,
-			temperature: options.temperature ?? settings.temperature,
-			max_tokens: options.maxTokens ?? settings.maxTokens,
-			...(options.jsonMode ? { response_format: { type: "json_object" } } : {}),
-		}),
-	});
-	return res.json.choices[0].message.content;
+	let res;
+	try {
+		res = await requestUrl({
+			url,
+			method: "POST",
+			throw: false,
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${settings.apiKey}`,
+			},
+			body: JSON.stringify({
+				model: settings.model,
+				messages,
+				temperature: options.temperature ?? settings.temperature,
+				max_tokens: options.maxTokens ?? settings.maxTokens,
+				...(options.jsonMode ? { response_format: { type: "json_object" } } : {}),
+			}),
+		});
+	} catch (e) {
+		// 网络/DNS/超时 → 可重试
+		throw new LLMError(`网络请求失败: ${(e as Error).message}`, 0, true);
+	}
+
+	if (res.status < 200 || res.status >= 300) {
+		const bodyText = tryStringify(res.json ?? res.text);
+		throw new LLMError(
+			`API ${res.status}: ${bodyText.slice(0, 300)}`,
+			res.status,
+			isRetryableStatus(res.status),
+			bodyText,
+		);
+	}
+
+	const content = res.json?.choices?.[0]?.message?.content;
+	if (typeof content !== "string") {
+		throw new LLMError(
+			`响应结构异常（无 choices[0].message.content）: ${tryStringify(res.json).slice(0, 300)}`,
+			200,
+			false,
+		);
+	}
+	return content;
 }
 
 // Anthropic Claude
@@ -49,23 +100,48 @@ async function callAnthropic(
 		.map((m) => ({ role: m.role, content: m.content }));
 
 	const url = settings.baseUrl.replace(/\/+$/, "") + "/messages";
-	const res = await requestUrl({
-		url,
-		method: "POST",
-		headers: {
-			"Content-Type": "application/json",
-			"x-api-key": settings.apiKey,
-			"anthropic-version": "2023-06-01",
-		},
-		body: JSON.stringify({
-			model: settings.model,
-			max_tokens: options.maxTokens ?? settings.maxTokens,
+	let res;
+	try {
+		res = await requestUrl({
+			url,
+			method: "POST",
+			throw: false,
+			headers: {
+				"Content-Type": "application/json",
+				"x-api-key": settings.apiKey,
+				"anthropic-version": "2023-06-01",
+			},
+			body: JSON.stringify({
+				model: settings.model,
+				max_tokens: options.maxTokens ?? settings.maxTokens,
 				temperature: options.temperature ?? settings.temperature,
 				...(systemMsg ? { system: systemMsg.content } : {}),
-			messages: chatMsgs,
-		}),
-	});
-	return res.json.content[0].text;
+				messages: chatMsgs,
+			}),
+		});
+	} catch (e) {
+		throw new LLMError(`网络请求失败: ${(e as Error).message}`, 0, true);
+	}
+
+	if (res.status < 200 || res.status >= 300) {
+		const bodyText = tryStringify(res.json ?? res.text);
+		throw new LLMError(
+			`API ${res.status}: ${bodyText.slice(0, 300)}`,
+			res.status,
+			isRetryableStatus(res.status),
+			bodyText,
+		);
+	}
+
+	const text = res.json?.content?.[0]?.text;
+	if (typeof text !== "string") {
+		throw new LLMError(
+			`响应结构异常（无 content[0].text）: ${tryStringify(res.json).slice(0, 300)}`,
+			200,
+			false,
+		);
+	}
+	return text;
 }
 
 const PROVIDERS: Record<string, typeof callOpenAICompatible> = {
@@ -92,18 +168,21 @@ export async function callLLM(
 		try {
 			return await adapter(messages, options, settings);
 		} catch (e: unknown) {
-			lastError = e instanceof Error ? e : new Error(String(e));
-			const status = (e as any)?.status || 0;
-			if (status === 401 || status === 403) throw e;
-			if (status === 429 && attempt < maxRetries) {
-				await new Promise(r => setTimeout(r, Math.min(5000 * Math.pow(2, attempt), 60000)));
-				continue;
+			const err = e instanceof Error ? e : new Error(String(e));
+			lastError = err;
+
+			// 只有 LLMError 标注为 retryable 的错误才重试；其它一律立即抛出。
+			// 这避免了"内容违规 / context too long / 模型不存在"类 4xx 被盲目重试浪费 token。
+			const retryable = err instanceof LLMError && err.retryable;
+			if (!retryable || attempt >= maxRetries) {
+				throw err;
 			}
-			if (attempt < maxRetries) {
-				await new Promise(r => setTimeout(r, Math.min(1000 * Math.pow(2, attempt), 30000)));
-				continue;
-			}
-			throw e;
+			// 429 用较长 backoff，其它可重试错误用标准 backoff
+			const base = err instanceof LLMError && err.status === 429 ? 5000 : 1000;
+			const maxDelay = err instanceof LLMError && err.status === 429 ? 60000 : 30000;
+			const delay = Math.min(base * Math.pow(2, attempt), maxDelay);
+			if (options.signal?.aborted) throw err;
+			await new Promise(r => setTimeout(r, delay));
 		}
 	}
 	throw lastError;

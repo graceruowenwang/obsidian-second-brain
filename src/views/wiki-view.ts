@@ -858,7 +858,9 @@ export class WikiView extends ItemView {
 				await writeLogEntry(this.app, wf, "sync", `Regenerate: [[${name}]]`,
 					`- status: ${prevStatus} → draft`);
 			try {
-				await runCompile(this.app, this.plugin.settings, undefined, false, this.plugin as any);
+				await this.plugin.runWithCompileLock(() =>
+					runCompile(this.app, this.plugin.settings, undefined, false, this.plugin as any),
+				);
 				await this.loadWiki();
 				this.renderPage(name);
 			} catch (e) {

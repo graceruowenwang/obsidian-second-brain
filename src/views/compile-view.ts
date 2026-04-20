@@ -183,7 +183,9 @@ export class CompileView extends ItemView {
 		let errorCount = 0;
 
 		try {
-			const result = await runCompile(this.app, settings, onProgress, force, this.plugin, this.abortController.signal);
+			const result = await this.plugin.runWithCompileLock(() =>
+				runCompile(this.app, settings, onProgress, force, this.plugin, this.abortController!.signal),
+			);
 			this.addLog(t("compile.done", lang, { c: result.conceptsCount, e: result.entitiesCount, s: result.sourcesCount }), "ok");
 			if (result.reused) this.addLog(t("compile.noChange", lang), "");
 
