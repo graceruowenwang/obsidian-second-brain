@@ -28,6 +28,7 @@ export interface WikiViewCtx {
 	currentName: string;
 	navHistory: string[];
 	indexBtn: HTMLButtonElement;
+	mocBtn: HTMLButtonElement;
 	navigateTo(name: string): Promise<void>;
 	loadWiki(): Promise<void>;
 	extractType(content: string): string;

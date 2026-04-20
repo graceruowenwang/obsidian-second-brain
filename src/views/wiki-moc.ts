@@ -10,8 +10,8 @@ export async function showMoc(ctx: WikiViewCtx): Promise<void> {
 	ctx.currentView = "index";
 	ctx.currentName = "";
 	ctx.navHistory = [];
-	ctx.indexBtn.classList.remove("active");
 	ctx.indexBtn.parentElement?.querySelectorAll(".sb-wiki-view-btn").forEach(b => b.classList.remove("active"));
+	ctx.mocBtn.classList.add("active");
 	ctx.bodyEl.empty();
 
 	const lang = ctx.plugin.settings.language;

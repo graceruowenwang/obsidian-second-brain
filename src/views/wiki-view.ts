@@ -48,6 +48,7 @@ export class WikiView extends ItemView {
 	private navHistory: string[] = [];
 	private component: Component;
 	private indexBtn: HTMLButtonElement;
+	private mocBtn: HTMLButtonElement;
 	private sortMode: "name-asc" | "name-desc" | "type" | "level" | "recent" = "name-asc";
 	private statusFilter: "all" | "draft" | "reviewed" = "all";
 	private selectedPages = new Set<string>();
@@ -80,13 +81,12 @@ export class WikiView extends ItemView {
 		const toolbar = container.createDiv({ cls: "sb-wiki-toolbar" });
 
 		const row1 = toolbar.createDiv({ cls: "sb-wiki-toolbar-row1" });
-		row1.style.position = "relative";
 
 		const toggle = row1.createDiv({ cls: "sb-wiki-view-toggle" });
 		this.indexBtn = toggle.createEl("button", { text: t("wiki.tabIndex", lang), cls: "sb-wiki-view-btn active" });
-		const mocBtn = toggle.createEl("button", { text: t("wiki.mocShort", lang), cls: "sb-wiki-view-btn" });
+		this.mocBtn = toggle.createEl("button", { text: t("wiki.mocShort", lang), cls: "sb-wiki-view-btn" });
 		this.indexBtn.addEventListener("click", () => this.showIndex());
-		mocBtn.addEventListener("click", () => showMoc(this.ctx()));
+		this.mocBtn.addEventListener("click", () => showMoc(this.ctx()));
 
 		this.searchEl = row1.createEl("input", {
 			attr: { placeholder: t("wiki.search", lang), type: "text", "aria-label": t("wiki.search", lang) },
@@ -190,6 +190,7 @@ export class WikiView extends ItemView {
 			currentName: this.currentName,
 			navHistory: this.navHistory,
 			indexBtn: this.indexBtn,
+			mocBtn: this.mocBtn,
 			navigateTo: (name) => this.navigateTo(name),
 			loadWiki: () => this.loadWiki(),
 			extractType: (c) => extractFmField(c, "type"),
@@ -213,6 +214,8 @@ export class WikiView extends ItemView {
 		this.pageScrollTop.clear();
 
 		this.currentView = "index";
+		this.indexBtn.classList.add("active");
+		this.mocBtn.classList.remove("active");
 		this.renderIndex();
 	}
 
@@ -222,6 +225,7 @@ export class WikiView extends ItemView {
 		this.currentName = "";
 		this.navHistory = [];
 		this.indexBtn.classList.add("active");
+		this.mocBtn.classList.remove("active");
 		this.renderIndex();
 	}
 
@@ -611,6 +615,8 @@ export class WikiView extends ItemView {
 		this.navHistory.push(marker);
 		this.currentName = name;
 		this.currentView = "page";
+		this.indexBtn.classList.remove("active");
+		this.mocBtn.classList.remove("active");
 		await this.renderPage(name);
 	}
 
