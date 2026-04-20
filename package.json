@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-second-brain",
-	"version": "1.0.0",
+	"version": "2.0.0",
 	"description": "AI-powered knowledge compilation engine for Obsidian",
 	"main": "main.js",
 	"scripts": {
@@ -11,7 +11,7 @@
 	"devDependencies": {
 		"@types/node": "^16.11.6",
 		"esbuild": "^0.25.0",
-		"obsidian": "latest",
+		"obsidian": "^1.5.0",
 		"tslib": "^2.4.0",
 		"typescript": "^5.8.0"
 	},

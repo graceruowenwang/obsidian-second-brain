@@ -28,6 +28,7 @@ export interface CompileLog {
 
 const CACHE_DIR = ".cache";
 const LOG_FILE = "compile-log.json";
+const MAX_LOG_ENTRIES = 50;
 
 export class CompileLogBuilder {
 	private pages: CompilePageLog[] = [];
@@ -152,7 +153,7 @@ export async function saveCompileLog(app: App, wikiFolder: string, log: CompileL
 
 	// 追加新日志，保留最近 50 条
 	existing.unshift(log);
-	if (existing.length > 50) existing = existing.slice(0, 50);
+	if (existing.length > MAX_LOG_ENTRIES) existing = existing.slice(0, MAX_LOG_ENTRIES);
 
 	// 确保目录存在
 	const dir = app.vault.getAbstractFileByPath(dirPath);

@@ -18,10 +18,13 @@ import type { PluginSettings, Analysis, CompileCache, ProgressEvent, ValidationI
 import { recordCompile, emptyStats } from "./usage-stats";
 import { appendWeeklyReport } from "./weekly-report";
 
+/** 单次 LLM 调用最大输入字符数 */
 const MAX_CHARS = 60000;
-
-
+/** 分析接口最大输出 token 数 */
 const ANALYSIS_MAX_TOKENS = 4000;
+/** 编译历史最大条目数 */
+const MAX_COMPILE_HISTORY = 50;
+
 import { parseAnalysisJSON, getPagePath, generatePages, checkAborted, PageGenResult, validateAnalysis, mergeAnalysis } from "./compile-pages";
 import { buildDependencyGraph } from "./compile-analysis";
 import { CompileLogBuilder, saveCompileLog } from "./compile-log";
@@ -393,7 +396,7 @@ export async function runCompile(
 		durationMs: report.durationMs,
 		totalPages: report.totalPages,
 	});
-	if (cache.compileHistory.length > 50) cache.compileHistory = cache.compileHistory.slice(0, 50);
+	if (cache.compileHistory.length > MAX_COMPILE_HISTORY) cache.compileHistory = cache.compileHistory.slice(0, MAX_COMPILE_HISTORY);
 
 		// 记录使用统计
 	if (!cache.usageStats) cache.usageStats = emptyStats();
