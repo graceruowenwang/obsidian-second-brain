@@ -1,10 +1,11 @@
 // 编译面板 -- 右侧栏 View，显示编译进度和日志
 
-import { ItemView, WorkspaceLeaf, Notice, setTooltip, TFolder } from "obsidian";
+import { ItemView, WorkspaceLeaf, Notice, TFolder } from "obsidian";
+import { bindHoverHint } from "../ui/hover-hint";
 import { runCompile } from "../core/compile";
 import { readRawFiles } from "../core/file-utils";
-import type { SecondBrainPlugin, ProgressEvent, CompileResult, CompileCache } from "../types";
-import { emptyStats, getSuccessRate, getAvgDurationSec } from "../core/usage-stats";
+import type { SecondBrainPlugin, ProgressEvent, CompileResult, CompileCache, CompileHistoryEntry } from "../types";
+import { getSuccessRate, getAvgDurationSec } from "../core/usage-stats";
 import { t } from "../core/i18n";
 import { isPro, getCompileTrialLicense } from "../core/license";
 import { friendlyCompilePageError, describeLLMFailure } from "../core/llm-user-message";
@@ -47,15 +48,15 @@ export class CompileView extends ItemView {
 		// 操作栏
 		const btnRow = container.createDiv({ cls: "sb-compile-toolbar sb-btn-row" });
 		this.compileBtn = btnRow.createEl("button", { text: t("compile.start", lang), cls: "mod-cta sb-compile-btn-primary" });
-		setTooltip(this.compileBtn, t("compile.tooltip.start", lang));
+		bindHoverHint(this.compileBtn, t("compile.tooltip.start", lang));
 		this.compileBtn.addEventListener("click", () => this.startCompile());
 
 		const forceBtn = btnRow.createEl("button", { text: t("compile.force", lang), cls: "sb-compile-btn-secondary" });
-		setTooltip(forceBtn, t("compile.tooltip.force", lang));
+		bindHoverHint(forceBtn, t("compile.tooltip.force", lang));
 		forceBtn.addEventListener("click", () => this.startCompile(true));
 
 		const organizeBtn = btnRow.createEl("button", { text: t("compile.organizeRaw", lang), cls: "sb-compile-btn-secondary" });
-		setTooltip(organizeBtn, t("compile.tooltip.organizeRaw", lang));
+		bindHoverHint(organizeBtn, t("compile.tooltip.organizeRaw", lang));
 		organizeBtn.addEventListener("click", async () => {
 			organizeBtn.disabled = true;
 			try {
@@ -67,14 +68,14 @@ export class CompileView extends ItemView {
 		});
 
 		this.cancelBtn = btnRow.createEl("button", { text: t("compile.cancel", lang), cls: "sb-cancel-btn" });
-		setTooltip(this.cancelBtn, t("compile.tooltip.cancel", lang));
+		bindHoverHint(this.cancelBtn, t("compile.tooltip.cancel", lang));
 		this.cancelBtn.style.display = "none";
 		this.cancelBtn.addEventListener("click", () => this.cancelCompile());
 
-		// 进度区（卡片）
+		// 进度区（卡片）— 提示绑在 progressWrap 上，避免子节点挡住父级导致 hover 不触发
 		const progressCard = container.createDiv({ cls: "sb-compile-progress-card" });
-		setTooltip(progressCard, t("compile.tooltip.progress", lang));
 		const progressWrap = progressCard.createDiv({ cls: "sb-progress-wrap" });
+		bindHoverHint(progressWrap, t("compile.tooltip.progress", lang));
 		this.progressLabel = progressWrap.createDiv({ cls: "sb-progress-label" });
 		const bar = progressWrap.createDiv({ cls: "sb-progress-bar" });
 		this.progressFill = bar.createDiv({ cls: "sb-progress-fill" });
@@ -84,7 +85,7 @@ export class CompileView extends ItemView {
 		const stageKeys = ["reading", "analyzing", "generating", "writing"] as const;
 		for (const key of stageKeys) {
 			const dot = this.stageIndicator.createDiv({ cls: "sb-compile-stage-dot" });
-			setTooltip(dot, t(`compile.tooltip.stage.${key}`, lang));
+			bindHoverHint(dot, t(`compile.tooltip.stage.${key}`, lang));
 			dot.createEl("span", { cls: "sb-compile-stage-icon" });
 			dot.createEl("span", { text: t(`compile.stage.${key}`, lang), cls: "sb-compile-stage-label" });
 		}
@@ -97,19 +98,25 @@ export class CompileView extends ItemView {
 		this.timeEstimateEl = progressWrap.createDiv({ cls: "sb-time-estimate" });
 		this.timeEstimateEl.style.display = "none";
 
-		// 数据面板：素材目录 + 使用统计 + 编译历史（独立于日志区）
+		// 数据面板：分三块白话说明（素材 / 累计统计 / 最近记录）
 		const dataPanel = container.createDiv({ cls: "sb-compile-data-panel" });
 		const panelHead = dataPanel.createDiv({ cls: "sb-compile-data-panel-header" });
 		panelHead.createEl("span", { cls: "sb-compile-data-panel-title", text: t("compile.dataPanelTitle", lang) });
+		panelHead.createEl("p", { cls: "sb-compile-data-panel-intro", text: t("compile.dataPanelIntro", lang) });
 
-		this.dataVaultMount = dataPanel.createDiv({ cls: "sb-compile-data-vault-wrap" });
+		this.dataVaultMount = dataPanel.createDiv({ cls: "sb-compile-data-section sb-compile-data-section--raw" });
 
-		const statsBlock = dataPanel.createDiv({ cls: "sb-compile-data-block" });
-		const statsHeading = statsBlock.createEl("h3", { cls: "sb-compile-data-block-title", text: t("stats.title", lang) });
-		setTooltip(statsHeading, t("compile.tooltip.usageStats", lang));
-		this.dataStatsMount = statsBlock.createDiv({ cls: "sb-compile-data-block-body" });
+		const statsSection = dataPanel.createDiv({ cls: "sb-compile-data-section sb-compile-data-section--stats" });
+		statsSection.createEl("h3", { cls: "sb-compile-data-section-title", text: t("compile.dataSection2Title", lang) });
+		statsSection.createEl("p", { cls: "sb-compile-data-section-lead", text: t("compile.dataSection2Lead", lang) });
+		const statsHeading = statsSection.querySelector(".sb-compile-data-section-title") as HTMLElement;
+		bindHoverHint(statsHeading, t("compile.tooltip.usageStats", lang));
+		this.dataStatsMount = statsSection.createDiv({ cls: "sb-compile-data-section-body" });
 
-		this.dataHistoryMount = dataPanel.createDiv({ cls: "sb-compile-data-history-wrap" });
+		const histSection = dataPanel.createDiv({ cls: "sb-compile-data-section sb-compile-data-section--history" });
+		histSection.createEl("h3", { cls: "sb-compile-data-section-title", text: t("compile.dataSection3Title", lang) });
+		histSection.createEl("p", { cls: "sb-compile-data-section-lead", text: t("compile.dataSection3Lead", lang) });
+		this.dataHistoryMount = histSection.createDiv({ cls: "sb-compile-data-section-body" });
 
 		// 日志
 		this.logEl = container.createDiv({ cls: "sb-log" });
@@ -133,21 +140,20 @@ export class CompileView extends ItemView {
 
 	private renderVaultStrip(summary: { folder: string; count: number; exists: boolean }, lang: string): void {
 		this.dataVaultMount.empty();
-		const row = this.dataVaultMount.createDiv({ cls: "sb-compile-vault-row" });
-		row.createEl("span", { cls: "sb-compile-vault-caption", text: t("compile.dataVaultCaption", lang) });
-		const pathWrap = row.createDiv({ cls: "sb-compile-vault-path-wrap" });
-		pathWrap.createEl("code", { text: summary.folder, cls: "sb-compile-vault-path" });
-		const badge = row.createDiv({ cls: "sb-compile-vault-badge" });
+		this.dataVaultMount.createEl("h3", { cls: "sb-compile-data-section-title", text: t("compile.dataSection1Title", lang) });
+		this.dataVaultMount.createEl("p", { cls: "sb-compile-data-section-lead", text: t("compile.dataSection1Lead", lang) });
+		const status = this.dataVaultMount.createDiv({ cls: "sb-compile-vault-status" });
 		if (!summary.exists) {
-			badge.classList.add("sb-compile-vault-badge--warn");
-			badge.textContent = t("compile.dataVaultMissing", lang);
+			status.classList.add("sb-compile-vault-status--warn");
+			status.textContent = t("compile.dataVaultStatusMissing", lang, { path: summary.folder });
 		} else if (summary.count === 0) {
-			badge.classList.add("sb-compile-vault-badge--muted");
-			badge.textContent = t("compile.dataVaultEmpty", lang);
+			status.classList.add("sb-compile-vault-status--muted");
+			status.textContent = t("compile.dataVaultStatusEmpty", lang, { path: summary.folder });
 		} else {
-			badge.classList.add("sb-compile-vault-badge--ok");
-			badge.textContent = t("compile.dataVaultFiles", lang, { n: String(summary.count) });
+			status.classList.add("sb-compile-vault-status--ok");
+			status.textContent = t("compile.dataVaultStatusOk", lang, { path: summary.folder, n: String(summary.count) });
 		}
+		this.dataVaultMount.createEl("code", { cls: "sb-compile-vault-path-foot", text: summary.folder });
 	}
 
 	private async loadRawFileList() {
@@ -191,7 +197,7 @@ export class CompileView extends ItemView {
 		this.compileStartTime = Date.now();
 		this.abortController = new AbortController();
 		this.compileBtn.textContent = t("compile.compiling", lang);
-		setTooltip(this.compileBtn, t("compile.tooltip.compilingPrimary", lang));
+		bindHoverHint(this.compileBtn, t("compile.tooltip.compilingPrimary", lang));
 		this.cancelBtn.style.display = "";
 		this.logEl.empty();
 		this.progressFill.style.width = "0%";
@@ -325,7 +331,7 @@ export class CompileView extends ItemView {
 			this.abortController = null;
 			this.compileBtn.disabled = false;
 			this.compileBtn.textContent = t("compile.start", lang);
-			setTooltip(this.compileBtn, t("compile.tooltip.start", lang));
+			bindHoverHint(this.compileBtn, t("compile.tooltip.start", lang));
 			this.cancelBtn.style.display = "none";
 			this.timeEstimateEl.style.display = "none";
 			this.progressFill.style.background = "";
@@ -372,7 +378,7 @@ export class CompileView extends ItemView {
 		for (const s of statEntries) {
 			const badge = badges.createDiv({ cls: `sb-compile-stat-badge ${s.cls}` });
 			const tipKey = statTipKeys[s.labelKey];
-			if (tipKey) setTooltip(badge, t(tipKey, lang));
+			if (tipKey) bindHoverHint(badge, t(tipKey, lang));
 			badge.createEl("span", { text: String(s.value), cls: "sb-compile-stat-num" });
 			badge.createEl("span", { text: t(s.labelKey, lang), cls: "sb-compile-stat-label" });
 		}
@@ -385,7 +391,7 @@ export class CompileView extends ItemView {
 			const failEl = summary.createDiv({ cls: "sb-compile-summary-fail" });
 			failEl.createEl("span", { text: t("compile.summaryFailed", lang, { n: errorCount }) });
 			const retryBtn = failEl.createEl("button", { text: t("compile.retryFailed", lang), cls: "sb-retry-btn" });
-			setTooltip(retryBtn, t("compile.tooltip.retryFailed", lang));
+			bindHoverHint(retryBtn, t("compile.tooltip.retryFailed", lang));
 			retryBtn.addEventListener("click", () => {
 				summary.remove();
 				this.startCompile(force);
@@ -396,7 +402,7 @@ export class CompileView extends ItemView {
 			if (errorCount === 0 && totalPages > 0) {
 				const guideEl = summary.createDiv({ cls: "sb-compile-guide" });
 				const viewBtn = guideEl.createEl("button", { text: t("compile.viewWiki", lang), cls: "sb-compile-guide-btn mod-cta" });
-				setTooltip(viewBtn, t("compile.tooltip.viewWiki", lang));
+				bindHoverHint(viewBtn, t("compile.tooltip.viewWiki", lang));
 				viewBtn.addEventListener("click", () => {
 					this.plugin.activateView("second-brain-wiki");
 				});
@@ -407,6 +413,21 @@ export class CompileView extends ItemView {
 	}
 
 
+	private historySummaryLine(entry: CompileHistoryEntry, lang: string): string {
+		const tagMap: Record<string, string> = { full: "compile.historyFull", incremental: "compile.historyIncremental", single: "compile.historySingle" };
+		const typeLabel = t(tagMap[entry.action] || "compile.historyIncremental", lang);
+		const locale = lang === "ja" ? "ja" : lang === "zh-CN" ? "zh-CN" : "en";
+		const dateStr = new Date(entry.date).toLocaleString(locale, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+		const bits: string[] = [];
+		if (entry.added.length > 0) bits.push(t("compile.historyBitAdded", lang, { n: String(entry.added.length) }));
+		if (entry.modified.length > 0) bits.push(t("compile.historyBitModified", lang, { n: String(entry.modified.length) }));
+		if (entry.removed.length > 0) bits.push(t("compile.historyBitRemoved", lang, { n: String(entry.removed.length) }));
+		const changeStr = bits.length > 0 ? bits.join(t("compile.historyBitJoiner", lang)) : t("compile.historyBitNone", lang);
+		const sec = Math.round(entry.durationMs / 1000);
+		const dur = t("compile.historySeconds", lang, { s: String(sec) });
+		return `${dateStr} · ${typeLabel} · ${changeStr} · ${dur}`;
+	}
+
 	private async renderHistory() {
 		const lang = this.plugin.settings.language;
 		this.dataHistoryMount.empty();
@@ -414,54 +435,28 @@ export class CompileView extends ItemView {
 		const cache = (await this.plugin.loadData()) as CompileCache | null;
 		const history = cache?.compileHistory ?? [];
 
-		const details = this.dataHistoryMount.createEl("details", { cls: "sb-compile-history-details" });
-		details.open = true;
-		const sum = details.createEl("summary", { cls: "sb-compile-history-summary" });
-		sum.createSpan({ cls: "sb-compile-history-summary-label", text: t("compile.historyTitle", lang) });
-		if (history.length > 0) {
-			sum.createSpan({ cls: "sb-compile-history-summary-count", text: String(Math.min(history.length, 10)) });
-		}
-
-		const listWrap = details.createDiv({ cls: "sb-compile-history-list-wrap" });
 		if (history.length === 0) {
-			listWrap.createDiv({ cls: "sb-compile-history-empty", text: t("compile.historyNoRecords", lang) });
+			this.dataHistoryMount.createEl("p", { cls: "sb-compile-history-empty", text: t("compile.historyNoRecords", lang) });
 			return;
 		}
 
+		const listWrap = this.dataHistoryMount.createDiv({ cls: "sb-compile-history-cards" });
 		for (const entry of history.slice(0, 10)) {
-			const row = listWrap.createDiv({ cls: "sb-history-entry" });
-
-			const tagMap: Record<string, string> = { full: "compile.historyFull", incremental: "compile.historyIncremental", single: "compile.historySingle" };
-			row.createEl("span", { text: t(tagMap[entry.action] || "compile.historyIncremental", lang), cls: "sb-history-tag sb-history-tag-" + entry.action });
-
-			const dateStr = new Date(entry.date).toLocaleDateString();
-			row.createEl("span", { text: dateStr, cls: "sb-history-date" });
-
-			const changes: string[] = [];
-			if (entry.added.length > 0) changes.push("+" + entry.added.length);
-			if (entry.modified.length > 0) changes.push("~" + entry.modified.length);
-			if (entry.removed.length > 0) changes.push("-" + entry.removed.length);
-			row.createEl("span", { text: changes.join(" ") || "—", cls: "sb-history-changes" });
-
-			const sec = Math.round(entry.durationMs / 1000);
-			row.createEl("span", { text: t("compile.historyDuration", lang, { t: sec }), cls: "sb-history-duration" });
-
-			if (entry.added.length > 0 || entry.modified.length > 0 || entry.removed.length > 0) {
-				const detailBtn = row.createEl("span", { text: "···", cls: "sb-history-detail-toggle" });
-				setTooltip(detailBtn, t("compile.tooltip.historyDetail", lang));
-				const detailEl = listWrap.createDiv({ cls: "sb-history-detail" });
-				detailEl.style.display = "none";
-				const names = [...entry.added.map(n => "+ " + n), ...entry.modified.map(n => "~ " + n), ...entry.removed.map(n => "- " + n)];
-				for (const name of names) {
-					detailEl.createEl("div", { text: name, cls: "sb-history-detail-item" });
-				}
-				detailBtn.addEventListener("click", (ev) => {
-					ev.preventDefault();
-					ev.stopPropagation();
-					const open = detailEl.style.display !== "none";
-					detailEl.style.display = open ? "none" : "";
-					detailBtn.textContent = open ? "···" : "▲";
-				});
+			const line = this.historySummaryLine(entry, lang);
+			const hasNames = entry.added.length > 0 || entry.modified.length > 0 || entry.removed.length > 0;
+			if (hasNames) {
+				const det = listWrap.createEl("details", { cls: "sb-compile-history-card" });
+				const sum = det.createEl("summary", { cls: "sb-compile-history-card-sum" });
+				sum.createSpan({ cls: "sb-compile-history-card-line", text: line });
+				sum.createSpan({ cls: "sb-compile-history-card-hint", text: t("compile.historyTapExpand", lang) });
+				const body = det.createDiv({ cls: "sb-compile-history-card-body" });
+				body.createEl("div", { cls: "sb-compile-history-names-title", text: t("compile.historyNamesTitle", lang) });
+				for (const n of entry.added) body.createEl("div", { text: "+ " + n, cls: "sb-history-detail-item" });
+				for (const n of entry.modified) body.createEl("div", { text: "~ " + n, cls: "sb-history-detail-item" });
+				for (const n of entry.removed) body.createEl("div", { text: "- " + n, cls: "sb-history-detail-item" });
+			} else {
+				const row = listWrap.createDiv({ cls: "sb-compile-history-card sb-compile-history-card--plain" });
+				row.createEl("div", { cls: "sb-compile-history-card-line", text: line });
 			}
 		}
 	}
@@ -477,26 +472,24 @@ export class CompileView extends ItemView {
 
 		const cache = (await this.plugin.loadData()) as CompileCache | null;
 		const raw = cache?.usageStats;
-		const stats = raw && raw.totalCompiles > 0 ? raw : emptyStats();
 		const hasRealData = !!(raw && raw.totalCompiles > 0);
-
-		const grid = this.dataStatsMount.createDiv({ cls: "sb-stats-grid" });
-		const entries = [
-			{ value: String(stats.totalCompiles), label: t("stats.totalCompiles", lang) },
-			{ value: getSuccessRate(stats) + "%", label: t("stats.successRate", lang) },
-			{ value: getAvgDurationSec(stats) + "s", label: t("stats.avgDuration", lang) },
-			{ value: String(stats.totalConceptsGenerated), label: t("stats.totalConcepts", lang) },
-			{ value: String(stats.weeklyCompiles), label: t("stats.weeklyCompiles", lang) },
-		];
-
-		for (const e of entries) {
-			const cell = grid.createDiv({ cls: "sb-stat-cell" + (hasRealData ? "" : " sb-stat-cell--placeholder") });
-			cell.createEl("span", { text: e.value, cls: "sb-stat-value" });
-			cell.createEl("span", { text: e.label, cls: "sb-stat-label" });
+		if (!hasRealData || !raw) {
+			this.dataStatsMount.createEl("p", { cls: "sb-compile-stats-empty", text: t("compile.statsNoDataYet", lang) });
+			return;
 		}
-
-		if (!hasRealData) {
-			this.dataStatsMount.createEl("p", { cls: "sb-stats-empty-hint", text: t("stats.emptyHint", lang) });
+		const stats = raw;
+		const dl = this.dataStatsMount.createEl("dl", { cls: "sb-compile-stat-dl" });
+		const rows: Array<{ dt: string; dd: string }> = [
+			{ dt: t("compile.statDlRuns", lang), dd: String(stats.totalCompiles) },
+			{ dt: t("compile.statDlSuccess", lang), dd: `${getSuccessRate(stats)}%` },
+			{ dt: t("compile.statDlAvg", lang), dd: `${getAvgDurationSec(stats)}s` },
+			{ dt: t("compile.statDlConcepts", lang), dd: String(stats.totalConceptsGenerated) },
+			{ dt: t("compile.statDlWeek", lang), dd: String(stats.weeklyCompiles) },
+		];
+		for (const r of rows) {
+			const row = dl.createDiv({ cls: "sb-compile-stat-dl-row" });
+			row.createEl("dt", { text: r.dt });
+			row.createEl("dd", { text: r.dd });
 		}
 	}
 
