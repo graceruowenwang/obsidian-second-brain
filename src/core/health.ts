@@ -1,7 +1,7 @@
 // 知识健康度计算模块
 
 import type { WikiPage } from "../views/wiki-shared";
-import { extractUpdated, extractFmField, extractStatus } from "../views/wiki-shared";
+import { extractUpdated, extractFmField, extractStatus, wikiReviewBucket } from "../views/wiki-shared";
 
 export interface StalePage {
 	name: string;
@@ -25,11 +25,16 @@ export interface WikiHealth {
 	total: number;
 	/** 已审核页面数 */
 	reviewed: number;
+	/** 待审核队列：status 为 draft 或缺少 status */
+	pending: number;
+	/** 其他状态：gap、outdated 等（非 draft/空、非 reviewed） */
+	other: number;
 	/** 知识缺口页面数 (status=gap) */
 	gapPages: number;
 }
 
-const STALE_THRESHOLD_DAYS = 30;
+/** 概念页「未更新」判定天数（与 Wiki 数据面板说明一致） */
+export const WIKI_STALE_THRESHOLD_DAYS = 30;
 const MAX_STALE_PAGES = 10;
 
 function countLinks(content: string): number {
@@ -51,12 +56,14 @@ export function computeWikiHealth(wikiPages: WikiPage[]): WikiHealth {
 	const total = allPages.length;
 
 	if (total === 0) {
-		return { staleness: 0, avgLinkCount: 0, orphanRisk: 0, stalePages: [], total: 0, reviewed: 0, gapPages: 0 };
+		return { staleness: 0, avgLinkCount: 0, orphanRisk: 0, stalePages: [], total: 0, reviewed: 0, pending: 0, other: 0, gapPages: 0 };
 	}
 
 	let totalLinks = 0;
 	let orphanCount = 0;
 	let reviewed = 0;
+	let pending = 0;
+	let other = 0;
 	let gapPages = 0;
 
 	const staleCandidates: StalePage[] = [];
@@ -67,14 +74,17 @@ export function computeWikiHealth(wikiPages: WikiPage[]): WikiHealth {
 		if (lc < 2) orphanCount++;
 
 		const status = extractStatus(page.content);
-		if (status === "reviewed") reviewed++;
+		const bucket = wikiReviewBucket(page.content);
+		if (bucket === "reviewed") reviewed++;
+		else if (bucket === "pending") pending++;
+		else other++;
 		if (status === "gap") gapPages++;
 
 		if (!page.path.includes("concepts/")) continue;
 
 		const updated = extractUpdated(page.content);
 		const days = daysBetween(updated, now);
-		if (days >= STALE_THRESHOLD_DAYS) {
+		if (days >= WIKI_STALE_THRESHOLD_DAYS) {
 			const name = page.path.split("/").pop()!.replace(".md", "");
 			staleCandidates.push({
 				name,
@@ -98,6 +108,8 @@ export function computeWikiHealth(wikiPages: WikiPage[]): WikiHealth {
 		stalePages: staleCandidates.slice(0, MAX_STALE_PAGES),
 		total,
 		reviewed,
+		pending,
+		other,
 		gapPages,
 	};
 }

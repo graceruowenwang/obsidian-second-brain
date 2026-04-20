@@ -1,5 +1,31 @@
 // Second Brain License API — Cloudflare Worker
 // 激活码管理 + 面包多支付集成
+//
+// ============ HTTP 契约（JSDoc，与插件 `src/core/license.ts` 对齐） ============
+//
+// POST /activate
+//   body: { license_key: string, instance_name: string }
+//   2xx: { activated: boolean, ... } — 插件以 activated 为准
+//
+// POST /validate
+//   body: { license_key: string, instance_id?: string }
+//   2xx: License 状态 JSON（字段集合与插件 LicenseInfo 消费逻辑一致）
+//
+// POST /deactivate
+//   body: { license_key: string, instance_id: string }
+//
+// POST /webhook/mbd
+//   header: X-Signature（或 x-signature）— HMAC-SHA256(secret, raw_body) hex
+//   body: JSON，type === "charge_succeeded" 时签发；需 MBD_WEBHOOK_SECRET
+//
+// GET /pay/status?order=<out_trade_no>
+//   JSON: { status: string, key: string | null }
+//
+// 管理路由 /generate、/admin/*：须 X-Admin-Token；响应头无 Access-Control-Allow-Origin: *
+//
+// =============================================================================
+
+import { isWebhookEventTooOld } from "./webhook-guards.js";
 
 const CORS_BASE = {
 	"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -184,6 +210,12 @@ async function handleMbdWebhook(request, env) {
 
 	if (body.type !== "charge_succeeded") {
 		return json({ ok: true });
+	}
+
+	// 防重放：若 payload 带事件时间且与当前时间相差过大，拒绝（签名仍须有效）
+	const MAX_WEBHOOK_SKEW_MS = 15 * 60 * 1000;
+	if (isWebhookEventTooOld(body, Date.now(), MAX_WEBHOOK_SKEW_MS)) {
+		return json({ error: "Stale webhook timestamp" }, 400);
 	}
 
 	const data = body.data || {};

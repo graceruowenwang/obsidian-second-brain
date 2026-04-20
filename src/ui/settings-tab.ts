@@ -2,21 +2,22 @@
 
 import { App, Modal, Notice, PluginSettingTab, Setting, TFile } from "obsidian";
 import type SecondBrain from "../main";
-import { DEFAULT_SETTINGS } from "../types";
+import { DEFAULT_SETTINGS, type LLMProviderId, type UILanguageId } from "../types";
 import { readWikiFiles, emptyCache, clearEmbeddingCache } from "../core/file-utils";
 import { callLLM } from "../core/llm";
 import { t } from "../core/i18n";
-import { PROVIDER_PRESETS } from "../core/presets";
+import { PROVIDER_PRESETS, providerPresetOrUndefined } from "../core/presets";
 import { renderLicenseSettings } from "./license-settings";
 import { requirePro, showUpgradeNotice, createProBadge } from "../core/feature-gate";
+import { describeLLMFailure } from "../core/llm-user-message";
 
 // === Imp 10: Provider 切换确认 Modal ===
 class ProviderSwitchModal extends Modal {
-	private provider: string;
+	private provider: LLMProviderId;
 	private onConfirm: () => void;
 	private lang: string;
 
-	constructor(app: App, provider: string, lang: string, onConfirm: () => void) {
+	constructor(app: App, provider: LLMProviderId, lang: string, onConfirm: () => void) {
 		super(app);
 		this.provider = provider;
 		this.lang = lang;
@@ -24,7 +25,7 @@ class ProviderSwitchModal extends Modal {
 	}
 
 	onOpen() {
-		const label = PROVIDER_PRESETS[this.provider]?.label || this.provider;
+		const label = providerPresetOrUndefined(this.provider)?.label || this.provider;
 		this.contentEl.createEl("h3", { text: t("set.providerSwitchTitle", this.lang) });
 		this.contentEl.createEl("p", { text: t("set.providerSwitchDesc", this.lang, { provider: label }) });
 
@@ -89,9 +90,9 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 						showUpgradeNotice(this.app, "multi-llm", lang);
 						return;
 					}
-					const preset = PROVIDER_PRESETS[v];
+					const preset = PROVIDER_PRESETS[v as keyof typeof PROVIDER_PRESETS];
 					if (!preset) return;
-					this.plugin.settings.provider = v;
+					this.plugin.settings.provider = v as LLMProviderId;
 					this.plugin.settings.baseUrl = preset.baseUrl;
 					this.plugin.settings.model = preset.models[0];
 					await this.plugin.saveSettings();
@@ -113,8 +114,8 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 					const oldProvider = this.plugin.settings.provider;
 					if (v !== oldProvider) {
 						// Imp 10: 切换确认
-						new ProviderSwitchModal(this.app, v, lang, async () => {
-							this.plugin.settings.provider = v;
+						new ProviderSwitchModal(this.app, v as LLMProviderId, lang, async () => {
+							this.plugin.settings.provider = v as LLMProviderId;
 							await this.plugin.saveSettings();
 							this.display();
 						}).open();
@@ -124,7 +125,7 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 		new Setting(reqContent)
 			.setName(t("set.model", lang))
 			.addDropdown((dd) => {
-				const preset = PROVIDER_PRESETS[this.plugin.settings.provider];
+				const preset = providerPresetOrUndefined(this.plugin.settings.provider);
 				if (preset) {
 					for (const m of preset.models) dd.addOption(m, m);
 					dd.addOption("__custom", "(" + t("set.modelPh", lang) + ")");
@@ -140,7 +141,7 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 				});
 			})
 			.addText((t2) => {
-				const preset = PROVIDER_PRESETS[this.plugin.settings.provider];
+				const preset = providerPresetOrUndefined(this.plugin.settings.provider);
 				if (preset && preset.models.includes(this.plugin.settings.model)) {
 					t2.inputEl.style.display = "none";
 				} else {
@@ -154,7 +155,7 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 			.addText((t2) => { t2.setPlaceholder("sk-...").setValue(this.plugin.settings.apiKey).onChange(async (v) => { this.plugin.settings.apiKey = v; await this.plugin.saveSettings(); }); t2.inputEl.type = "password"; });
 
 		// apiKey 获取链接随 provider 变化
-		const preset = PROVIDER_PRESETS[this.plugin.settings.provider];
+		const preset = providerPresetOrUndefined(this.plugin.settings.provider);
 		if (preset) {
 			apiKeySetting.descEl.createEl("a", { text: t("set.getApiKey", lang), href: preset.keyUrl });
 		}
@@ -170,7 +171,7 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 					await callLLM([{ role: "user", content: "Hi" }], this.plugin.settings, { maxTokens: 5, temperature: 0 });
 					new Notice(t("notice.connOkSimple", lang));
 				} catch (e: unknown) {
-					new Notice(t("notice.connFail", lang, { msg: (e instanceof Error ? e.message : String(e)) }));
+					new Notice(t("notice.connFail", lang, { msg: describeLLMFailure(lang, e) }));
 				}
 			}));
 
@@ -233,7 +234,7 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 			.addDropdown((dd) => dd
 				.addOptions({ "zh-CN": "简体中文", "en": "English", "ja": "日本語" })
 				.setValue(this.plugin.settings.language)
-				.onChange(async (v) => { this.plugin.settings.language = v; await this.plugin.saveSettings(); this.display(); }));
+				.onChange(async (v) => { this.plugin.settings.language = v as UILanguageId; await this.plugin.saveSettings(); this.display(); }));
 
 		// 模板配置（Pro）
 		const tplSetting = new Setting(recContent)
@@ -320,6 +321,13 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 			.setName(t("set.rawFolder", lang))
 			.setDesc(t("set.rawFolderDesc", lang))
 			.addText((t2) => t2.setPlaceholder(t("set.rawFolderPh", lang)).setValue(this.plugin.settings.rawFolder).onChange(async (v) => { this.plugin.settings.rawFolder = v; await this.plugin.saveSettings(); }));
+
+		new Setting(advContent)
+			.setName(t("set.organizeRaw", lang))
+			.setDesc(t("set.organizeRawDesc", lang))
+			.addButton((btn) => btn.setButtonText(t("set.organizeRawBtn", lang)).onClick(async () => {
+				await this.plugin.organizeRawMaterials();
+			}));
 
 		new Setting(advContent)
 			.setName(t("set.wikiFolder", lang))

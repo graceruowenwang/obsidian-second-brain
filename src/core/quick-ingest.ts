@@ -2,7 +2,7 @@
 
 import { App } from "obsidian";
 import { readWikiFiles, writeWikiFile, filesToMap } from "./file-utils";
-import { callLLM } from "./llm";
+import { callLLM, LLMError, type LLMErrorCode } from "./llm";
 import { buildIncrementalAnalyzePrompt, buildConceptPrompt, buildEntityPrompt, buildSourcePrompt } from "./wiki-schema";
 import { loadTemplateConfig } from "./templates";
 import { parseAnalysisJSON, ensureDraftStatus } from "./compile-pages";
@@ -10,7 +10,7 @@ import type { PluginSettings, Concept, Entity, Source } from "../types";
 
 export interface QuickIngestResult {
 	generated: string[];
-	errors: Array<{ name: string; error: string }>;
+	errors: Array<{ name: string; error: string; code?: LLMErrorCode }>;
 }
 
 export async function quickIngest(
@@ -35,7 +35,7 @@ export async function quickIngest(
 	const analysis = parseAnalysisJSON(analysisResult);
 	const concepts = analysis.concepts || [];
 	const generated: string[] = [];
-	const errors: Array<{ name: string; error: string }> = [];
+	const errors: Array<{ name: string; error: string; code?: LLMErrorCode }> = [];
 
 	const tasks: Array<{ name: string; path: string; type: "concept" | "entity" | "source"; item: Concept | Entity | Source; materials: string }> = [];
 
@@ -67,7 +67,8 @@ export async function quickIngest(
 			await writeWikiFile(app, settings.wikiFolder, task.path, page);
 			generated.push(task.path);
 		} catch (e: unknown) {
-			errors.push({ name: task.name, error: e instanceof Error ? e.message : String(e) });
+			const code = e instanceof LLMError ? e.code : undefined;
+			errors.push({ name: task.name, error: e instanceof Error ? e.message : String(e), code });
 		}
 	}
 

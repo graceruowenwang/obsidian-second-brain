@@ -4,6 +4,7 @@ import {
 	Editor, MarkdownView, Modal, Notice, Plugin,
 	TFile, TFolder,
 } from "obsidian";
+import { coercePluginSettings } from "./core/coerce-settings";
 import { DEFAULT_SETTINGS, type PluginSettings, type LicenseInfo, type SecondBrainPlugin, type CompileCache } from "./types";
 import { CompileView, VIEW_TYPE_COMPILE } from "./views/compile-view";
 import { ChatView, VIEW_TYPE_CHAT } from "./views/chat-view";
@@ -18,6 +19,8 @@ import { quickIngest } from "./core/quick-ingest";
 import { computeWikiHealth } from "./core/health";
 import { SecondBrainSettingTab } from "./ui/settings-tab";
 import { encryptKeys, decryptKeys, isEncryptionAvailable, SecureStorageError } from "./core/secure-storage";
+import { describeLLMFailure } from "./core/llm-user-message";
+import { organizeLooseRawFiles } from "./core/raw-organize";
 
 export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 	settings!: PluginSettings;
@@ -45,6 +48,33 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 			return await fn();
 		} finally {
 			release();
+		}
+	}
+
+	/** 将素材目录根下散落的文件移入标准子文件夹（不调用 LLM） */
+	async organizeRawMaterials(): Promise<void> {
+		const lang = this.settings.language;
+		const rawFolder = this.settings.rawFolder;
+		try {
+			const result = await organizeLooseRawFiles(this.app, rawFolder);
+			for (const e of result.errors) {
+				console.warn("organize raw:", e.path, e.message);
+			}
+			const onlyFolderMissing = result.errors.length > 0 && result.moved.length === 0
+				&& result.errors.every((e) => e.path === rawFolder);
+			if (onlyFolderMissing) {
+				new Notice(t("notice.organizeRawFail", lang, { msg: result.errors[0]?.message || "unknown" }));
+				return;
+			}
+			if (result.errors.length > 0) {
+				new Notice(t("notice.organizeRawPartial", lang, { moved: result.moved.length, err: result.errors.length }));
+			} else if (result.moved.length === 0) {
+				new Notice(t("notice.organizeRawNone", lang));
+			} else {
+				new Notice(t("notice.organizeRawDone", lang, { n: result.moved.length }));
+			}
+		} catch (e) {
+			new Notice(t("notice.organizeRawFail", lang, { msg: (e as Error).message }));
 		}
 	}
 
@@ -122,6 +152,13 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 			name: t("cmd.openWiki", lang),
 			hotkeys: [{ modifiers: ["Mod", "Shift"], key: "w" }],
 			callback: () => this.activateView(VIEW_TYPE_WIKI),
+		});
+
+		// 命令：整理 raw 根目录散落文件
+		this.addCommand({
+			id: "organize-raw",
+			name: t("cmd.organizeRaw", lang),
+			callback: () => this.organizeRawMaterials(),
 		});
 
 		// 命令：捕获当前笔记到 inbox
@@ -289,7 +326,7 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 		} else if (state === "pending") {
 			// wiki 非空时显示就绪，只有首次（wiki 为空）才显示待编译
 			const wikiDir = this.app.vault.getAbstractFileByPath(this.settings.wikiFolder);
-			const hasWikiPages = wikiDir && (wikiDir as any).children && (wikiDir as any).children.length > 0;
+			const hasWikiPages = wikiDir instanceof TFolder && wikiDir.children.length > 0;
 			if (hasWikiPages) {
 				this.statusBarItem.setText(pro ? t("pro.statusReady", lang) : t("sb.ready", lang));
 			} else {
@@ -305,6 +342,7 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 			delete saved.outputLanguage;
 		}
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, saved);
+		coercePluginSettings(this.settings);
 
 		// 解密 API Key：密文优先，明文兜底。
 		// 三种情形：
@@ -394,7 +432,7 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 				this.triggerAutoCompile();
 			}
 		} catch (e) {
-		console.warn("main:", e);
+			console.warn("main:", e);
 		}
 	}
 
@@ -476,7 +514,7 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 				);
 				new Notice(t("notice.compileDone", lang, { n: result.generated.length }));
 			} catch (e: unknown) {
-				new Notice(t("notice.compileFail", lang, { msg: (e instanceof Error ? e.message : String(e)) }));
+				new Notice(t("notice.compileFail", lang, { msg: describeLLMFailure(lang, e) }));
 			}
 		});
 		modal.open();

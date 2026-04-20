@@ -786,7 +786,7 @@ add_text_box(slide, Inches(0), Inches(0.8), W, Inches(0.8),
 add_decor_line(slide, Inches(6.0), Inches(1.6), Inches(1.3), OBS_PURPLE)
 
 steps_cta = [
-    {"num": "1", "text": "\u4ECE GitHub Releases \u4E0B\u8F7D zip \u5305"},
+    {"num": "1", "text": "从 second-brain-release 的 Releases 下载 zip（GitHub 或 Gitee）"},
     {"num": "2", "text": "\u89E3\u538B\u540E\u7528 Obsidian \u6253\u5F00"},
     {"num": "3", "text": "\u914D\u7F6E DeepSeek API Key"},
     {"num": "4", "text": "\u5F00\u59CB\u7F16\u8BD1"},

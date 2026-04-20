@@ -2,7 +2,7 @@
 // 从 llm.js 移植，fetch → requestUrl，配置从 plugin.settings 读取
 
 import { requestUrl } from "obsidian";
-import type { PluginSettings } from "../types";
+import type { LLMProviderId, PluginSettings } from "../types";
 
 export interface LLMOptions {
 	temperature?: number;
@@ -12,25 +12,106 @@ export interface LLMOptions {
 	signal?: AbortSignal;
 }
 
-// 统一异常类型，便于重试决策
-export class LLMError extends Error {
-	constructor(
-		message: string,
-		readonly status: number = 0,
-		readonly retryable: boolean = false,
-		readonly body?: string,
-	) {
-		super(message);
-		this.name = "LLMError";
-	}
-}
-
 // 判定 HTTP 状态是否可重试：429 / 5xx / 网络错误（status=0）可重试，4xx 其他不可
 function isRetryableStatus(status: number): boolean {
 	if (status === 0) return true; // 网络错误
 	if (status === 429) return true;
 	if (status >= 500 && status < 600) return true;
 	return false;
+}
+
+export type LLMErrorCode =
+	| "network"
+	| "timeout"
+	| "cancelled"
+	| "rate_limit"
+	| "auth"
+	| "not_found"
+	| "bad_request"
+	| "context_length"
+	| "server"
+	| "invalid_response"
+	| "unknown";
+
+function tryParseOpenAIStyleError(body: string): { code?: string; message?: string } | null {
+	const t = body.trim();
+	if (!t.startsWith("{")) return null;
+	try {
+		const j = JSON.parse(t) as { error?: { code?: string; message?: string }; code?: string };
+		const err = j?.error;
+		if (err && typeof err === "object") {
+			return {
+				code: typeof err.code === "string" ? err.code : undefined,
+				message: typeof err.message === "string" ? err.message : undefined,
+			};
+		}
+		if (typeof j?.code === "string") return { code: j.code };
+	} catch {
+		/* 截断或非 JSON */
+	}
+	return null;
+}
+
+/** 由 HTTP 状态 + 响应体推断错误类别，供 UI 映射固定文案 */
+export function inferLLMErrorCode(status: number, body?: string, message?: string): LLMErrorCode {
+	const b = (body || "").toLowerCase();
+	const m = (message || "").toLowerCase();
+	const blob = `${b} ${m}`;
+	const parsed = body ? tryParseOpenAIStyleError(body) : null;
+	const oc = parsed?.code?.toLowerCase();
+	const om = (parsed?.message || "").toLowerCase();
+
+	if (oc === "context_length_exceeded" || oc === "string_above_max_length" || om.includes("maximum context")) {
+		return "context_length";
+	}
+	if (oc === "rate_limit_exceeded" || oc === "insufficient_quota") return "rate_limit";
+	if (oc === "invalid_api_key" || oc === "incorrect_api_key") return "auth";
+
+	if (status === 429) return "rate_limit";
+	if (status === 401 || status === 403) return "auth";
+	if (status === 404) return "not_found";
+	if (status >= 500 && status < 600) return "server";
+	if (status === 400) {
+		if (blob.includes("context_length") || blob.includes("maximum context") || (blob.includes("token") && blob.includes("limit")) || blob.includes("length")) {
+			return "context_length";
+		}
+		return "bad_request";
+	}
+	if (status === 0) {
+		if (blob.includes("abort") || m.includes("aborted")) return "cancelled";
+		if (blob.includes("timeout") || blob.includes("etimedout") || blob.includes("timed out")) return "timeout";
+		return "network";
+	}
+	if (status === 200 || status === 201) {
+		if (blob.includes("响应结构") || blob.includes("choices[0]") || blob.includes("content[0].text")) return "invalid_response";
+		return "unknown";
+	}
+	if (blob.includes("context_length") || blob.includes("maximum context")) return "context_length";
+	if (blob.includes("invalid api key") || blob.includes("incorrect api key")) return "auth";
+	return "unknown";
+}
+
+// 统一异常类型，便于重试决策与 UI 映射
+export class LLMError extends Error {
+	readonly status: number;
+	readonly retryable: boolean;
+	readonly body?: string;
+	readonly code: LLMErrorCode;
+
+	constructor(
+		message: string,
+		status: number = 0,
+		retryable: boolean = false,
+		body?: string,
+		code?: LLMErrorCode,
+	) {
+		super(message);
+		this.name = "LLMError";
+		this.status = status;
+		this.retryable = retryable;
+		this.body = body;
+		this.code = code ?? inferLLMErrorCode(status, body, message);
+	}
 }
 
 function tryStringify(v: unknown): string {
@@ -80,10 +161,13 @@ async function callOpenAICompatible(
 
 	const content = res.json?.choices?.[0]?.message?.content;
 	if (typeof content !== "string") {
+		const bodySnippet = tryStringify(res.json).slice(0, 300);
 		throw new LLMError(
-			`响应结构异常（无 choices[0].message.content）: ${tryStringify(res.json).slice(0, 300)}`,
+			`响应结构异常（无 choices[0].message.content）: ${bodySnippet}`,
 			200,
 			false,
+			bodySnippet,
+			"invalid_response",
 		);
 	}
 	return content;
@@ -137,16 +221,25 @@ async function callAnthropic(
 
 	const text = res.json?.content?.[0]?.text;
 	if (typeof text !== "string") {
+		const detail = tryStringify(res.json).slice(0, 300);
 		throw new LLMError(
-			`响应结构异常（无 content[0].text）: ${tryStringify(res.json).slice(0, 300)}`,
+			`响应结构异常（无 content[0].text）: ${detail}`,
 			200,
 			false,
+			detail,
+			"invalid_response",
 		);
 	}
 	return text;
 }
 
-const PROVIDERS: Record<string, typeof callOpenAICompatible> = {
+type LLMAdapter = (
+	messages: Array<{ role: string; content: string }>,
+	options: LLMOptions,
+	settings: PluginSettings,
+) => Promise<string>;
+
+const PROVIDERS: Record<LLMProviderId, LLMAdapter> = {
 	deepseek: callOpenAICompatible,
 	openai: callOpenAICompatible,
 	openrouter: callOpenAICompatible,
@@ -160,9 +253,6 @@ export async function callLLM(
 	options: LLMOptions = {}
 ): Promise<string> {
 	const adapter = PROVIDERS[settings.provider];
-	if (!adapter) {
-		throw new Error(`不支持的 provider: ${settings.provider}`);
-	}
 
 	const maxRetries = options.maxRetries ?? 2;
 	let lastError: Error | undefined;
@@ -201,6 +291,8 @@ export interface BatchResult {
 	status: "fulfilled" | "rejected";
 	value?: string;
 	reason?: string;
+	/** 仅当 status=rejected 且来自 LLMError 时有值 */
+	llmCode?: LLMErrorCode;
 }
 
 export interface BatchOptions {
@@ -239,6 +331,9 @@ export async function callLLMBatch(
 				});
 				return { index: globalIdx, status: "fulfilled" as const, value };
 			} catch (e) {
+				if (e instanceof LLMError) {
+					return { index: globalIdx, status: "rejected" as const, reason: e.message, llmCode: e.code };
+				}
 				const reason = e instanceof Error ? e.message : String(e);
 				return { index: globalIdx, status: "rejected" as const, reason };
 			}
@@ -263,7 +358,11 @@ export async function callLLMBatch(
 	return results;
 }
 
-// 流式调用（对话面板用，桌面端 fetch 可用）
+/**
+ * 流式调用（对话面板）。
+ * 使用浏览器 `fetch` + `ReadableStream` 读取 SSE：Obsidian 的 `requestUrl` 无法消费增量 body，
+ * 故与 `callLLM` 的 `requestUrl` 路径分离；非流式请求仍以 `requestUrl` 为准（含移动端）。
+ */
 export async function callLLMStream(
 	messages: Array<{ role: string; content: string }>,
 	settings: PluginSettings,
@@ -276,6 +375,9 @@ export async function callLLMStream(
 	return callOpenAIStream(messages, settings, onChunk, options);
 }
 
+/** 连续 SSE JSON 解析失败上限，避免半包/乱流时界面无限转圈 */
+const STREAM_SSE_MAX_PARSE_FAILURES = 15;
+
 async function callOpenAIStream(
 	messages: Array<{ role: string; content: string }>,
 	settings: PluginSettings,
@@ -283,57 +385,87 @@ async function callOpenAIStream(
 	options: LLMOptions = {}
 ): Promise<string> {
 	const url = settings.baseUrl.replace(/\/+$/, "") + "/chat/completions";
-	const res = await fetch(url, {
-		method: "POST",
-		headers: {
-			"Content-Type": "application/json",
-			Authorization: `Bearer ${settings.apiKey}`,
-		},
-		body: JSON.stringify({
-			model: settings.model,
-			messages,
-			temperature: options.temperature ?? 0.5,
-			max_tokens: options.maxTokens ?? 3000,
-			stream: true,
-		}),
-		signal: options.signal,
-	});
+	let res: Response;
+	try {
+		res = await fetch(url, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${settings.apiKey}`,
+			},
+			body: JSON.stringify({
+				model: settings.model,
+				messages,
+				temperature: options.temperature ?? 0.5,
+				max_tokens: options.maxTokens ?? 3000,
+				stream: true,
+			}),
+			signal: options.signal,
+		});
+	} catch (e) {
+		throw new LLMError(`流式请求失败: ${(e as Error).message}`, 0, true);
+	}
 
 	if (!res.ok) {
 		const err = await res.text();
-		throw new Error(`API 错误 (${res.status}): ${err}`);
+		throw new LLMError(
+			`API 错误 (${res.status}): ${err.slice(0, 500)}`,
+			res.status,
+			isRetryableStatus(res.status),
+			err,
+		);
 	}
 
-	if (!res.body) throw new Error("API 返回了空响应体");
+	if (!res.body) {
+		throw new LLMError("API 返回了空响应体", res.status || 0, false, undefined, "invalid_response");
+	}
+
 	const reader = res.body.getReader();
 	const decoder = new TextDecoder();
-		try {
 	let fullText = "";
 	let buffer = "";
+	let sseParseFailures = 0;
 
-	while (true) {
-		const { done, value } = await reader.read();
-		if (done) break;
-		buffer += decoder.decode(value, { stream: true });
-		const lines = buffer.split("\n");
-		buffer = lines.pop() || "";
-		for (const line of lines) {
-			if (!line.startsWith("data: ")) continue;
-			if (line === "data: [DONE]") continue;
-			try {
-				const d = JSON.parse(line.slice(6));
-				const text = d.choices?.[0]?.delta?.content || "";
-				if (text) {
-					fullText += text;
-					onChunk(text);
+	try {
+		while (true) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			buffer += decoder.decode(value, { stream: true });
+			const lines = buffer.split("\n");
+			buffer = lines.pop() || "";
+			for (const line of lines) {
+				if (!line.startsWith("data: ") || line === "data: [DONE]") continue;
+				try {
+					const d = JSON.parse(line.slice(6)) as { choices?: Array<{ delta?: { content?: string } }> };
+					sseParseFailures = 0;
+					const text = d.choices?.[0]?.delta?.content || "";
+					if (text) {
+						fullText += text;
+						onChunk(text);
+					}
+				} catch (e) {
+					sseParseFailures++;
+					if (sseParseFailures >= STREAM_SSE_MAX_PARSE_FAILURES) {
+						throw new LLMError(
+							`流式响应解析连续失败（${STREAM_SSE_MAX_PARSE_FAILURES} 次），请重试`,
+							0,
+							false,
+							line.slice(0, 200),
+							"invalid_response",
+						);
+					}
+					console.warn("llm: OpenAI SSE parse", e);
 				}
-			} catch (e) { console.warn("llm:", e) }
+			}
+		}
+		return fullText;
+	} finally {
+		try {
+			await reader.cancel();
+		} catch {
+			/* ignore */
 		}
 	}
-			return fullText;
-		} finally {
-			reader.cancel();
-		}
 }
 
 async function callAnthropicStream(
@@ -348,54 +480,85 @@ async function callAnthropicStream(
 		.map((m) => ({ role: m.role, content: m.content }));
 
 	const url = settings.baseUrl.replace(/\/+$/, "") + "/messages";
-	const res = await fetch(url, {
-		method: "POST",
-		headers: {
-			"Content-Type": "application/json",
-			"x-api-key": settings.apiKey,
-			"anthropic-version": "2023-06-01",
-		},
-		body: JSON.stringify({
-			model: settings.model,
-			max_tokens: options.maxTokens ?? 3000,
-			...(systemMsg ? { system: systemMsg.content } : {}),
-			messages: chatMsgs,
-			stream: true,
-		}),
-		signal: options.signal,
-	});
+	let res: Response;
+	try {
+		res = await fetch(url, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				"x-api-key": settings.apiKey,
+				"anthropic-version": "2023-06-01",
+			},
+			body: JSON.stringify({
+				model: settings.model,
+				max_tokens: options.maxTokens ?? 3000,
+				...(systemMsg ? { system: systemMsg.content } : {}),
+				messages: chatMsgs,
+				stream: true,
+			}),
+			signal: options.signal,
+		});
+	} catch (e) {
+		throw new LLMError(`流式请求失败: ${(e as Error).message}`, 0, true);
+	}
 
 	if (!res.ok) {
 		const err = await res.text();
-		throw new Error(`API 错误 (${res.status}): ${err}`);
+		throw new LLMError(
+			`API 错误 (${res.status}): ${err.slice(0, 500)}`,
+			res.status,
+			isRetryableStatus(res.status),
+			err,
+		);
 	}
 
-	if (!res.body) throw new Error("API 返回了空响应体");
+	if (!res.body) {
+		throw new LLMError("API 返回了空响应体", res.status || 0, false, undefined, "invalid_response");
+	}
+
 	const reader = res.body.getReader();
-		try {
 	const decoder = new TextDecoder();
 	let fullText = "";
 	let buffer = "";
+	let sseParseFailures = 0;
 
-	while (true) {
-		const { done, value } = await reader.read();
-		if (done) break;
-		buffer += decoder.decode(value, { stream: true });
-		const lines = buffer.split("\n");
-		buffer = lines.pop() || "";
-		for (const line of lines) {
-			if (!line.startsWith("data: ")) continue;
-			try {
-				const d = JSON.parse(line.slice(6));
-				if (d.type === "content_block_delta" && d.delta?.text) {
-					fullText += d.delta.text;
-					onChunk(d.delta.text);
+	try {
+		while (true) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			buffer += decoder.decode(value, { stream: true });
+			const lines = buffer.split("\n");
+			buffer = lines.pop() || "";
+			for (const line of lines) {
+				if (!line.startsWith("data: ")) continue;
+				try {
+					const d = JSON.parse(line.slice(6)) as { type?: string; delta?: { text?: string } };
+					sseParseFailures = 0;
+					if (d.type === "content_block_delta" && d.delta?.text) {
+						fullText += d.delta.text;
+						onChunk(d.delta.text);
+					}
+				} catch (e) {
+					sseParseFailures++;
+					if (sseParseFailures >= STREAM_SSE_MAX_PARSE_FAILURES) {
+						throw new LLMError(
+							`流式响应解析连续失败（${STREAM_SSE_MAX_PARSE_FAILURES} 次），请重试`,
+							0,
+							false,
+							line.slice(0, 200),
+							"invalid_response",
+						);
+					}
+					console.warn("llm: Anthropic SSE parse", e);
 				}
-			} catch (e) { console.warn("llm:", e) }
+			}
+		}
+		return fullText;
+	} finally {
+		try {
+			await reader.cancel();
+		} catch {
+			/* ignore */
 		}
 	}
-			return fullText;
-		} finally {
-			reader.cancel();
-		}
 }

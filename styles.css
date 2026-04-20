@@ -1,14 +1,42 @@
 /* 第二大脑 Obsidian 插件 — 样式 */
 
 /* === 编译面板（右侧栏） === */
+/* 侧栏 workspace 默认不设 min-height:0，flex 子项无法收缩，底部日志/摘要会被裁切 */
+.workspace-leaf-content[data-type="second-brain-compile"] {
+	display: flex;
+	flex-direction: column;
+	min-height: 0 !important;
+}
+
+.workspace-leaf-content[data-type="second-brain-compile"] > .view-content {
+	flex: 1 1 auto;
+	min-height: 0 !important;
+	display: flex !important;
+	flex-direction: column;
+	overflow: hidden !important;
+}
+
 .second-brain-compile {
-	padding: 12px 10px 14px;
+	/* 状态栏贴底或悬浮时，避免编译摘要 / 日志最后一行被挡住 */
+	--sb-compile-bottom-safe: calc(
+		env(safe-area-inset-bottom, 0px)
+		+ max(
+			8px,
+			var(--status-bar-scroll-padding, 0px),
+			var(--status-bar-height, 0px)
+		)
+	);
+	padding: 12px 10px calc(14px + var(--sb-compile-bottom-safe)) 10px;
 	display: flex;
 	flex-direction: column;
 	gap: 12px;
-	height: 100%;
+	flex: 1 1 auto;
+	width: 100%;
 	min-height: 0;
+	height: 100%;
+	max-height: 100%;
 	box-sizing: border-box;
+	overflow: hidden;
 }
 
 .sb-compile-toolbar.sb-btn-row {
@@ -87,9 +115,10 @@
 }
 
 .sb-log {
-	flex: 1;
-	min-height: 0;
+	flex: 1 1 auto;
+	min-height: 5rem;
 	overflow-y: auto;
+	scroll-padding-bottom: var(--sb-compile-bottom-safe, calc(env(safe-area-inset-bottom, 0px) + 8px));
 	font-family: var(--font-monospace);
 	font-size: 11px;
 	line-height: 1.45;
@@ -940,38 +969,231 @@ pre:hover .sb-copy-btn {
 	scroll-behavior: smooth;
 }
 
-/* 顶部概览条（可展开） */
-.sb-wiki-overview-toggle {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: stretch;
-	gap: 8px;
+/* Wiki 索引顶：数据快照（原生 details，白话分节） */
+.second-brain-wiki .sb-wiki-data-panel {
 	margin: 0 0 20px;
-	padding: 12px 14px;
-	background: var(--sb-wiki-surface, var(--background-secondary));
 	border: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 80%, transparent);
 	border-radius: var(--sb-wiki-radius, 12px);
-	cursor: pointer;
-	transition: border-color 0.18s ease, box-shadow 0.18s ease;
+	background: var(--sb-wiki-surface, var(--background-secondary));
 	box-shadow: 0 1px 0 color-mix(in srgb, var(--background-primary) 70%, transparent);
+	overflow: hidden;
 }
 
-.sb-wiki-overview-toggle:hover {
-	border-color: color-mix(in srgb, var(--interactive-accent) 35%, var(--sb-wiki-border, var(--background-modifier-border)));
-	box-shadow: 0 4px 20px color-mix(in srgb, var(--background-modifier-box-shadow) 35%, transparent);
+.second-brain-wiki .sb-wiki-data-panel > summary.sb-wiki-data-panel-summary {
+	list-style: none;
+	cursor: pointer;
+	padding: 12px 14px;
+	transition: border-color 0.18s ease, background 0.18s ease;
 }
 
-.sb-wiki-overview-toggle.sb-overview-expanded {
-	border-color: color-mix(in srgb, var(--interactive-accent) 45%, var(--sb-wiki-border, var(--background-modifier-border)));
+.second-brain-wiki .sb-wiki-data-panel > summary.sb-wiki-data-panel-summary::-webkit-details-marker {
+	display: none;
 }
 
-.sb-wiki-overview-detail {
-	margin: -8px 0 20px;
-	padding: 14px 16px 16px;
-	background: color-mix(in srgb, var(--background-primary) 40%, var(--background-secondary));
-	border: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 75%, transparent);
+.second-brain-wiki .sb-wiki-data-panel > summary.sb-wiki-data-panel-summary::marker {
+	content: "";
+}
+
+.second-brain-wiki .sb-wiki-data-panel[open] > summary.sb-wiki-data-panel-summary {
+	border-bottom: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 75%, transparent);
+	background: color-mix(in srgb, var(--background-primary) 25%, var(--sb-wiki-surface, var(--background-secondary)));
+}
+
+.second-brain-wiki .sb-wiki-data-panel-summary:hover {
+	border-color: color-mix(in srgb, var(--interactive-accent) 28%, var(--sb-wiki-border, var(--background-modifier-border)));
+}
+
+.second-brain-wiki .sb-wiki-data-panel-summary-top {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 8px 12px;
+	margin-bottom: 4px;
+}
+
+.second-brain-wiki .sb-wiki-data-panel-summary-title {
+	font-size: 13px;
+	font-weight: 700;
+	color: var(--text-normal);
+	letter-spacing: -0.02em;
+}
+
+.second-brain-wiki .sb-wiki-data-panel-summary-line {
+	font-size: 12px;
+	color: var(--text-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.second-brain-wiki .sb-wiki-data-panel-summary-hint {
+	display: block;
+	font-size: 11px;
+	color: var(--text-faint);
+}
+
+.second-brain-wiki .sb-wiki-data-panel-body {
+	padding: 12px 14px 14px;
+	background: color-mix(in srgb, var(--background-primary) 35%, var(--sb-wiki-surface, var(--background-secondary)));
+}
+
+.second-brain-wiki .sb-wiki-data-panel-intro {
+	margin: 0 0 12px;
+	font-size: 12px;
+	line-height: 1.55;
+	color: var(--text-muted);
+}
+
+.second-brain-wiki .sb-wiki-data-section {
+	margin-bottom: 12px;
+	padding: 10px 12px 12px;
+	border-radius: var(--sb-wiki-radius-sm, 8px);
+	border: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 78%, transparent);
+	background: color-mix(in srgb, var(--background-primary) 50%, var(--background-secondary));
+}
+
+.second-brain-wiki .sb-wiki-data-section:last-child {
+	margin-bottom: 0;
+}
+
+.second-brain-wiki .sb-wiki-data-section-title {
+	margin: 0 0 6px;
+	font-size: 12px;
+	font-weight: 700;
+	color: var(--text-normal);
+	letter-spacing: -0.01em;
+	border: none;
+	padding: 0;
+}
+
+.second-brain-wiki .sb-wiki-data-section-text {
+	margin: 0;
+	font-size: 12px;
+	line-height: 1.5;
+	color: var(--text-muted);
+}
+
+.second-brain-wiki .sb-wiki-data-section-note {
+	margin: 8px 0 0;
+	font-size: 11px;
+	line-height: 1.45;
+	color: var(--text-warning);
+}
+
+.second-brain-wiki .sb-wiki-data-section-foot {
+	margin: 4px 0 0;
+	font-size: 11px;
+	line-height: 1.45;
+	color: var(--text-faint);
+	font-style: italic;
+}
+
+.second-brain-wiki .sb-wiki-data-meter {
+	margin-top: 8px;
+}
+
+.second-brain-wiki .sb-wiki-data-meter .sb-growth-progress-bar {
+	width: 100%;
+	max-width: 100%;
+}
+
+.second-brain-wiki .sb-wiki-data-meter-caption {
+	font-size: 11px;
+	color: var(--text-muted);
+	margin-bottom: 6px;
+}
+
+.second-brain-wiki .sb-wiki-data-stale-outer {
+	flex: 1;
+	min-width: 140px;
+	height: 8px;
+	background: color-mix(in srgb, var(--background-modifier-border) 85%, var(--background-primary));
+	border-radius: 999px;
+	overflow: hidden;
+	box-shadow: inset 0 1px 2px color-mix(in srgb, var(--background-primary) 40%, transparent);
+}
+
+.second-brain-wiki .sb-wiki-data-stale-fill {
+	height: 100%;
+	border-radius: 999px;
+	transition: width 0.35s ease;
+	background: linear-gradient(
+		90deg,
+		color-mix(in srgb, var(--interactive-accent) 75%, #fff),
+		var(--interactive-accent)
+	);
+}
+
+.second-brain-wiki .sb-wiki-data-stale-details {
+	margin-top: 10px;
+	padding: 8px 10px 10px;
+	border-radius: var(--sb-wiki-radius-sm, 8px);
+	border: 1px dashed color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 88%, transparent);
+	background: color-mix(in srgb, var(--background-primary) 30%, transparent);
+}
+
+.second-brain-wiki .sb-wiki-data-stale-details > summary.sb-wiki-data-stale-summary {
+	list-style: none;
+	cursor: pointer;
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--text-normal);
+}
+
+.second-brain-wiki .sb-wiki-data-stale-details > summary.sb-wiki-data-stale-summary::-webkit-details-marker {
+	display: none;
+}
+
+.second-brain-wiki .sb-wiki-data-stale-details > summary.sb-wiki-data-stale-summary::marker {
+	content: "";
+}
+
+.second-brain-wiki .sb-wiki-data-stale-list {
+	margin-top: 8px;
+}
+
+.second-brain-wiki .sb-wiki-data-stale-lead {
+	margin: 0 0 8px;
+	font-size: 11px;
+	color: var(--text-muted);
+	line-height: 1.45;
+}
+
+.second-brain-wiki .sb-wiki-data-stale-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 6px 10px;
+	padding: 6px 0;
+	border-top: 1px solid color-mix(in srgb, var(--background-modifier-border) 70%, transparent);
+	font-size: 12px;
+}
+
+.second-brain-wiki .sb-wiki-data-stale-row:first-of-type {
 	border-top: none;
-	border-radius: 0 0 var(--sb-wiki-radius, 12px) var(--sb-wiki-radius, 12px);
+	padding-top: 0;
+}
+
+.second-brain-wiki .sb-wiki-data-stale-name {
+	font-weight: 600;
+	color: var(--interactive-accent);
+	text-decoration: none;
+}
+
+.second-brain-wiki .sb-wiki-data-stale-name:hover {
+	text-decoration: underline;
+}
+
+.second-brain-wiki .sb-wiki-data-stale-meta {
+	font-size: 11px;
+	color: var(--text-faint);
+	font-variant-numeric: tabular-nums;
+}
+
+.second-brain-wiki .sb-wiki-data-stale-level {
+	font-size: 10px;
+	padding: 2px 6px;
+	border-radius: 4px;
+	background: color-mix(in srgb, var(--background-modifier-border) 40%, transparent);
+	color: var(--text-muted);
 }
 
 .sb-wiki-search-hint {
@@ -1665,6 +1887,47 @@ pre:hover .sb-copy-btn {
 	min-width: 0;
 }
 
+.second-brain-wiki .sb-wiki-toolbar-quick {
+	display: inline-flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px;
+	flex: 0 0 auto;
+}
+
+.second-brain-wiki .sb-wiki-filter-chip {
+	padding: 6px 10px;
+	font-size: 11px;
+	font-weight: 600;
+	line-height: 1.2;
+	color: var(--text-muted);
+	background: color-mix(in srgb, var(--sb-wiki-surface, var(--background-secondary)) 88%, var(--background-primary));
+	border: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 82%, transparent);
+	border-radius: 999px;
+	cursor: pointer;
+	transition:
+		color 0.15s ease,
+		border-color 0.15s ease,
+		background 0.15s ease;
+}
+
+.second-brain-wiki .sb-wiki-filter-chip:hover {
+	color: var(--text-normal);
+	border-color: color-mix(in srgb, var(--interactive-accent) 38%, var(--sb-wiki-border, var(--background-modifier-border)));
+	background: var(--background-modifier-hover);
+}
+
+.second-brain-wiki .sb-wiki-filter-chip-secondary {
+	font-weight: 500;
+}
+
+.second-brain-wiki .sb-wiki-data-review-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-top: 10px;
+}
+
 .second-brain-wiki .sb-wiki-toolbar-filters {
 	flex: 0 0 auto;
 	position: relative;
@@ -1926,6 +2189,27 @@ pre:hover .sb-copy-btn {
 	color: var(--text-success);
 	background: color-mix(in srgb, var(--text-success) 12%, var(--background-primary));
 	border: 1px solid color-mix(in srgb, var(--text-success) 26%, transparent);
+}
+
+.second-brain-wiki .sb-wiki-list-status-gap {
+	color: var(--text-accent);
+	background: color-mix(in srgb, var(--text-accent) 10%, var(--background-primary));
+	border: 1px solid color-mix(in srgb, var(--text-accent) 22%, transparent);
+}
+
+.second-brain-wiki .sb-wiki-list-status-outdated {
+	color: var(--text-warning);
+	background: color-mix(in srgb, var(--text-warning) 12%, var(--background-primary));
+	border: 1px solid color-mix(in srgb, var(--text-warning) 28%, transparent);
+}
+
+.second-brain-wiki .sb-wiki-list-status-other {
+	color: var(--text-muted);
+	background: color-mix(in srgb, var(--background-modifier-border) 35%, var(--background-primary));
+	border: 1px solid color-mix(in srgb, var(--background-modifier-border) 55%, transparent);
+	text-transform: none;
+	letter-spacing: 0;
+	font-weight: 600;
 }
 
 .second-brain-wiki .sb-wiki-list-date {

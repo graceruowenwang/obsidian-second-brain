@@ -1,10 +1,11 @@
 // 首次使用设置向导
 
 import { App, Modal, Setting } from "obsidian";
-import type { SecondBrainPlugin } from "../types";
+import type { LLMProviderId, SecondBrainPlugin } from "../types";
 import { callLLM } from "../core/llm";
 import { PROVIDER_PRESETS } from "../core/presets";
 import { t } from "../core/i18n";
+import { RAW_STANDARD_SUBFOLDERS } from "../core/raw-organize";
 
 export class SetupWizardModal extends Modal {
 	private plugin: SecondBrainPlugin;
@@ -90,9 +91,9 @@ export class SetupWizardModal extends Modal {
 				}
 				dd.setValue(this.plugin.settings.provider);
 				dd.onChange(async (v) => {
-					const preset = PROVIDER_PRESETS[v];
+					const preset = PROVIDER_PRESETS[v as keyof typeof PROVIDER_PRESETS];
 					if (preset) {
-						this.plugin.settings.provider = v;
+						this.plugin.settings.provider = v as LLMProviderId;
 						this.plugin.settings.baseUrl = preset.baseUrl;
 						this.plugin.settings.model = preset.models[0];
 						await this.plugin.saveSettings();
@@ -146,13 +147,7 @@ export class SetupWizardModal extends Modal {
 		const statusEl = this.container.createDiv({ cls: "sb-wizard-status" });
 
 		const rawFolder = this.plugin.settings.rawFolder;
-		const subfolders = [
-			rawFolder,
-			`${rawFolder}/01-articles`,
-			`${rawFolder}/05-tweets`,
-			`${rawFolder}/06-flash_notes`,
-			`${rawFolder}/06-flash_notes/inbox`,
-		];
+		const subfolders = [rawFolder, ...RAW_STANDARD_SUBFOLDERS.map((s) => `${rawFolder}/${s}`)];
 
 		for (const folder of subfolders) {
 			const existing = this.app.vault.getAbstractFileByPath(folder);

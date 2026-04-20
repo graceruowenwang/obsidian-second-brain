@@ -40,7 +40,8 @@ export class CompileView extends ItemView {
 	getIcon() { return "zap"; }
 
 	async onOpen() {
-		const container = this.containerEl.children[1] as HTMLElement;
+		// 使用 ItemView.contentEl，侧栏里才能参与正确的高度收缩，避免底部日志整块被裁掉
+		const container = this.contentEl;
 		container.empty();
 		container.classList.add("second-brain-compile");
 		const lang = this.plugin.settings.language;

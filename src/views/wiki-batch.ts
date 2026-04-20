@@ -1,6 +1,6 @@
 // 批量审核功能 -- 从 wiki-view.ts 拆分
 
-import { Modal } from "obsidian";
+import { Modal, Notice } from "obsidian";
 import { t } from "../core/i18n";
 import type { WikiViewCtx } from "./wiki-shared";
 
@@ -46,11 +46,18 @@ export function toggleBatchReview(
 	const cancelBtn = newBar.createEl("button", { text: t("set.cancel", lang), cls: "sb-batch-cancel-btn" });
 
 	const rows = ctx.bodyEl.querySelectorAll<HTMLElement>(".sb-wiki-list-row[data-name]");
+	if (rows.length === 0) {
+		new Notice(t("wiki.batchNoRows", lang));
+		if (btn) btn.textContent = t("wiki.batchReview", lang);
+		return { batchMode: false, batchBar: null };
+	}
+
 	const rowCheckboxes: HTMLInputElement[] = [];
 
 	rows.forEach((rowEl) => {
 		const name = rowEl.dataset.name || "";
 		if (!name) return;
+		const key = rowEl.dataset.path || name;
 
 		const checkbox = document.createElement("input");
 		checkbox.type = "checkbox";
@@ -61,9 +68,9 @@ export function toggleBatchReview(
 		checkbox.addEventListener("click", (e) => e.stopPropagation());
 		checkbox.addEventListener("change", () => {
 			if (checkbox.checked) {
-				selectedPages.add(name);
+				selectedPages.add(key);
 			} else {
-				selectedPages.delete(name);
+				selectedPages.delete(key);
 			}
 			updateCount();
 		});
@@ -86,7 +93,8 @@ export function toggleBatchReview(
 		if (checked) {
 			rows.forEach((rowEl) => {
 				const n = rowEl.dataset.name;
-				if (n) selectedPages.add(n);
+				if (!n) return;
+				selectedPages.add(rowEl.dataset.path || n);
 			});
 		}
 		updateCount();
@@ -113,12 +121,12 @@ export function toggleBatchReview(
 
 		applyBtn.disabled = true;
 		applyBtn.textContent = "...";
-		for (const name of selectedPages) {
-			await ctx.markAsReviewed(name);
+		for (const target of selectedPages) {
+			await ctx.markAsReviewed(target);
 		}
 
-		// 清理批量模式，刷新列表
 		exitBatchMode(newBar, selectedPages, btn, lang);
+		await ctx.loadWiki();
 		ctx.renderIndex();
 	});
 
@@ -128,10 +136,11 @@ export function toggleBatchReview(
 		if (count === 0) return;
 		regenBtn.disabled = true;
 		regenBtn.textContent = "...";
-		for (const name of selectedPages) {
-			await ctx.markForRegeneration(name);
+		for (const target of selectedPages) {
+			await ctx.markForRegeneration(target);
 		}
 		exitBatchMode(newBar, selectedPages, btn, lang);
+		await ctx.loadWiki();
 		ctx.renderIndex();
 	});
 

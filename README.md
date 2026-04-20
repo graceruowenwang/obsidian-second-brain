@@ -20,9 +20,11 @@ Incremental compilation: only changed files are re-processed. Subsequent compile
 
 ## Quick Start
 
+Installable **`second-brain.zip`** and demo assets are published from **[second-brain-release](https://github.com/graceruowenwang/second-brain-release)** on GitHub Releases, with a **[Gitee mirror](https://gitee.com/grinningGrace/second-brain-release/releases)** for faster access in China. This repo (**obsidian-second-brain**) holds plugin source code, CI, and development.
+
 ### Install
 
-1. Download `second-brain.zip` from [Releases](https://github.com/graceruowenwang/obsidian-second-brain/releases)
+1. Download `second-brain.zip` from **[GitHub Releases](https://github.com/graceruowenwang/second-brain-release/releases)** or **[Gitee Releases](https://gitee.com/grinningGrace/second-brain-release/releases)**
 2. Unzip and open the folder as an Obsidian Vault
 
 ### Configure API Key
@@ -110,11 +112,20 @@ wiki/                       # AI-generated output
 ## Build from Source
 
 ```bash
-npm install
+npm ci --legacy-peer-deps
+# or: npm install --legacy-peer-deps
 npm run release
 ```
 
 Produces `second-brain.zip` containing `main.js`, `manifest.json`, `styles.css`. Extract into `.obsidian/plugins/second-brain/`.
+
+Before cutting a release build for **second-brain-release**, run **`npm run ci`** locally in this repo (typecheck + tests + production build), then `npm run release` and attach the zip to **second-brain-release** on GitHub. Pushes and PRs to `main` / `master` here run CI; successful runs attach `main.js`, `manifest.json`, and `styles.css` as a workflow artifact for sanity checks.
+
+### GitHub + Gitee (dual remotes)
+
+- **Gitee Go (runs on Gitee):** enable **Gitee Go** for the Gitee repo and point it at **`.workflow/branch-pipeline.yml`**. That pipeline runs the same checks as GitHub CI (`npm ci --legacy-peer-deps`, `typecheck`, `test`, `build`). If `nodeVersion: 18.20.4` is not available in your Gitee tenant, change it in the Gitee UI or edit the YAML to a supported version.
+- **Releases on Gitee:** [grinningGrace/second-brain-release → Releases](https://gitee.com/grinningGrace/second-brain-release/releases) hosts the same install zip as GitHub for users in China.
+- **Mirror from GitHub (optional):** workflow **`.github/workflows/sync-gitee.yml`** runs after a **successful CI** run triggered by **`push`** to `main` or `master`, or when you run it manually (**Actions → Sync to Gitee → Run workflow**). Configure secrets `GITEE_REPO`, `GITEE_TOKEN`, and `GITEE_USERNAME` on GitHub. The job force-pushes the same branch name to Gitee (`main`→`main`, `master`→`master`); keep default branch names aligned on both hosts or adjust the workflow. If secrets are missing, the job skips the push and still succeeds.
 
 ## Cost Estimate
 
@@ -160,9 +171,11 @@ raw/ (你的素材)  -->  AI 编译  -->  wiki/ (知识库)
 
 ### 快速开始
 
+安装包 **`second-brain.zip`** 与演示素材发布在 **[second-brain-release](https://github.com/graceruowenwang/second-brain-release)** 的 GitHub Releases；国内可优先从 **[Gitee 发行版](https://gitee.com/grinningGrace/second-brain-release/releases)** 下载。本仓库 **obsidian-second-brain** 为插件源码与 CI。
+
 #### 安装
 
-1. 从 [Releases](https://github.com/graceruowenwang/obsidian-second-brain/releases) 下载 `second-brain.zip`
+1. 从 **[GitHub Releases](https://github.com/graceruowenwang/second-brain-release/releases)** 或 **[Gitee Releases](https://gitee.com/grinningGrace/second-brain-release/releases)** 下载 `second-brain.zip`
 2. 解压后，将文件夹作为 Obsidian Vault 打开
 
 #### 配置 API Key
@@ -266,11 +279,20 @@ wiki/                       # AI 生成的知识库
 ### 从源码构建
 
 ```bash
-npm install
+npm ci --legacy-peer-deps
+# 或 npm install --legacy-peer-deps
 npm run release
 ```
 
 生成 `second-brain.zip`，包含 `main.js`、`manifest.json`、`styles.css`。解压到 `.obsidian/plugins/second-brain/` 即可。
+
+**发版前建议**：在本仓库执行 `npm run ci`，再 `npm run release` 生成 zip，将产物上传到 **second-brain-release** 的 Releases。推送到 `main` / `master` 或提 PR 时，本仓库 GitHub Actions 会跑同一套检查；通过后可从 workflow 产物中下载三件套核对体积与内容。
+
+### GitHub 与 Gitee 双托管
+
+- **在 Gitee 上跑 CI**：仓库启用 **Gitee Go**，关联仓库根目录 **`.workflow/branch-pipeline.yml`**（与 GitHub 的 `typecheck` + `test` + `build` 一致）。若流水线提示 Node `18.20.4` 不可用，在 Gitee 可视化配置里改成平台支持的版本，或修改 YAML 中的 `nodeVersion`。
+- **国内下载发行包**：[Gitee — second-brain-release / 发行版](https://gitee.com/grinningGrace/second-brain-release/releases)（与 GitHub Releases 内容对应，按需同步）。
+- **从 GitHub 同步到 Gitee（可选）**：配置 GitHub Secrets：`GITEE_REPO`（如 `用户名/仓库名`）、`GITEE_TOKEN`（有 push 权限的私人令牌）、`GITEE_USERNAME`。**CI** 在 **`push` 到 `main`/`master` 且成功** 后会触发 **Sync to Gitee**；也可在 Actions 里手动运行。未配置 secret 时只跳过推送、不报错。同步使用 `--force`，请确认 Gitee 侧无仅存在于本地的提交，或接受以 GitHub 为准覆盖。
 
 ### 许可证
 

@@ -1,7 +1,8 @@
 // 对话面板 -- 主编辑区 View，全宽聊天界面 + Markdown 渲染
 
-import { ItemView, WorkspaceLeaf, Notice, MarkdownRenderer, Component } from "obsidian";
+import { ItemView, WorkspaceLeaf, Notice, MarkdownRenderer, Component, TFile, setIcon } from "obsidian";
 import { callLLMStream } from "../core/llm";
+import { describeLLMFailure } from "../core/llm-user-message";
 import { sanitizeLLMOutput } from "../core/sanitize";
 import { readWikiFiles, filesToMap, vectorSearch, buildEmbeddingCache } from "../core/file-utils";
 import type { SecondBrainPlugin } from "../types";
@@ -68,7 +69,7 @@ export class ChatView extends ItemView {
 			overlay.createEl("p", { text: t("chat.freeQuotaUsed", lang, { limit: quota.limit }), cls: "sb-chat-quota-msg" });
 			const upgradeBtn = btnRow.createEl("button", { text: t("license.upgradeBtn", lang), cls: "mod-cta" });
 			upgradeBtn.addEventListener("click", () => {
-				(window as any).open(t("license.purchaseUrl", lang));
+				window.open(t("license.purchaseUrl", lang), "_blank", "noopener,noreferrer");
 			});
 			const keyBtn = btnRow.createEl("button", { text: t("license.enterKey", lang) });
 			keyBtn.addEventListener("click", () => {
@@ -80,16 +81,19 @@ export class ChatView extends ItemView {
 		// 头部
 		const header = container.createDiv({ cls: "sb-chat-header" });
 		const titleRow = header.createDiv({ cls: "sb-chat-title-row" });
-		titleRow.createEl("span", { text: t("chat.title", lang), cls: "sb-chat-title" });
+		const titleBlock = titleRow.createDiv({ cls: "sb-chat-title-block" });
+		const titleIcon = titleBlock.createSpan({ cls: "sb-chat-title-icon" });
+		setIcon(titleIcon, "message-circle");
+		titleBlock.createEl("span", { text: t("chat.title", lang), cls: "sb-chat-title" });
 		// Pro 增强信息：模型 + 索引状态
 		const proInfo = titleRow.createDiv({ cls: "sb-chat-pro-info" });
 		proInfo.createEl("span", { text: t("pro.chat.model", lang, { model: this.plugin.settings.model }), cls: "sb-chat-pro-tag" });
-			if (!isPro(this.plugin.licenseInfo)) {
-				const quota = checkFreeChatQuota(this.plugin.licenseInfo);
-				const quotaTag = proInfo.createEl("span", { cls: "sb-chat-quota-tag" });
-				quotaTag.textContent = t("chat.freeQuotaRemaining", lang, { n: quota.remaining, limit: quota.limit });
-			}
-		const clearBtn = header.createEl("button", { text: t("chat.clear", lang), cls: "sb-chat-clear-btn" });
+		if (!isPro(this.plugin.licenseInfo)) {
+			const quota = checkFreeChatQuota(this.plugin.licenseInfo);
+			const quotaTag = proInfo.createEl("span", { cls: "sb-chat-quota-tag" });
+			quotaTag.textContent = t("chat.freeQuotaRemaining", lang, { n: quota.remaining, limit: quota.limit });
+		}
+		const clearBtn = header.createEl("button", { text: t("chat.clear", lang), cls: "sb-chat-clear-btn", attr: { type: "button" } });
 		clearBtn.addEventListener("click", () => {
 			this.chatHistory = [];
 			this.messagesEl.empty();
@@ -108,12 +112,14 @@ export class ChatView extends ItemView {
 
 		// 输入区
 		const inputArea = container.createDiv({ cls: "sb-input-area" });
-		this.inputEl = inputArea.createEl("textarea", {
+		const composer = inputArea.createDiv({ cls: "sb-chat-composer" });
+		this.inputEl = composer.createEl("textarea", {
 			attr: { placeholder: t("chat.placeholder", lang), rows: "1" },
 			cls: "sb-chat-input",
 		});
-		const sendBtn = inputArea.createEl("button", { text: t("chat.send", lang), cls: "sb-send-btn mod-cta" });
-		const stopBtn = inputArea.createEl("button", { text: t("chat.stop", lang), cls: "sb-stop-btn" });
+		const composerActions = composer.createDiv({ cls: "sb-chat-composer-actions" });
+		const sendBtn = composerActions.createEl("button", { text: t("chat.send", lang), cls: "sb-send-btn mod-cta", attr: { type: "button" } });
+		const stopBtn = composerActions.createEl("button", { text: t("chat.stop", lang), cls: "sb-stop-btn", attr: { type: "button" } });
 		stopBtn.style.display = "none";
 
 		sendBtn.addEventListener("click", () => this.send());
@@ -152,9 +158,9 @@ export class ChatView extends ItemView {
 			];
 			for (const p of candidates) {
 				const file = this.app.vault.getAbstractFileByPath(p);
-				if (file) {
+				if (file instanceof TFile) {
 					const leaf = this.app.workspace.getLeaf(true);
-					leaf.openFile(file as any);
+					leaf.openFile(file);
 					return;
 				}
 			}
@@ -297,23 +303,23 @@ export class ChatView extends ItemView {
 			MarkdownRenderer.render(this.app, safeFullText, msgContentEl, "", this.component);
 
 			if (pages.length > 0) {
-					const srcEl = msgContentEl.createDiv({ cls: "sb-sources" });
-					srcEl.createEl("span", { text: t("chat.refLabel", lang) });
-					for (const p of pages) {
-						const link = srcEl.createEl("a", { text: p.filePath, cls: "sb-source-link" });
-						link.addEventListener("click", (e) => {
-							e.preventDefault();
-							const fullPath = this.plugin.settings.wikiFolder + "/" + p.filePath;
-							const file = this.app.vault.getAbstractFileByPath(fullPath);
-							if (file) {
-								const leaf = this.app.workspace.getLeaf(true);
-								leaf.openFile(file as any);
-							} else {
-								new Notice(t("chat.fileNotFound", lang, { name: fullPath }));
-							}
-						});
-					}
+				const srcEl = msgContentEl.createDiv({ cls: "sb-sources" });
+				srcEl.createEl("span", { text: t("chat.refLabel", lang) });
+				for (const p of pages) {
+					const link = srcEl.createEl("a", { text: p.filePath, cls: "sb-source-link" });
+					link.addEventListener("click", (e) => {
+						e.preventDefault();
+						const fullPath = this.plugin.settings.wikiFolder + "/" + p.filePath;
+						const file = this.app.vault.getAbstractFileByPath(fullPath);
+						if (file instanceof TFile) {
+							const leaf = this.app.workspace.getLeaf(true);
+							leaf.openFile(file);
+						} else {
+							new Notice(t("chat.fileNotFound", lang, { name: fullPath }));
+						}
+					});
 				}
+			}
 
 			// 为代码块添加复制按钮
 			this.addInteractiveElements(msgContentEl);
@@ -327,7 +333,7 @@ export class ChatView extends ItemView {
 				} else {
 				const msgContentEl = aiMsgEl.querySelector(".sb-ai-content") as HTMLElement;
 				msgContentEl.empty();
-				msgContentEl.createEl("p", { text: t("chat.error", lang, { msg: (e instanceof Error ? e.message : String(e)) }), cls: "sb-error" });
+				msgContentEl.createEl("p", { text: t("chat.error", lang, { msg: describeLLMFailure(lang, e) }), cls: "sb-error" });
 				}
 		} finally {
 			this.sending = false;
@@ -341,11 +347,15 @@ export class ChatView extends ItemView {
 		const msgEl = this.messagesEl.createDiv({ cls: "sb-msg sb-msg-user" });
 		const bubble = msgEl.createDiv({ cls: "sb-bubble sb-bubble-user" });
 		bubble.textContent = text;
+		const av = msgEl.createDiv({ cls: "sb-avatar sb-avatar-user" });
+		setIcon(av, "user");
 		this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
 	}
 
 	private addAiMessagePlaceholder(): HTMLElement {
 		const msgEl = this.messagesEl.createDiv({ cls: "sb-msg sb-msg-ai" });
+		const av = msgEl.createDiv({ cls: "sb-avatar sb-avatar-ai" });
+		setIcon(av, "book-open");
 		const bubble = msgEl.createDiv({ cls: "sb-bubble" });
 		bubble.createDiv({ cls: "sb-ai-content", text: "" });
 		// 加载指示器

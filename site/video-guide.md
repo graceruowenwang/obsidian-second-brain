@@ -112,7 +112,7 @@ demo/
 按以下顺序录制（每段单独录一个文件）：
 
 ### 录屏 A：安装+配置（对应旁白 10）
-- 打开 GitHub Releases 页面
+- 打开 **second-brain-release** 的 Releases： [GitHub](https://github.com/graceruowenwang/second-brain-release/releases) 或 [Gitee](https://gitee.com/grinningGrace/second-brain-release/releases)
 - 下载 zip 包（可以提前下载好，演示点击过程）
 - 用 Obsidian 打开 vault
 - 打开设置 → 填入 API Key → 点测试连接 → 显示成功
@@ -240,7 +240,7 @@ demo/
      ```
      一个 AI 驱动的 Obsidian 插件，把散乱的笔记自动编译成结构化知识库。
      功能：AI 编译 | 双向链接 | 语义搜索 | AI 对话
-     下载地址：https://github.com/graceruowenwang/obsidian-second-brain/releases
+     下载地址：GitHub https://github.com/graceruowenwang/second-brain-release/releases | Gitee https://gitee.com/grinningGrace/second-brain-release/releases
      购买完整版：爱发电 https://ifdian.net/a/ruowenwang
      #Obsidian #知识管理 #第二大脑 #AI笔记 #效率工具
      ```

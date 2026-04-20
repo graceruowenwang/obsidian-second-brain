@@ -1,7 +1,20 @@
 // 第二大脑 Obsidian 插件 — 类型定义
 
+import type { Plugin, App } from "obsidian";
+
+/** 与 `src/core/llm.ts` PROVIDERS 及设置面板下拉一致 */
+export const LLM_PROVIDER_IDS = ["deepseek", "openai", "anthropic", "openrouter", "custom"] as const;
+export type LLMProviderId = (typeof LLM_PROVIDER_IDS)[number];
+
+/** 嵌入端：当前实现为 OpenAI 兼容 /v1/embeddings，预留 custom */
+export const EMBEDDING_PROVIDER_IDS = ["openai", "custom"] as const;
+export type EmbeddingProviderId = (typeof EMBEDDING_PROVIDER_IDS)[number];
+
+export const UI_LANGUAGES = ["zh-CN", "en", "ja"] as const;
+export type UILanguageId = (typeof UI_LANGUAGES)[number];
+
 export interface PluginSettings {
-	provider: string;
+	provider: LLMProviderId;
 	model: string;
 	apiKey: string;
 	baseUrl: string;
@@ -11,11 +24,11 @@ export interface PluginSettings {
 	wikiFolder: string;
 	autoCompile: boolean;
 	autoCompileDelay: number;
-	embeddingProvider: string;
+	embeddingProvider: EmbeddingProviderId;
 	embeddingModel: string;
 	embeddingBaseUrl: string;
 	embeddingApiKey: string;
-	language: string;
+	language: UILanguageId;
 	templateFile: string;
 	setupCompleted: boolean;
 	licenseKey: string;
@@ -25,7 +38,7 @@ export interface PluginSettings {
 }
 
 export const DEFAULT_SETTINGS: PluginSettings = {
-	provider: "deepseek",
+	provider: "deepseek" satisfies LLMProviderId,
 	model: "deepseek-chat",
 	apiKey: "",
 	baseUrl: "https://api.deepseek.com",
@@ -35,11 +48,11 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	wikiFolder: "wiki",
 	autoCompile: true,
 	autoCompileDelay: 30,
-	embeddingProvider: "openai",
+	embeddingProvider: "openai" satisfies EmbeddingProviderId,
 	embeddingModel: "text-embedding-3-small",
 	embeddingBaseUrl: "https://api.openai.com/v1",
 	embeddingApiKey: "",
-	language: "zh-CN",
+	language: "zh-CN" satisfies UILanguageId,
 	templateFile: "wiki/templates/prompt-config.json",
 	setupCompleted: false,
 	licenseKey: "",
@@ -186,7 +199,7 @@ export interface CompileResult {
 	generated: number;
 	removed: number;
 	protectedByReview: number;
-	errors: Array<{ name: string; error: string }>;
+	errors: Array<{ name: string; error: string; code?: string }>;
 	reused: boolean;
 	report?: CompileReport;
 	changeImpact?: ChangeImpact[];
@@ -222,7 +235,6 @@ export interface ProgressEvent {
 }
 
 // Plugin 类型带 settings（供 View 使用）
-import type { Plugin, App } from "obsidian";
 export type SecondBrainPlugin = Plugin & {
 	settings: PluginSettings;
 	licenseInfo: LicenseInfo;
@@ -231,6 +243,8 @@ export type SecondBrainPlugin = Plugin & {
 	saveLicenseInfo(): Promise<void>;
 	saveSettings(): Promise<void>;
 	runWithCompileLock<T>(fn: () => Promise<T>): Promise<T>;
+	/** 将 raw 根目录散落文件移入标准子文件夹 */
+	organizeRawMaterials(): Promise<void>;
 };
 
 export function openPluginSettings(app: App) {

@@ -3,7 +3,7 @@
 // 素材检索 → compile-materials.ts
 
 import { App, TFile } from "obsidian";
-import { callLLM, callLLMBatch, type BatchTask } from "./llm";
+import { callLLM, callLLMBatch, LLMError, type BatchTask, type LLMErrorCode } from "./llm";
 import { readWikiFiles, writeWikiFile, deleteWikiFile, getStorage } from "./file-utils";
 import type { StorageLike } from "./file-utils";
 import {
@@ -122,7 +122,7 @@ export function diffAnalysis(oldAnalysis: Analysis | null, newAnalysis: Analysis
 }
 
 export interface PageGenResult {
-	errors: Array<{ name: string; path: string; error: string }>;
+	errors: Array<{ name: string; path: string; error: string; code?: LLMErrorCode }>;
 	generated: number;
 	skippedByDiff: number;
 	removed: number;
@@ -234,7 +234,7 @@ export async function generatePages(
 
 	const tasks = await Promise.all(finalRegen.map(item => buildTask(item, allFiles, concepts, tpl, settings)));
 	let pagesDone = skip.length + syncProtected.length;
-	const errors: Array<{ name: string; path: string; error: string }> = [];
+	const errors: Array<{ name: string; path: string; error: string; code?: LLMErrorCode }> = [];
 
 	if (!cache.failedPages) cache.failedPages = {};
 
@@ -260,7 +260,8 @@ export async function generatePages(
 				delete cache.failedPages[task.path];
 			} else {
 				const errMsg = result.reason || "未知错误";
-				errors.push({ name: task.name, path: task.path, error: errMsg });
+				const code = result.status === "rejected" ? result.llmCode : undefined;
+				errors.push({ name: task.name, path: task.path, error: errMsg, code });
 				cache.failedPages[task.path] = {
 					name: task.name,
 					path: task.path,
@@ -301,8 +302,10 @@ export async function generatePages(
 			for (let j = 0; j < synthResults.length; j++) {
 				if (synthResults[j].status === "rejected") {
 					const synth = batch[j];
-					const errMsg = (synthResults[j] as PromiseRejectedResult).reason?.message || "未知错误";
-					errors.push({ name: synth.name, path: `syntheses/${synth.name}.md`, error: errMsg });
+					const rej = (synthResults[j] as PromiseRejectedResult).reason;
+					const errMsg = rej instanceof Error ? rej.message : String(rej || "未知错误");
+					const code = rej instanceof LLMError ? rej.code : undefined;
+					errors.push({ name: synth.name, path: `syntheses/${synth.name}.md`, error: errMsg, code });
 					cache.failedPages[`syntheses/${synth.name}.md`] = {
 						name: synth.name,
 						path: `syntheses/${synth.name}.md`,

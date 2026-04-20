@@ -6,6 +6,8 @@
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
 		"build": "node esbuild.config.mjs production",
+		"typecheck": "tsc --noEmit --skipLibCheck -p tsconfig.json",
+		"ci": "npm run typecheck && npm test && npm run build",
 		"release": "npm run build && rm -f second-brain.zip && BUILD_DIR=$(pwd) && cd /tmp && rm -rf second-brain second-brain.zip && mkdir -p second-brain/.obsidian/plugins/second-brain && cp \"$BUILD_DIR\"/main.js \"$BUILD_DIR\"/manifest.json \"$BUILD_DIR\"/styles.css second-brain/.obsidian/plugins/second-brain/ && cp -r \"$BUILD_DIR\"/raw-sample second-brain/raw && cd second-brain && zip -r \"$BUILD_DIR\"/second-brain.zip . && cd /tmp && rm -rf second-brain && echo \"Done: $BUILD_DIR/second-brain.zip\"",
 		"test": "vitest run",
 		"test:watch": "vitest"

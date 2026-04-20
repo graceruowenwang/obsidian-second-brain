@@ -1,5 +1,7 @@
 // Provider 预设配置 -- 快速配置 LLM
 
+import type { LLMProviderId } from "../types";
+
 export interface ProviderPreset {
 	label: string;
 	models: string[];
@@ -7,7 +9,7 @@ export interface ProviderPreset {
 	keyUrl: string;
 }
 
-export const PROVIDER_PRESETS: Record<string, ProviderPreset> = {
+export const PROVIDER_PRESETS: Record<Exclude<LLMProviderId, "custom">, ProviderPreset> = {
 	deepseek: {
 		label: "DeepSeek",
 		models: ["deepseek-chat", "deepseek-reasoner"],
@@ -33,3 +35,9 @@ export const PROVIDER_PRESETS: Record<string, ProviderPreset> = {
 		keyUrl: "https://openrouter.ai/keys",
 	},
 };
+
+/** custom 无预设；其余返回对应配置 */
+export function providerPresetOrUndefined(provider: LLMProviderId): ProviderPreset | undefined {
+	if (provider === "custom") return undefined;
+	return PROVIDER_PRESETS[provider];
+}
