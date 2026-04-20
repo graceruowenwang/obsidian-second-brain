@@ -1,6 +1,6 @@
 // 模板系统 -- 多语言支持 + 用户自定义 prompt 模板
 
-import { App, TFile, Notice } from "obsidian";
+import { App, TFile } from "obsidian";
 import { ensureFolder } from "./file-utils";
 
 // === 模板配置接口 ===

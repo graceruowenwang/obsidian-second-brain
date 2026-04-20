@@ -1,6 +1,6 @@
 // 日本語翻訳
 
-export const ja: Record<string, string> = {
+export const ja: typeof import("./en").en = {
 		// Settings
 		"set.title": "Second Brain — 設定",
 		"set.provider": "LLM Provider",

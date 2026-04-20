@@ -324,61 +324,6 @@ export async function generatePages(
 	};
 }
 
-// 异步冲突检测（post-compile，不阻塞主流程）
-	export async function runConflictDetection(
-		conflictCheckNeeded: Array<{ item: AnalysisItem; oldContent: string }>,
-		wikiFolder: string,
-		app: App,
-		settings: PluginSettings,
-		tpl: TemplateConfig,
-		signal?: AbortSignal,
-	): Promise<number> {
-		if (conflictCheckNeeded.length === 0) return 0;
-		let conflictsFound = 0;
-		const tplConflictHeader = tpl.conflictHeader;
-
-		for (const { item, oldContent } of conflictCheckNeeded) {
-			if (signal?.aborted) break;
-			const pagePath = getPagePath(item);
-			const newFile = app.vault.getAbstractFileByPath(`${wikiFolder}/${pagePath}`);
-			if (!(newFile instanceof TFile)) continue;
-
-			try {
-				const newContent = await app.vault.cachedRead(newFile);
-				const oldStripped = oldContent.replace(/^---\n[\s\S]*?\n---\n*/, "").trim();
-				const newStripped = newContent.replace(/^---\n[\s\S]*?\n---\n*/, "").trim();
-
-				const conflictResult = await callLLM([
-					{ role: "system", content: "Knowledge management expert. Detect factual contradictions between old and new wiki page versions." },
-					{ role: "user", content: `Compare old vs new page "${item.name}".
-
-OLD:
-${'$'}{oldStripped.slice(0, 3000)}
-
-NEW:
-${'$'}{newStripped.slice(0, 3000)}
-
-Contradictions? JSON only: {"has_conflict":bool,"description":"...","old_view":"...","new_view":"..."}` },
-				], settings, { maxTokens: 500, temperature: 0.1, signal });
-
-				const jsonMatch = conflictResult.match(/\{[\s\S]*\}/);
-				if (jsonMatch) {
-					const parsed = JSON.parse(jsonMatch[0]);
-					if (parsed.has_conflict) {
-						conflictsFound++;
-						const section = `\n\n## ${'$'}{tplConflictHeader}\n> ${'$'}{parsed.description || ""}\n> **Old**: ${'$'}{parsed.old_view || ""}\n> **New**: ${'$'}{parsed.new_view || ""}`;
-						const updated = newContent.replace(/\n*$/, "") + section + "\n";
-						const withStatus = updated.replace(/^status:\s*["']?\w+["']?\s*$/m, 'status: "conflict"');
-						await app.vault.modify(newFile, withStatus);
-					}
-				}
-			} catch (e) {
-				console.warn("compile-pages: conflict check failed:", e);
-			}
-		}
-		return conflictsFound;
-	}
-
 // Re-export for backward compatibility
 export { parseAnalysisJSON, validateAnalysis, ensureDraftStatus, postProcessPage, mergeAnalysis, getPagePath, checkAborted } from "./compile-analysis";
 export type { AnalysisItem } from "./compile-analysis";

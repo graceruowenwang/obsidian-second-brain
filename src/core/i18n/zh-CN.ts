@@ -1,6 +1,6 @@
 // zh-CN 翻译
 
-export const zhCN: Record<string, string> = {
+export const zhCN: typeof import("./en").en = {
 		// Settings
 		"set.title": "Second Brain — 设置",
 		"set.provider": "LLM Provider",

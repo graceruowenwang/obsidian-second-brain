@@ -4,11 +4,9 @@ import { ItemView, WorkspaceLeaf, MarkdownRenderer, Component, Notice, TFile, Mo
 import type { SecondBrainPlugin } from "../types";
 import { runCompile } from "../core/compile";
 import { openPluginSettings } from "../types";
-import { readWikiFiles, writeLogEntry, vectorSearch, restoreEmbeddingStore } from "../core/file-utils";
+import { readWikiFiles, writeLogEntry, vectorSearch } from "../core/file-utils";
 import { computeWikiHealth } from "../core/health";
-import { scanVaultForMaterials, importToRaw } from "../core/vault-scanner";
 import { t } from "../core/i18n";
-import { requirePro } from "../core/feature-gate";
 
 import { showMoc } from "./wiki-moc";
 import { openSynthesisDialog } from "./wiki-synthesis";
@@ -33,7 +31,6 @@ export class WikiView extends ItemView {
 	private indexBtn: HTMLButtonElement;
 	private sortMode: "name-asc" | "name-desc" | "type" | "level" | "recent" = "name-asc";
 	private statusFilter: "all" | "draft" | "reviewed" = "all";
-	private batchMode = false;
 	private selectedPages = new Set<string>();
 	private batchBar: HTMLElement | null = null;
 	private pageLimit = 50;
@@ -128,7 +125,6 @@ export class WikiView extends ItemView {
 		batchItem.addEventListener("click", () => {
 			if (this.dropdownEl) this.dropdownEl.style.display = "none";
 			const result = toggleBatchReview(this.ctx(), batchItem, this.batchBar, this.selectedPages);
-			this.batchMode = result.batchMode;
 			this.batchBar = result.batchBar;
 		});
 		this.dropdownCloseHandler = () => {
@@ -223,30 +219,6 @@ export class WikiView extends ItemView {
 		return sections;
 	}
 
-	private sortItems(items: IndexItem[]): IndexItem[] {
-		const sorted = [...items];
-		sorted.sort((a, b) => {
-			switch (this.sortMode) {
-				case "name-asc":
-					return a.display.localeCompare(b.display);
-				case "name-desc":
-					return b.display.localeCompare(a.display);
-				case "type": {
-					const typeA = this.findPage(a.name) ? extractFmField(this.findPage(a.name)!.content, "type") : "";
-					const typeB = this.findPage(b.name) ? extractFmField(this.findPage(b.name)!.content, "type") : "";
-					return typeA.localeCompare(typeB) || a.display.localeCompare(b.display);
-				}
-				case "level": {
-					const levelA = this.findPage(a.name) ? extractFmField(this.findPage(a.name)!.content, "level") : "";
-					const levelB = this.findPage(b.name) ? extractFmField(this.findPage(b.name)!.content, "level") : "";
-					return levelA.localeCompare(levelB) || a.display.localeCompare(b.display);
-				}
-				default:
-					return 0;
-			}
-		});
-		return sorted;
-	}
 
 	private renderIndex() {
 		const query = (this.searchEl?.value || "").toLowerCase();
@@ -766,12 +738,9 @@ export class WikiView extends ItemView {
 			banner.createEl("span", { text: t("wiki.draft", lang), cls: "sb-draft-label" });
 			const reviewBtn = banner.createEl("button", { text: t("wiki.markReviewed", lang), cls: "sb-draft-review-btn" });
 			reviewBtn.addEventListener("click", async () => {
-				await this.markAsReviewed(name);
-				reviewBtn.textContent = t("wiki.reviewed", lang);
-				banner.classList.replace("sb-draft-banner", "sb-reviewed-banner");
-				const label = banner.querySelector(".sb-draft-label");
-				if (label) label.textContent = t("wiki.reviewed", lang);
-			});
+					await this.markAsReviewed(name);
+					await this.renderPage(name);
+				});
 		} else if (pageStatus === "reviewed") {
 			const banner = this.bodyEl.createDiv({ cls: "sb-reviewed-banner" });
 			banner.createEl("span", { text: t("wiki.reviewed", lang), cls: "sb-draft-label" });
@@ -835,77 +804,6 @@ export class WikiView extends ItemView {
 	}
 
 
-	private addRegenerateButtons(contentEl: HTMLElement, page: WikiPage, pageName: string) {
-		const lang = this.plugin.settings.language;
-		const headings = contentEl.querySelectorAll("h2, h3");
-		for (const heading of headings) {
-			const sectionTitle = heading.textContent || "";
-			const regenBtn = createEl("button", {
-				cls: "sb-wiki-regen-btn",
-				text: t("wiki.regenerateSection", lang),
-			});
-			regenBtn.style.display = "none";
-			(heading as HTMLElement).style.position = "relative";
-			(heading as HTMLElement).appendChild(regenBtn);
-
-			(heading as HTMLElement).addEventListener("mouseenter", () => {
-				regenBtn.style.display = "";
-			});
-			(heading as HTMLElement).addEventListener("mouseleave", () => {
-				regenBtn.style.display = "none";
-			});
-
-			regenBtn.addEventListener("click", async (ev) => {
-				ev.preventDefault();
-				ev.stopPropagation();
-
-				const confirmed = await new Promise<boolean>((resolve) => {
-					const modal = new Modal(this.app);
-					modal.titleEl.setText(t("wiki.regenerateSection", lang));
-					modal.contentEl.createEl("p", { text: t("wiki.regenerateConfirm", lang, { section: sectionTitle }) });
-					const btnRow = modal.contentEl.createDiv();
-					btnRow.style.display = "flex";
-					btnRow.style.gap = "8px";
-					btnRow.style.justifyContent = "flex-end";
-					btnRow.createEl("button", { text: t("set.cancel", lang) }).addEventListener("click", () => { modal.close(); resolve(false); });
-					btnRow.createEl("button", { text: t("wiki.regenerateSection", lang), cls: "mod-cta" }).addEventListener("click", () => { modal.close(); resolve(true); });
-					modal.open();
-				});
-				if (!confirmed) return;
-
-				setAsyncButton(regenBtn, true, t("wiki.regenerating", lang));
-				try {
-					const { callLLM } = await import("../core/llm");
-					const strippedContent = stripFrontmatter(page.content);
-					const result = await callLLM([
-						{ role: "system", content: "Knowledge regenerator. Rewrite the specified section with improved clarity and depth. Same language as source. Keep wikilinks [[PageName]]." },
-						{ role: "user", content: `Rewrite the section "${sectionTitle}" from this wiki page. Only return the new section content (starting with ## ${sectionTitle}):
-
-${strippedContent.slice(0, 6000)}` },
-					], this.plugin.settings, { maxTokens: 2000, temperature: 0.4 });
-
-					// Find and replace the section in page content
-					const newSection = result.trim();
-					const stripped2 = stripFrontmatter(page.content);
-					const sectionRegex = new RegExp(`(##\\s*${sectionTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.+?)(?=\n##\\s|\n###[^#]|$)`, "s");
-					const updated = stripped2.replace(sectionRegex, newSection);
-					const fm = page.content.match(/^---\n[\s\S]*?\n---/)?.[0] || "";
-					const fullUpdated = fm + "\n\n" + updated;
-					const wf = this.plugin.settings.wikiFolder;
-					const fullPath = `${wf}/${page.path}`;
-					const file = this.app.vault.getAbstractFileByPath(fullPath);
-					if (file instanceof TFile) {
-						await this.app.vault.modify(file, fullUpdated);
-						page.content = fullUpdated;
-					}
-					setAsyncButton(regenBtn, false, t("wiki.regenerateDone", lang));
-				} catch (e) {
-					setAsyncButton(regenBtn, false, t("wiki.regenerateFail", lang));
-					new Notice(t("wiki.regenerateFail", lang));
-				}
-			});
-		}
-	}
 
 	private openInEditor(name: string) {
 		const page = this.findPage(name);
@@ -938,7 +836,10 @@ ${strippedContent.slice(0, 6000)}` },
 		if (file instanceof TFile) {
 			await this.app.vault.modify(file, updated);
 			page.content = updated;
-			await writeLogEntry(this.app, wf, "sync", `Reviewed: ${name}`);
+			const pageType = extractFmField(page.content, "type") || "unknown";
+				const pageLevel = extractFmField(page.content, "level") || "";
+				await writeLogEntry(this.app, wf, "sync", `Reviewed: [[${name}]]`,
+					`- type: ${pageType}, level: ${pageLevel}\n- status: draft → reviewed`);
 		}
 	}
 
@@ -953,6 +854,9 @@ ${strippedContent.slice(0, 6000)}` },
 			await this.app.vault.modify(file, updated);
 			page.content = updated;
 			new Notice(t("wiki.regeneratePageDone", this.plugin.settings.language));
+				const prevStatus = extractFmField(page.content, "status") || "unknown";
+				await writeLogEntry(this.app, wf, "sync", `Regenerate: [[${name}]]`,
+					`- status: ${prevStatus} → draft`);
 			try {
 				await runCompile(this.app, this.plugin.settings, undefined, false, this.plugin as any);
 				await this.loadWiki();

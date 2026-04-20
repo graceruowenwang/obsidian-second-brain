@@ -125,7 +125,7 @@ export async function runGapDetection(
 			if (allReal.has(name)) {
 				const levelDir = info.level || "方法框架";
 				const stubPath = `concepts/${levelDir}/${name}.md`;
-				try { await deleteWikiFile(app, wikiFolder, stubPath); } catch {}
+				try { await deleteWikiFile(app, wikiFolder, stubPath); } catch (e) { console.warn("gap-detection: failed to delete stale stub", stubPath, e); }
 				delete cache.gapPages[name];
 				if (cache.indexEntries) delete cache.indexEntries[name];
 			}

@@ -11,6 +11,8 @@
 		"importHelpers": true,
 		"isolatedModules": true,
 		"strictNullChecks": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
 		"lib": ["DOM", "DOM.Iterable", "ES2022"]
 	},
 	"include": ["src/**/*.ts"]

@@ -150,23 +150,17 @@ export async function callLLMBatch(
 		const batch = tasks.slice(i, i + concurrency);
 		const batchResults = await Promise.allSettled(batch.map(async (task, idx) => {
 			const globalIdx = i + idx;
-			let lastErr: string = "未知错误";
-			for (let attempt = 0; attempt <= perItemRetry; attempt++) {
-				try {
-					const value = await callLLM(task.messages, settings, {
-						...task.options,
-						signal: batchOpts.signal,
-					});
-					return { index: globalIdx, status: "fulfilled" as const, value };
-				} catch (e) {
-					lastErr = e instanceof Error ? e.message : String(e);
-					if (attempt < perItemRetry) {
-						const delay = Math.min(1000 * Math.pow(2, attempt), 15000);
-						await new Promise(r => setTimeout(r, delay));
-					}
-				}
+			try {
+				const value = await callLLM(task.messages, settings, {
+					...task.options,
+					maxRetries: perItemRetry,
+					signal: batchOpts.signal,
+				});
+				return { index: globalIdx, status: "fulfilled" as const, value };
+			} catch (e) {
+				const reason = e instanceof Error ? e.message : String(e);
+				return { index: globalIdx, status: "rejected" as const, reason };
 			}
-			return { index: globalIdx, status: "rejected" as const, reason: lastErr };
 		}));
 
 		for (let j = 0; j < batchResults.length; j++) {

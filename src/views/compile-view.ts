@@ -3,7 +3,7 @@
 import { ItemView, WorkspaceLeaf, Notice } from "obsidian";
 import { runCompile } from "../core/compile";
 import { readRawFiles } from "../core/file-utils";
-import type { SecondBrainPlugin, ProgressEvent, CompileResult, CompileCache, CompileHistoryEntry } from "../types";
+import type { SecondBrainPlugin, ProgressEvent, CompileResult, CompileCache } from "../types";
 import { t } from "../core/i18n";
 import { isPro, getCompileTrialLicense } from "../core/license";
 import { getSuccessRate, getAvgDurationSec } from "../core/usage-stats";
@@ -345,7 +345,7 @@ export class CompileView extends ItemView {
 			const row = historyEl.createDiv({ cls: "sb-history-entry" });
 
 			const tagMap: Record<string, string> = { full: "compile.historyFull", incremental: "compile.historyIncremental", single: "compile.historySingle" };
-			const tag = row.createEl("span", { text: t(tagMap[entry.action] || "compile.historyIncremental", lang), cls: "sb-history-tag sb-history-tag-" + entry.action });
+			row.createEl("span", { text: t(tagMap[entry.action] || "compile.historyIncremental", lang), cls: "sb-history-tag sb-history-tag-" + entry.action });
 
 			const dateStr = new Date(entry.date).toLocaleDateString();
 			row.createEl("span", { text: dateStr, cls: "sb-history-date" });

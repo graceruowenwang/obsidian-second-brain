@@ -1,6 +1,6 @@
 // English translations
 
-export const en: Record<string, string> = {
+export const en = {
 		// Settings
 		"set.title": "Second Brain — Settings",
 		"set.provider": "LLM Provider",

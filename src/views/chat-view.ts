@@ -7,7 +7,7 @@ import type { SecondBrainPlugin } from "../types";
 import { openPluginSettings } from "../types";
 import { t, LANG_INSTRUCTION } from "../core/i18n";
 import { requirePro } from "../core/feature-gate";
-import { isPro, checkFreeChatQuota, incrementFreeChatUsage } from "../core/license";
+import { isPro, checkFreeChatQuota } from "../core/license";
 
 export const VIEW_TYPE_CHAT = "second-brain-chat";
 
@@ -300,8 +300,7 @@ export class ChatView extends ItemView {
 					for (const p of pages) {
 						const link = srcEl.createEl("a", { text: p.filePath, cls: "sb-source-link" });
 						// 分数标签
-						const scorePct = Math.round(p.score * 100);
-						const scoreBadge = link.createEl("span", { text: `${scorePct}%`, cls: "sb-source-score" });
+							// const scoreBadge = link.createEl("span", { text: `${scorePct}%`, cls: "sb-source-score" });
 						link.addEventListener("click", (e) => {
 							e.preventDefault();
 							const fullPath = this.plugin.settings.wikiFolder + "/" + p.filePath;
@@ -347,12 +346,12 @@ export class ChatView extends ItemView {
 
 	private addAiMessagePlaceholder(): HTMLElement {
 		const msgEl = this.messagesEl.createDiv({ cls: "sb-msg sb-msg-ai" });
-		const avatar = msgEl.createDiv({ cls: "sb-avatar sb-avatar-ai", text: "AI" });
+		// const avatar = msgEl.createDiv({ cls: "sb-avatar sb-avatar-ai", text: "AI" });
 		const bubble = msgEl.createDiv({ cls: "sb-bubble" });
 		bubble.createDiv({ cls: "sb-ai-content", text: "" });
 		// 加载指示器
 		const typing = bubble.createDiv({ cls: "sb-typing" });
-		for (let i = 0; i < 3; i++) typing.createDiv({ cls: "sb-typing-dot" });
+		for (let _i = 0; _i < 3; _i++) typing.createDiv({ cls: "sb-typing-dot" });
 		this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
 		return msgEl;
 	}
@@ -386,7 +385,7 @@ export class ChatView extends ItemView {
 				img.parentElement?.replaceChild(link, img);
 
 				const preview = link.createDiv({ cls: "sb-img-preview" });
-				const previewImg = preview.createEl("img", { attr: { src } });
+				// const previewImg = preview.createEl("img", { attr: { src } });
 				const actions = preview.createDiv({ cls: "sb-img-preview-actions" });
 				const dlBtn = actions.createEl("button", { text: t("chat.download", lang), cls: "sb-img-preview-btn" });
 				const openBtn = actions.createEl("button", { text: t("chat.fullscreen", lang), cls: "sb-img-preview-btn" });
@@ -440,7 +439,7 @@ export class ChatView extends ItemView {
 			const btn = createEl("button", { cls: "sb-table-copy-btn", text: t("chat.copyTable", lang) });
 			btn.addEventListener("click", async () => {
 				const rows = Array.from(table.querySelectorAll("tr"));
-				const md = rows.map((row, i) => {
+				const md = rows.map((row) => {
 					const cells = Array.from(row.querySelectorAll("th, td"));
 					const cellTexts = cells.map(c => (c.textContent || "").replace("|", "\\|").trim());
 					return "| " + cellTexts.join(" | ") + " |";

@@ -1,7 +1,7 @@
 // 编译引擎 — 从 compile-engine.js 移植
 // 文件操作改为 Vault API，LLM 调用改为 requestUrl
 
-import { App, Notice } from "obsidian";
+import { App } from "obsidian";
 import { callLLM } from "./llm";
 import {
 	readRawFiles, readWikiFiles, writeWikiFile,
@@ -9,13 +9,12 @@ import {
 	totalAnalysisCount, emptyCache, getStorage,
 	restoreEmbeddingStore, flushEmbeddingStore, migrateEmbeddingsToStore,
 } from "./file-utils";
-import type { StorageLike } from "./file-utils";
 import {
 	buildAnalyzePrompt, buildIncrementalAnalyzePrompt,
 } from "./wiki-schema";
 import { loadTemplateConfig } from "./templates";
 import type { TemplateConfig } from "./templates";
-import type { PluginSettings, Analysis, CompileCache, ProgressEvent, ValidationIssue, CompileReport, ChangeImpact, CompileResult, CompileHistoryEntry, UsageStats } from "../types";
+import type { PluginSettings, Analysis, CompileCache, ProgressEvent, ValidationIssue, CompileReport, ChangeImpact, CompileResult } from "../types";
 import { recordCompile, emptyStats } from "./usage-stats";
 import { appendWeeklyReport } from "./weekly-report";
 
@@ -375,7 +374,7 @@ export async function runCompile(
 		const compileLog = logBuilder.build();
 		await saveCompileLog(app, wikiFolder, compileLog);
 	} catch (e) {
-		console.warn("compile: failed to save compile log:", e);
+		console.error("compile: failed to save compile log:", e);
 	}
 
 	// 构建编译报告
@@ -407,7 +406,7 @@ export async function runCompile(
 
 	// 每周知识报告（异步，不阻塞）
 	appendWeeklyReport(app, wikiFolder, cache).catch(e => {
-		console.warn("compile: weekly report failed:", e);
+		console.error("compile: weekly report failed:", e);
 	});
 
 	return {

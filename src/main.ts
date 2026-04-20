@@ -12,7 +12,7 @@ import { runCompile } from "./core/compile";
 import { readRawFiles, diffFingerprints, emptyCache } from "./core/file-utils";
 import { t } from "./core/i18n";
 import { SetupWizardModal } from "./ui/setup-wizard";
-import { validateLicense, activateLicense, deactivateLicense, isPro, needsRevalidation, enterGraceIfNeeded, checkGraceExpiry, checkTrialExpiry, getDefaultLicense, getTrialLicense, getTrialDaysLeft } from "./core/license";
+import { validateLicense, isPro, needsRevalidation, enterGraceIfNeeded, checkGraceExpiry, checkTrialExpiry, getDefaultLicense, getTrialLicense, getTrialDaysLeft } from "./core/license";
 import { requirePro, showUpgradeNotice } from "./core/feature-gate";
 import { quickIngest } from "./core/quick-ingest";
 import { computeWikiHealth } from "./core/health";
@@ -194,8 +194,9 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 				const n = health.stalePages.length;
 				new Notice(t("notice.stalePages", lang, { n }));
 			}
-		} catch {
-			// 静默失败，不影响启动
+		} catch (e) {
+			// 非关键路径，不影响启动
+			console.warn("checkStalePages:", e);
 		}
 	}
 
