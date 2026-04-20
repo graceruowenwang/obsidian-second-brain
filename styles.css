@@ -948,29 +948,6 @@ pre:hover .sb-copy-btn {
 	color: var(--text-faint);
 }
 
-.sb-wiki-refresh {
-	padding: 10px 16px;
-	border: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 90%, transparent);
-	border-radius: 10px;
-	background: var(--sb-wiki-surface, var(--background-secondary));
-	color: var(--text-muted);
-	cursor: pointer;
-	font-size: 12px;
-	font-weight: 500;
-	flex-shrink: 0;
-	transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
-}
-
-.sb-wiki-refresh:hover {
-	background: var(--background-modifier-hover);
-	color: var(--text-normal);
-	border-color: color-mix(in srgb, var(--interactive-accent) 28%, var(--sb-wiki-border, var(--background-modifier-border)));
-}
-
-.sb-wiki-refresh:active {
-	transform: scale(0.98);
-}
-
 /* 主滚动区 */
 .sb-wiki-body {
 	flex: 1;
@@ -1692,7 +1669,7 @@ pre:hover .sb-copy-btn {
 	border-left: none;
 }
 
-/* Wiki 工具栏：单行 + 筛选折叠 + 图标按钮 */
+/* Wiki 工具栏：单行 + 筛选折叠（刷新 / 更多在视图标题栏） */
 .second-brain-wiki .sb-wiki-toolbar-row1 {
 	position: relative;
 	flex-wrap: wrap;
@@ -1703,41 +1680,6 @@ pre:hover .sb-copy-btn {
 .second-brain-wiki .sb-wiki-toolbar-row1 > .sb-wiki-search {
 	flex: 1 1 160px;
 	min-width: 0;
-}
-
-.second-brain-wiki .sb-wiki-icon-btn {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 36px;
-	height: 36px;
-	padding: 0;
-	flex-shrink: 0;
-	border-radius: var(--sb-wiki-radius-sm, 8px);
-	border: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 88%, transparent);
-	background: var(--sb-wiki-surface, var(--background-secondary));
-	color: var(--text-muted);
-	cursor: pointer;
-	transition:
-		background 0.15s ease,
-		color 0.15s ease,
-		border-color 0.15s ease,
-		transform 0.1s ease;
-}
-
-.second-brain-wiki .sb-wiki-icon-btn:hover {
-	background: var(--background-modifier-hover);
-	color: var(--text-normal);
-	border-color: color-mix(in srgb, var(--interactive-accent) 28%, var(--sb-wiki-border, var(--background-modifier-border)));
-}
-
-.second-brain-wiki .sb-wiki-icon-btn:active {
-	transform: scale(0.96);
-}
-
-.second-brain-wiki .sb-wiki-icon-btn svg {
-	width: 16px;
-	height: 16px;
 }
 
 .second-brain-wiki .sb-wiki-toolbar-filters {
@@ -2046,13 +1988,6 @@ pre:hover .sb-copy-btn {
 	font-size: 12px;
 	font-weight: 600;
 }
-
-/* 更多菜单：锚定工具栏右侧 */
-.second-brain-wiki .sb-wiki-toolbar-row1 > .sb-wiki-dropdown {
-	right: 0;
-	left: auto;
-}
-
 
 /* === Health Bar (settings strip — must not match wiki progress track) === */
 .sb-health-bar:has(.sb-health-item) {
@@ -2946,66 +2881,6 @@ pre:hover .sb-copy-btn {
 	outline: none;
 	border-color: color-mix(in srgb, var(--interactive-accent) 45%, var(--sb-wiki-border, var(--background-modifier-border)));
 	box-shadow: 0 0 0 3px color-mix(in srgb, var(--interactive-accent) 12%, transparent);
-}
-
-.sb-wiki-more-btn {
-	padding: 7px 14px;
-	min-height: 36px;
-	border: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 88%, transparent);
-	border-radius: 10px;
-	background: var(--sb-wiki-surface, var(--background-secondary));
-	color: var(--text-muted);
-	cursor: pointer;
-	font-size: 16px;
-	font-weight: 700;
-	line-height: 1;
-	letter-spacing: 0.05em;
-	transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-}
-
-.sb-wiki-more-btn:hover {
-	background: var(--background-modifier-hover);
-	color: var(--text-normal);
-	border-color: color-mix(in srgb, var(--interactive-accent) 28%, var(--sb-wiki-border, var(--background-modifier-border)));
-}
-
-.sb-wiki-dropdown {
-	position: absolute;
-	top: calc(100% + 6px);
-	left: 0;
-	display: none;
-	flex-direction: column;
-	gap: 0;
-	background: var(--background-primary);
-	border: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 88%, transparent);
-	border-radius: var(--sb-wiki-radius-sm, 8px);
-	box-shadow:
-		0 12px 40px color-mix(in srgb, var(--background-modifier-box-shadow) 45%, transparent),
-		0 0 0 1px color-mix(in srgb, var(--interactive-accent) 8%, transparent);
-	z-index: 50;
-	overflow: hidden;
-	min-width: 168px;
-}
-
-.sb-wiki-dropdown-item {
-	padding: 10px 16px;
-	border: none;
-	border-bottom: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 55%, transparent);
-	background: transparent;
-	color: var(--text-normal);
-	cursor: pointer;
-	text-align: left;
-	font-size: 13px;
-	font-weight: 500;
-	transition: background 0.12s ease;
-}
-
-.sb-wiki-dropdown-item:last-child {
-	border-bottom: none;
-}
-
-.sb-wiki-dropdown-item:hover {
-	background: color-mix(in srgb, var(--interactive-accent) 8%, var(--background-modifier-hover));
 }
 
 /* 生成文章 */

@@ -4,7 +4,12 @@ import { Modal } from "obsidian";
 import { t } from "../core/i18n";
 import type { WikiViewCtx } from "./wiki-shared";
 
-export function toggleBatchReview(ctx: WikiViewCtx, btn: HTMLButtonElement, batchBar: HTMLElement | null, selectedPages: Set<string>): { batchMode: boolean; batchBar: HTMLElement | null } {
+export function toggleBatchReview(
+	ctx: WikiViewCtx,
+	btn: HTMLButtonElement | null,
+	batchBar: HTMLElement | null,
+	selectedPages: Set<string>,
+): { batchMode: boolean; batchBar: HTMLElement | null } {
 	const lang = ctx.plugin.settings.language;
 
 	// 已经在批量模式 -> 退出
@@ -18,7 +23,7 @@ export function toggleBatchReview(ctx: WikiViewCtx, btn: HTMLButtonElement, batc
 	cleanupCheckboxes(ctx.bodyEl);
 
 	// 进入批量模式
-	btn.textContent = t("wiki.batchReview", lang) + " *";
+	if (btn) btn.textContent = t("wiki.batchReview", lang) + " *";
 
 	const newBar = ctx.bodyEl.createDiv({ cls: "sb-batch-bar" });
 
@@ -138,10 +143,10 @@ export function toggleBatchReview(ctx: WikiViewCtx, btn: HTMLButtonElement, batc
 	return { batchMode: true, batchBar: newBar };
 }
 
-function exitBatchMode(bar: HTMLElement, selected: Set<string>, btn: HTMLButtonElement, lang: string) {
+function exitBatchMode(bar: HTMLElement, selected: Set<string>, btn: HTMLButtonElement | null, lang: string) {
 	selected.clear();
 	bar.remove();
-	btn.textContent = t("wiki.batchReview", lang);
+	if (btn) btn.textContent = t("wiki.batchReview", lang);
 }
 
 function cleanupCheckboxes(bodyEl: HTMLElement) {

@@ -1,6 +1,6 @@
 // Wiki 预览视图 -- 结构化浏览 + 内联页面预览 + 反向链接
 
-import { ItemView, WorkspaceLeaf, MarkdownRenderer, Component, Notice, TFile, Modal, setIcon } from "obsidian";
+import { ItemView, WorkspaceLeaf, MarkdownRenderer, Component, Notice, TFile, Modal, Menu, setIcon } from "obsidian";
 import type { SecondBrainPlugin } from "../types";
 import { runCompile } from "../core/compile";
 import { openPluginSettings } from "../types";
@@ -55,8 +55,8 @@ export class WikiView extends ItemView {
 	private batchBar: HTMLElement | null = null;
 	private pageLimit = 50;
 	private searchTimer: ReturnType<typeof setTimeout> | null = null;
-	private dropdownEl: HTMLElement | null = null;
-	private dropdownCloseHandler: (() => void) | null = null;
+	/** View header action buttons (refresh / overflow); removed in onClose to avoid duplicates on reopen */
+	private wikiHeaderActionEls: HTMLElement[] = [];
 	/** Invalidates stale vectorSearch callbacks after a new index render */
 	private indexRenderGeneration = 0;
 	/** Scroll position when leaving a wiki page (restore on return / back) */
@@ -77,6 +77,20 @@ export class WikiView extends ItemView {
 		container.empty();
 		container.classList.add("second-brain-wiki");
 		const lang = this.plugin.settings.language;
+
+		for (const el of this.wikiHeaderActionEls) el.remove();
+		this.wikiHeaderActionEls = [];
+		this.wikiHeaderActionEls.push(
+			this.addAction("refresh-cw", t("wiki.refresh", lang), () => {
+				void this.loadWiki();
+			}),
+		);
+		this.wikiHeaderActionEls.push(
+			this.addAction("more-horizontal", t("wiki.moreMenu", lang), (evt: MouseEvent) => {
+				evt.stopPropagation();
+				this.openWikiOverflowMenu(evt);
+			}),
+		);
 
 		const toolbar = container.createDiv({ cls: "sb-wiki-toolbar" });
 
@@ -131,43 +145,6 @@ export class WikiView extends ItemView {
 			this.renderIndex();
 		});
 
-		const refreshBtn = row1.createEl("button", {
-			attr: { "aria-label": t("wiki.refresh", lang), title: t("wiki.refresh", lang) },
-			cls: "sb-wiki-refresh sb-wiki-icon-btn",
-		});
-		setIcon(refreshBtn, "refresh-cw");
-		refreshBtn.addEventListener("click", () => this.loadWiki());
-
-		const moreBtn = row1.createEl("button", {
-			attr: { "aria-label": t("wiki.moreMenu", lang), title: t("wiki.moreMenu", lang) },
-			cls: "sb-wiki-more-btn sb-wiki-icon-btn",
-		});
-		setIcon(moreBtn, "more-vertical");
-
-		this.dropdownEl = row1.createDiv({ cls: "sb-wiki-dropdown" });
-		this.dropdownEl.style.display = "none";
-		const synthItem = this.dropdownEl.createEl("button", { text: t("wiki.synthBtn", lang), cls: "sb-wiki-dropdown-item" });
-		const batchItem = this.dropdownEl.createEl("button", { text: t("wiki.batchReview", lang), cls: "sb-wiki-dropdown-item" });
-
-		moreBtn.addEventListener("click", (e) => {
-			e.stopPropagation();
-			if (!this.dropdownEl) return;
-			this.dropdownEl.style.display = this.dropdownEl.style.display === "none" ? "flex" : "none";
-		});
-		synthItem.addEventListener("click", () => {
-			if (this.dropdownEl) this.dropdownEl.style.display = "none";
-			openSynthesisDialog(this.ctx());
-		});
-		batchItem.addEventListener("click", () => {
-			if (this.dropdownEl) this.dropdownEl.style.display = "none";
-			const result = toggleBatchReview(this.ctx(), batchItem, this.batchBar, this.selectedPages);
-			this.batchBar = result.batchBar;
-		});
-		this.dropdownCloseHandler = () => {
-			if (this.dropdownEl) this.dropdownEl.style.display = "none";
-		};
-		document.addEventListener("click", this.dropdownCloseHandler);
-
 		this.bodyEl = container.createDiv({ cls: "sb-wiki-body" });
 		// Issue #13: search debounce
 		this.searchEl.addEventListener("input", () => {
@@ -178,6 +155,23 @@ export class WikiView extends ItemView {
 		});
 
 		await this.loadWiki();
+	}
+
+	private openWikiOverflowMenu(evt: MouseEvent): void {
+		const lang = this.plugin.settings.language;
+		const menu = new Menu();
+		menu.addItem((item) => {
+			item.setTitle(t("wiki.synthBtn", lang)).setIcon("sparkles").onClick(() => {
+				openSynthesisDialog(this.ctx());
+			});
+		});
+		menu.addItem((item) => {
+			item.setTitle(t("wiki.batchReview", lang)).setIcon("check-square").onClick(() => {
+				const result = toggleBatchReview(this.ctx(), null, this.batchBar, this.selectedPages);
+				this.batchBar = result.batchBar;
+			});
+		});
+		menu.showAtMouseEvent(evt);
 	}
 
 	private ctx(): WikiViewCtx {
@@ -999,9 +993,7 @@ export class WikiView extends ItemView {
 			clearTimeout(this.searchTimer);
 			this.searchTimer = null;
 		}
-		if (this.dropdownCloseHandler) {
-			document.removeEventListener("click", this.dropdownCloseHandler);
-			this.dropdownCloseHandler = null;
-		}
+		for (const el of this.wikiHeaderActionEls) el.remove();
+		this.wikiHeaderActionEls = [];
 	}
 }
