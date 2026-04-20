@@ -24,8 +24,7 @@ export interface WikiViewCtx {
 	plugin: SecondBrainPlugin;
 	bodyEl: HTMLElement;
 	wikiPages: WikiPage[];
-	graphMode: boolean;
-	currentView: "index" | "page" | "graph";
+	currentView: "index" | "page";
 	currentName: string;
 	navHistory: string[];
 	indexBtn: HTMLButtonElement;

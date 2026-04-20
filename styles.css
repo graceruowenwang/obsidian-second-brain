@@ -1026,106 +1026,6 @@ pre:hover .sb-copy-btn {
 	border-left-color: var(--interactive-accent);
 }
 
-/* 思维导图容器 */
-.sb-mmap-container {
-	flex: 1;
-	min-height: 400px;
-	position: relative;
-	margin: 0 -28px -24px;
-}
-
-.sb-mmap-svg {
-	width: 100%;
-	display: block;
-}
-
-/* 连线 */
-.sb-mmap-path {
-		transition: opacity 0.3s ease;
-		stroke-dasharray: 1000;
-		stroke-dashoffset: 1000;
-		animation: sb-path-draw 0.8s ease forwards;
-}
-
-.sb-mmap-path.highlighted {
-	opacity: 0.6 !important;
-	stroke-width: 3;
-}
-
-.sb-mmap-path.dimmed {
-	opacity: 0.05 !important;
-}
-
-	@keyframes sb-path-draw {
-		to { stroke-dashoffset: 0; }
-	}
-
-/* 节点通用 */
-.sb-mmap-node {
-		transition: opacity 0.4s ease, transform 0.4s ease;
-}
-
-.sb-mmap-node.dimmed {
-	opacity: 0.15;
-}
-
-/* 根节点 */
-.sb-mmap-root-rect {
-	fill: var(--interactive-accent);
-	filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.12));
-}
-
-.sb-mmap-root-text {
-	fill: var(--text-on-accent);
-	font-size: 14px;
-	font-weight: 700;
-	pointer-events: none;
-	user-select: none;
-}
-
-/* 页面节点 */
-.sb-mmap-page-group {
-	cursor: pointer;
-}
-
-.sb-mmap-page-text {
-	font-size: 12px;
-	fill: var(--text-normal);
-	pointer-events: none;
-	user-select: none;
-}
-
-.sb-mmap-page-group:hover .sb-mmap-page-text {
-	fill: var(--text-accent);
-	font-weight: 600;
-}
-
-.sb-mmap-hitarea {
-	cursor: pointer;
-}
-
-/* 图例 */
-.sb-mmap-legend {
-	display: flex;
-	gap: 16px;
-	padding: 0 0 12px;
-	flex-wrap: wrap;
-}
-
-.sb-mmap-legend-item {
-	display: flex;
-	align-items: center;
-	gap: 5px;
-	font-size: 11px;
-	color: var(--text-muted);
-}
-
-.sb-mmap-legend-dot {
-	width: 10px;
-	height: 10px;
-	border-radius: 50%;
-	flex-shrink: 0;
-}
 
 /* === Health Bar === */
 .sb-health-bar {
@@ -2038,32 +1938,6 @@ pre:hover .sb-copy-btn {
 	text-overflow: ellipsis;
 }
 
-/* === Mindmap Notice (Issue #9) === */
-.sb-mmap-notice {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	padding: 8px 16px;
-	background: var(--background-secondary);
-	border: 1px solid var(--background-modifier-border);
-	border-radius: 6px;
-	margin-bottom: 12px;
-	font-size: 12px;
-	color: var(--text-muted);
-}
-.sb-mmap-expand-btn {
-	font-size: 11px;
-	padding: 3px 10px;
-	border: 1px solid var(--interactive-accent);
-	border-radius: 4px;
-	background: transparent;
-	color: var(--interactive-accent);
-	cursor: pointer;
-}
-.sb-mmap-expand-btn:hover {
-	background: var(--interactive-accent);
-	color: var(--text-on-accent);
-}
 
 /* === Wizard Folder Error (Issue #10) === */
 .sb-wizard-folder-error {

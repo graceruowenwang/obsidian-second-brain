@@ -7,8 +7,8 @@ import { readWikiFiles, writeLogEntry } from "../core/file-utils";
 import { computeWikiHealth } from "../core/health";
 import { scanVaultForMaterials, importToRaw } from "../core/vault-scanner";
 import { t } from "../core/i18n";
-import { requirePro, showUpgradeNotice, createProBadge } from "../core/feature-gate";
-import { renderGraph } from "./wiki-mindmap";
+import { requirePro } from "../core/feature-gate";
+
 import { showMoc } from "./wiki-moc";
 import { openSynthesisDialog } from "./wiki-synthesis";
 import { toggleBatchReview } from "./wiki-batch";
@@ -25,13 +25,11 @@ export class WikiView extends ItemView {
 	private sortSelect: HTMLSelectElement;
 	private wikiPages: WikiPage[] = [];
 	private indexData: IndexSection[] = [];
-	private currentView: "index" | "page" | "graph" = "index";
+	private currentView: "index" | "page" = "index";
 	private currentName = "";
 	private navHistory: string[] = [];
 	private component: Component;
-	private graphMode = false;
 	private indexBtn: HTMLButtonElement;
-	private graphBtn: HTMLButtonElement;
 	private sortMode: "name-asc" | "name-desc" | "type" | "level" | "recent" = "name-asc";
 	private batchMode = false;
 	private selectedPages = new Set<string>();
@@ -64,14 +62,8 @@ export class WikiView extends ItemView {
 		const toggle = row1.createDiv({ cls: "sb-wiki-view-toggle" });
 		this.indexBtn = toggle.createEl("button", { text: t("wiki.tabIndex", lang), cls: "sb-wiki-view-btn active" });
 		const mocBtn = toggle.createEl("button", { text: "MOC", cls: "sb-wiki-view-btn" });
-		this.graphBtn = toggle.createEl("button", { text: t("wiki.tabGraph", lang), cls: "sb-wiki-view-btn" });
-		if (!requirePro(this.plugin.licenseInfo, "svg-mind-map")) {
-			createProBadge(this.graphBtn, lang);
-			this.graphBtn.classList.add("sb-pro-locked-btn");
-		}
 		this.indexBtn.addEventListener("click", () => this.showIndex());
 		mocBtn.addEventListener("click", () => showMoc(this.ctx()));
-		this.graphBtn.addEventListener("click", () => this.showGraph());
 
 		this.searchEl = row1.createEl("input", {
 			attr: { placeholder: t("wiki.search", lang), type: "text" },
@@ -144,7 +136,6 @@ export class WikiView extends ItemView {
 			plugin: this.plugin,
 			bodyEl: this.bodyEl,
 			wikiPages: this.wikiPages,
-			graphMode: this.graphMode,
 			currentView: this.currentView,
 			currentName: this.currentName,
 			navHistory: this.navHistory,
@@ -168,37 +159,16 @@ export class WikiView extends ItemView {
 		this.currentName = "";
 		this.navHistory = [];
 
-		if (this.graphMode) {
-			this.currentView = "graph";
-			renderGraph(this, this.bodyEl, this.wikiPages, (id: string) => this.navigateTo(id), this.plugin.settings.language);
-		} else {
-			this.currentView = "index";
-			this.renderIndex();
-		}
+		this.currentView = "index";
+		this.renderIndex();
 	}
 
 	private showIndex() {
-		this.graphMode = false;
 		this.currentView = "index";
 		this.currentName = "";
 		this.navHistory = [];
 		this.indexBtn.classList.add("active");
-		this.graphBtn.classList.remove("active");
 		this.renderIndex();
-	}
-
-	private showGraph() {
-		if (!requirePro(this.plugin.licenseInfo, "svg-mind-map")) {
-			showUpgradeNotice(this.app, "svg-mind-map", this.plugin.settings.language);
-			return;
-		}
-		this.graphMode = true;
-		this.currentView = "graph";
-		this.currentName = "";
-		this.navHistory = [];
-		this.indexBtn.classList.remove("active");
-		this.graphBtn.classList.add("active");
-		renderGraph(this, this.bodyEl, this.wikiPages, (id: string) => this.navigateTo(id), this.plugin.settings.language);
 	}
 
 	// --- Index ---
@@ -273,7 +243,7 @@ export class WikiView extends ItemView {
 			`<span class="sb-stat-item"><span class="sb-stat-num">${ec}</span><span class="sb-stat-label">${t("wiki.entities", lang)}</span></span>` +
 			`<span class="sb-stat-item"><span class="sb-stat-num">${sc}</span><span class="sb-stat-label">${t("wiki.sources", lang)}</span></span>`;
 
-		if (requirePro(this.plugin.licenseInfo, "svg-mind-map")) {
+		if (requirePro(this.plugin.licenseInfo, "health-check")) {
 			const linkCount = this.wikiPages.reduce((sum, p) => {
 				const matches = p.content.match(/\[\[([^\]]+)\]\]/g);
 				return sum + (matches ? matches.length : 0);
@@ -357,6 +327,12 @@ export class WikiView extends ItemView {
 			}
 		}
 
+				// 收集 index 中的已知页面名
+		const indexNames = new Set<string>();
+		for (const sec of this.indexData)
+			for (const sub of sec.subs)
+				for (const i of sub.items) indexNames.add(i.name);
+
 		for (const sec of this.indexData) {
 			let hasTitle = false;
 			for (const sub of sec.subs) {
@@ -417,28 +393,38 @@ export class WikiView extends ItemView {
 			}
 		}
 
-		if (query) {
-			const seen = new Set<string>();
-			for (const sec of this.indexData)
-				for (const sub of sec.subs)
-					for (const i of sub.items) seen.add(i.name);
-
-			const extra = this.wikiPages.filter(f => {
-				const name = f.path.split("/").pop()!.replace(".md", "");
-				if (seen.has(name)) return false;
+		// 不在 index 中的 wiki 页面（搜索或 index 为空时展示）
+		const extraPages = this.wikiPages.filter(f => {
+			const name = f.path.split("/").pop()!.replace(".md", "");
+			if (name === "index" || name === "log") return false;
+			if (indexNames.has(name)) return false;
+			if (query) {
 				return name.toLowerCase().includes(query) || f.content.slice(0, 500).toLowerCase().includes(query);
-			});
+			}
+			return true;
+		});
 
-			if (extra.length > 0) {
-				this.bodyEl.createEl("h3", { text: t("wiki.otherMatches", lang), cls: "sb-wiki-h3" });
-				const grid = this.bodyEl.createDiv({ cls: "sb-wiki-grid" });
-				for (const f of extra.slice(0, 20)) {
-					const name = f.path.split("/").pop()!.replace(".md", "");
-					const card = grid.createDiv({ cls: "sb-wiki-card" });
-					card.createEl("a", { text: name, cls: "sb-wiki-card-title" })
-						.addEventListener("click", (ev) => { ev.preventDefault(); this.navigateTo(name); });
-					card.createEl("p", { text: f.path.replace(/\.md$/, ""), cls: "sb-wiki-card-desc" });
+		if (extraPages.length > 0) {
+			this.bodyEl.createEl("h3", { text: t("wiki.otherMatches", lang), cls: "sb-wiki-h3" });
+			const grid = this.bodyEl.createDiv({ cls: "sb-wiki-grid" });
+			for (const f of extraPages.slice(0, this.pageLimit)) {
+				const name = f.path.split("/").pop()!.replace(".md", "");
+				const card = grid.createDiv({ cls: "sb-wiki-card" });
+				const pageStatus = extractStatus(f.content);
+				if (pageStatus === "draft") {
+					card.classList.add("sb-wiki-card-draft");
+					card.createEl("span", { text: t("wiki.statusDraft", lang), cls: "sb-wiki-status-badge sb-status-draft" });
+				} else if (pageStatus === "reviewed") {
+					card.classList.add("sb-wiki-card-reviewed");
+					card.createEl("span", { text: t("wiki.statusReviewed", lang), cls: "sb-wiki-status-badge sb-status-reviewed" });
 				}
+
+				const fmTitle = f.content.match(/^title:\s*["']?(.+?)["']?\s*$/m);
+				card.createEl("a", { text: fmTitle ? fmTitle[1] : name, cls: "sb-wiki-card-title" })
+					.addEventListener("click", (ev) => { ev.preventDefault(); this.navigateTo(name); });
+				const stripped = f.content.replace(/^---\n[\s\S]*?\n---\n*/, "");
+				const firstLine = stripped.split("\n").find(l => l.trim() && !l.startsWith("#") && !l.startsWith(">")) || "";
+				if (firstLine) card.createEl("p", { text: firstLine.slice(0, 120), cls: "sb-wiki-card-desc" });
 			}
 		}
 
@@ -526,7 +512,7 @@ export class WikiView extends ItemView {
 	// --- Page ---
 
 	private async navigateTo(name: string) {
-		const marker = this.currentView === "graph" ? "__graph__" : this.currentName;
+		const marker = this.currentName;
 		this.navHistory.push(marker);
 		this.currentName = name;
 		this.currentView = "page";
@@ -536,15 +522,7 @@ export class WikiView extends ItemView {
 	private async goBack() {
 		const prev = this.navHistory.pop();
 		if (!prev || prev === "") {
-			if (this.graphMode) this.showGraph();
-			else this.showIndex();
-			return;
-		}
-		if (prev === "__graph__") {
-			this.currentView = "graph";
-			this.indexBtn.classList.remove("active");
-			this.graphBtn.classList.add("active");
-			renderGraph(this, this.bodyEl, this.wikiPages, (id: string) => this.navigateTo(id), this.plugin.settings.language);
+			this.showIndex();
 			return;
 		}
 		this.currentName = prev;

@@ -7,7 +7,6 @@ import { t } from "../core/i18n";
 import type { WikiViewCtx } from "./wiki-shared";
 
 export async function showMoc(ctx: WikiViewCtx): Promise<void> {
-	ctx.graphMode = false;
 	ctx.currentView = "index";
 	ctx.currentName = "";
 	ctx.navHistory = [];

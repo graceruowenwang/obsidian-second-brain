@@ -9,7 +9,6 @@ import { t } from "./i18n";
 export type FeatureId =
 	| "auto-compile"
 	| "ai-chat"
-	| "svg-mind-map"
 	| "multi-llm"
 	| "health-check"
 	| "advanced-templates"
@@ -18,7 +17,6 @@ export type FeatureId =
 const PRO_FEATURES: Set<FeatureId> = new Set([
 	"auto-compile",
 	"ai-chat",
-	"svg-mind-map",
 	"multi-llm",
 	"health-check",
 ]);
