@@ -355,3 +355,15 @@ export function findAffectedPages(
 
 	return affected;
 }
+
+// === 共享工具（gap-detection / link-enrichment 使用） ===
+
+export const WIKILINK_RE = /\[\[([^\]|/]+?)(?:\|[^\]]+?)?\]\]/g;
+
+export function extractPageName(path: string): string {
+	return path.split("/").pop()!.replace(".md", "");
+}
+
+export function isSkippableWikiFile(path: string): boolean {
+	return path.endsWith("index.md") || path.endsWith("log.md") || path.includes(".cache/");
+}

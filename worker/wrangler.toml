@@ -1,0 +1,13 @@
+name = "sb-license"
+main = "index.js"
+compatibility_date = "2024-12-01"
+
+[vars]
+ADMIN_TOKEN = "SShOSLD9sjFwH8f9HkKe3qNNjn0gWUuyJbFce0TIHqw="
+AFDIAN_USER_ID = "1dbba46cc36f11f0a97f52540025c377"
+AFDIAN_TOKEN = "bDAhmtSYH47KTePvRuGqkVBx3NFgUcrQ"
+EXPECTED_AMOUNT = "3000"
+
+[[kv_namespaces]]
+binding = "LICENSE"
+id = "2f0d2847a53f4fd5ba0fe4731e7ff0f7"

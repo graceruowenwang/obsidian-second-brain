@@ -199,6 +199,26 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 			}));
 
 		new Setting(recContent)
+			.setName(t("set.enableGapDetection", lang))
+			.setDesc(t("set.enableGapDetectionDesc", lang))
+			.addToggle((toggle) => toggle
+				.setValue(this.plugin.settings.enableGapDetection)
+				.onChange(async (v) => {
+					this.plugin.settings.enableGapDetection = v;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(recContent)
+			.setName(t("set.enableLinkEnrichment", lang))
+			.setDesc(t("set.enableLinkEnrichmentDesc", lang))
+			.addToggle((toggle) => toggle
+				.setValue(this.plugin.settings.enableLinkEnrichment)
+				.onChange(async (v) => {
+					this.plugin.settings.enableLinkEnrichment = v;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(recContent)
 			.setName(t("set.delay", lang))
 			.setDesc(t("set.delayDesc", lang))
 			.addSlider((slider) => slider

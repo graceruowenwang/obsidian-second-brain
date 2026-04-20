@@ -223,6 +223,15 @@ export class CompileView extends ItemView {
 				}
 			}
 
+			// P2: 缺口检测报告
+			if (result.stubsGenerated && result.stubsGenerated > 0) {
+				this.addLog(`缺口检测: 发现 ${result.gapDetected} 个知识缺口，生成 ${result.stubsGenerated} 个待补充页面`, "ok");
+			}
+			// P1: 智能补链报告
+			if (result.linksAdded && result.linksAdded > 0) {
+				this.addLog(`智能补链: 新增 ${result.linksAdded} 条语义关联链接`, "ok");
+			}
+
 			if (result.errors.length > 0) {
 				errorCount = result.errors.length;
 				this.addLog(t("compile.errors", lang, { n: result.errors.length }), "err");

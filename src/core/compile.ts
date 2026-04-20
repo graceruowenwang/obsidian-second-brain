@@ -4,7 +4,7 @@
 import { App, Notice } from "obsidian";
 import { callLLM } from "./llm";
 import {
-	readRawFiles, writeWikiFile,
+	readRawFiles, readWikiFiles, writeWikiFile,
 	diffFingerprints, updateFingerprints,
 	totalAnalysisCount, emptyCache, getStorage,
 	restoreEmbeddingStore, flushEmbeddingStore, migrateEmbeddingsToStore,
@@ -15,7 +15,6 @@ import {
 } from "./wiki-schema";
 import { loadTemplateConfig } from "./templates";
 import type { TemplateConfig } from "./templates";
-import { t } from "./i18n";
 import type { PluginSettings, Analysis, CompileCache, ProgressEvent, ValidationIssue, CompileReport, ChangeImpact, CompileResult, CompileHistoryEntry, UsageStats } from "../types";
 import { recordCompile, emptyStats } from "./usage-stats";
 import { appendWeeklyReport } from "./weekly-report";
@@ -24,9 +23,11 @@ const MAX_CHARS = 60000;
 
 
 const ANALYSIS_MAX_TOKENS = 4000;
-import { parseAnalysisJSON, getPagePath, generatePages, checkAborted, PageGenResult, validateAnalysis, mergeAnalysis, runConflictDetection } from "./compile-pages";
+import { parseAnalysisJSON, getPagePath, generatePages, checkAborted, PageGenResult, validateAnalysis, mergeAnalysis } from "./compile-pages";
 import { buildDependencyGraph } from "./compile-analysis";
 import { CompileLogBuilder, saveCompileLog } from "./compile-log";
+import { runGapDetection } from "./compile-gap-detection";
+import { runLinkEnrichment } from "./compile-link-enrichment";
 
 // === 步骤 1-2：读取素材 + AI 分析 ===
 
@@ -118,6 +119,7 @@ async function buildIndex(
 	const entityEntries: Array<{ name: string; desc: string }> = [];
 	const sourceEntries: Array<{ name: string; desc: string }> = [];
 	const synthEntries: Array<{ name: string; desc: string }> = [];
+	const gapEntries: Array<{ name: string; desc: string }> = [];
 
 	for (const entry of Object.values(cache.indexEntries)) {
 		if (entry.type === "concept") {
@@ -130,6 +132,12 @@ async function buildIndex(
 			sourceEntries.push({ name: entry.name, desc: entry.desc });
 		} else if (entry.type === "synthesis") {
 			synthEntries.push({ name: entry.name, desc: entry.desc });
+		}
+	}
+	// collect gap pages from cache
+	if (cache.gapPages) {
+		for (const [name, info] of Object.entries(cache.gapPages)) {
+			gapEntries.push({ name, desc: `缺口概念，被 ${info.referenceCount} 个页面引用` });
 		}
 	}
 
@@ -153,6 +161,11 @@ async function buildIndex(
 	if (synthEntries.length) {
 		indexContent += "## Syntheses\n\n";
 		for (const s of synthEntries) indexContent += `- [[${s.name}]] — ${s.desc}\n`;
+		indexContent += "\n";
+	}
+	if (gapEntries.length) {
+		indexContent += "## 待补充 (Gap)\n\n";
+		for (const g of gapEntries) indexContent += `- [[${g.name}]] — ${g.desc}\n`;
 		indexContent += "\n";
 	}
 
@@ -310,8 +323,33 @@ export async function runCompile(
 	cache.analysis = newAnalysis;
 	cache.analysisTime = new Date().toISOString();
 
-		// 更新依赖图
-		cache.dependencies = buildDependencyGraph(newAnalysis, allFiles);
+	// P2: 知识缺口检测
+	let gapDetected = 0, stubsGenerated = 0;
+	if (!signal?.aborted && settings.enableGapDetection) {
+		onProgress({ step: 3, stepName: "缺口检测", detail: "扫描知识缺口...", percent: 85 });
+		const wikiFilesForGap = await readWikiFiles(app, wikiFolder);
+		const gapResult = await runGapDetection(wikiFilesForGap, newAnalysis, tpl, app, wikiFolder, cache, signal);
+		gapDetected = gapResult.gaps.length;
+		stubsGenerated = gapResult.stubsGenerated;
+		logBuilder.setGapDetected(gapDetected, stubsGenerated);
+	}
+
+	// P1: 智能补链
+	let linksAdded = 0;
+	if (!signal?.aborted && settings.enableLinkEnrichment) {
+		onProgress({ step: 3, stepName: "智能补链", detail: "发现语义连接...", percent: 90 });
+		const wikiFilesForLink = await readWikiFiles(app, wikiFolder);
+		const linkResult = await runLinkEnrichment(
+			wikiFilesForLink, tpl, settings, app, wikiFolder,
+			(done: number, total: number) => onProgress({ step: 3, stepName: "智能补链", detail: `${done}/${total} 页`, percent: 90 + Math.round((done / total) * 5) }),
+			signal,
+		);
+		linksAdded = linkResult.applied;
+		logBuilder.setLinksAdded(linksAdded);
+	}
+
+	// 更新依赖图
+	cache.dependencies = buildDependencyGraph(newAnalysis, allFiles);
 
 	// 步骤 4：生成索引
 	onProgress({ step: 4, stepName: "生成索引", detail: "更新 index.md...", percent: 95 });
@@ -358,15 +396,7 @@ export async function runCompile(
 	});
 	if (cache.compileHistory.length > 50) cache.compileHistory = cache.compileHistory.slice(0, 50);
 
-	// 异步冲突检测（不阻塞编译结果返回）
-	if (genResult.conflictCheckNeeded && genResult.conflictCheckNeeded.length > 0) {
-		const conflictItems = genResult.conflictCheckNeeded;
-		runConflictDetection(conflictItems, wikiFolder, app, settings, tpl, signal).catch(e => {
-			console.warn("compile: async conflict detection failed:", e);
-		});
-	}
-
-	// 记录使用统计
+		// 记录使用统计
 	if (!cache.usageStats) cache.usageStats = emptyStats();
 	recordCompile(cache.usageStats, {
 		success: genResult.errors.length === 0,
@@ -393,5 +423,8 @@ export async function runCompile(
 		reused: false,
 		report,
 		changeImpact,
+		gapDetected,
+		stubsGenerated,
+		linksAdded,
 	};
 }

@@ -20,6 +20,9 @@ export interface CompileLog {
 	failed: number;
 	protected: number;
 	removed: number;
+	gapDetected?: number;
+	stubsGenerated?: number;
+	linksAdded?: number;
 	pages: CompilePageLog[];
 }
 
@@ -36,6 +39,9 @@ export class CompileLogBuilder {
 	private failed = 0;
 	private protected = 0;
 	private removed = 0;
+	private gapDetected = 0;
+	private stubsGenerated = 0;
+	private linksAdded = 0;
 
 	constructor(action: "full" | "incremental" | "single") {
 		this.action = action;
@@ -63,6 +69,17 @@ export class CompileLogBuilder {
 
 	setRemoved(n: number): this {
 		this.removed = n;
+		return this;
+	}
+
+	setGapDetected(total: number, stubs: number): this {
+		this.gapDetected = total;
+		this.stubsGenerated = stubs;
+		return this;
+	}
+
+	setLinksAdded(n: number): this {
+		this.linksAdded = n;
 		return this;
 	}
 
@@ -107,6 +124,9 @@ export class CompileLogBuilder {
 			failed: this.failed,
 			protected: this.protected,
 			removed: this.removed,
+			gapDetected: this.gapDetected,
+			stubsGenerated: this.stubsGenerated,
+			linksAdded: this.linksAdded,
 			pages: this.pages,
 		};
 	}

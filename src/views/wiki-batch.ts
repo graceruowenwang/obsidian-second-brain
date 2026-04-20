@@ -3,37 +3,92 @@
 import { Modal } from "obsidian";
 import { t } from "../core/i18n";
 import type { WikiViewCtx } from "./wiki-shared";
-import { setAsyncButton } from "../ui/async-button";
 
 export function toggleBatchReview(ctx: WikiViewCtx, btn: HTMLButtonElement, batchBar: HTMLElement | null, selectedPages: Set<string>): { batchMode: boolean; batchBar: HTMLElement | null } {
 	const lang = ctx.plugin.settings.language;
-	if (ctx.currentView === "index" && batchBar) {
-		// Already in batch mode -> exit
-		selectedPages.clear();
-		batchBar.remove();
-		btn.textContent = t("wiki.batchReview", lang);
+
+	// 已经在批量模式 -> 退出
+	if (batchBar && batchBar.isConnected) {
+		exitBatchMode(batchBar, selectedPages, btn, lang);
 		return { batchMode: false, batchBar: null };
 	}
 
+	// 清理残留状态
 	selectedPages.clear();
+	cleanupCheckboxes(ctx.bodyEl);
+
+	// 进入批量模式
 	btn.textContent = t("wiki.batchReview", lang) + " *";
 
-	if (batchBar) batchBar.remove();
 	const newBar = ctx.bodyEl.createDiv({ cls: "sb-batch-bar" });
 
-	// Issue #5: select all checkbox
-	const selectAllCb = newBar.createEl("input", { attr: { type: "checkbox" }, cls: "sb-batch-checkbox" });
-	selectAllCb.addEventListener("change", () => {
-		const checked = (selectAllCb as HTMLInputElement).checked;
-		ctx.bodyEl.querySelectorAll(".sb-batch-checkbox").forEach((cb: HTMLInputElement) => {
-			if (cb !== selectAllCb) { cb.checked = checked; cb.dispatchEvent(new Event("change")); }
+	// 全选
+	const selectAllCb = newBar.createEl("input", { attr: { type: "checkbox" }, cls: "sb-batch-select-all" });
+	newBar.createEl("span", { text: t("wiki.selectAll", lang) });
+
+	// 计数
+	const countEl = newBar.createEl("span", { text: "0", cls: "sb-batch-count" });
+
+	// 审核按钮
+	const applyBtn = newBar.createEl("button", { text: t("wiki.batchReviewBtn", lang, { n: 0 }), cls: "mod-cta sb-batch-apply-btn" });
+	applyBtn.disabled = true;
+
+	// 批量重新生成按钮
+	const regenBtn = newBar.createEl("button", { text: t("wiki.batchRegenBtn", lang, { n: 0 }), cls: "sb-batch-apply-btn" });
+	regenBtn.disabled = true;
+
+	// 取消按钮
+	const cancelBtn = newBar.createEl("button", { text: t("set.cancel", lang), cls: "sb-batch-cancel-btn" });
+
+	// 给每个卡片加 checkbox
+	const cards = ctx.bodyEl.querySelectorAll(".sb-wiki-card");
+	const cardCheckboxes: HTMLInputElement[] = [];
+
+	cards.forEach((cardEl: HTMLElement) => {
+		const titleLink = cardEl.querySelector(".sb-wiki-card-title") as HTMLAnchorElement;
+		if (!titleLink) return;
+		const name = titleLink.textContent || "";
+
+		const checkbox = document.createElement("input");
+		checkbox.type = "checkbox";
+		checkbox.className = "sb-batch-checkbox";
+		cardEl.insertBefore(checkbox, cardEl.firstChild);
+		cardCheckboxes.push(checkbox);
+
+		checkbox.addEventListener("change", () => {
+			if (checkbox.checked) {
+				selectedPages.add(name);
+			} else {
+				selectedPages.delete(name);
+			}
+			updateCount();
 		});
 	});
 
-	const countEl = newBar.createEl("span", { text: "0" });
-	const applyBtn = newBar.createEl("button", { text: t("wiki.batchReviewBtn", lang, { n: 0 }), cls: "mod-cta" });
+	function updateCount() {
+		const n = selectedPages.size;
+		countEl.textContent = `${n}`;
+		applyBtn.textContent = t("wiki.batchReviewBtn", lang, { n });
+		applyBtn.disabled = n === 0;
+		regenBtn.textContent = t("wiki.batchRegenBtn", lang, { n });
+		regenBtn.disabled = n === 0;
+		selectAllCb.checked = n === cards.length && cards.length > 0;
+	}
 
-	// Issue #5: confirmation modal before batch review
+	selectAllCb.addEventListener("change", () => {
+		const checked = selectAllCb.checked;
+		cardCheckboxes.forEach(cb => { cb.checked = checked; });
+		selectedPages.clear();
+		if (checked) {
+			cards.forEach((cardEl: HTMLElement) => {
+				const titleLink = cardEl.querySelector(".sb-wiki-card-title") as HTMLAnchorElement;
+				if (titleLink) selectedPages.add(titleLink.textContent || "");
+			});
+		}
+		updateCount();
+	});
+
+	// 确认审核
 	applyBtn.addEventListener("click", async () => {
 		const count = selectedPages.size;
 		if (count === 0) return;
@@ -46,36 +101,50 @@ export function toggleBatchReview(ctx: WikiViewCtx, btn: HTMLButtonElement, batc
 			btnRow.style.display = "flex";
 			btnRow.style.gap = "8px";
 			btnRow.style.justifyContent = "flex-end";
-			btnRow.createEl("button", { text: t("wiki.back", lang).replace("< ", "") }).addEventListener("click", () => { modal.close(); resolve(false); });
+			btnRow.createEl("button", { text: t("set.cancel", lang) }).addEventListener("click", () => { modal.close(); resolve(false); });
 			btnRow.createEl("button", { text: t("wiki.batchConfirmBtn", lang), cls: "mod-cta" }).addEventListener("click", () => { modal.close(); resolve(true); });
 			modal.open();
 		});
 		if (!confirmed) return;
 
-		setAsyncButton(applyBtn, true);
+		applyBtn.disabled = true;
+		applyBtn.textContent = "...";
 		for (const name of selectedPages) {
 			await ctx.markAsReviewed(name);
 		}
-		selectedPages.clear();
-		newBar.remove();
-		btn.textContent = t("wiki.batchReview", lang);
+
+		// 清理批量模式，刷新列表
+		exitBatchMode(newBar, selectedPages, btn, lang);
+		ctx.renderIndex();
 	});
 
-	ctx.bodyEl.querySelectorAll(".sb-wiki-card").forEach((cardEl: HTMLElement) => {
-		const titleLink = cardEl.querySelector(".sb-wiki-card-title") as HTMLAnchorElement;
-		if (!titleLink) return;
-		const name = titleLink.textContent || "";
-		const checkbox = cardEl.createEl("input", { cls: "sb-batch-checkbox", attr: { type: "checkbox" } });
-		checkbox.addEventListener("change", () => {
-			if ((checkbox as HTMLInputElement).checked) {
-				selectedPages.add(name);
-			} else {
-				selectedPages.delete(name);
-			}
-			countEl.textContent = `${selectedPages.size}`;
-			applyBtn.textContent = t("wiki.batchReviewBtn", lang, { n: selectedPages.size });
-		});
+	// 批量重新生成
+	regenBtn.addEventListener("click", async () => {
+		const count = selectedPages.size;
+		if (count === 0) return;
+		regenBtn.disabled = true;
+		regenBtn.textContent = "...";
+		for (const name of selectedPages) {
+			await ctx.markForRegeneration(name);
+		}
+		exitBatchMode(newBar, selectedPages, btn, lang);
+		ctx.renderIndex();
+	});
+
+	// 取消
+	cancelBtn.addEventListener("click", () => {
+		exitBatchMode(newBar, selectedPages, btn, lang);
 	});
 
 	return { batchMode: true, batchBar: newBar };
+}
+
+function exitBatchMode(bar: HTMLElement, selected: Set<string>, btn: HTMLButtonElement, lang: string) {
+	selected.clear();
+	bar.remove();
+	btn.textContent = t("wiki.batchReview", lang);
+}
+
+function cleanupCheckboxes(bodyEl: HTMLElement) {
+	bodyEl.querySelectorAll(".sb-batch-checkbox").forEach(el => el.remove());
 }

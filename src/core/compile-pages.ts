@@ -126,7 +126,6 @@ export interface PageGenResult {
 	skippedByDiff: number;
 	removed: number;
 	protectedByReview: number;
-	conflictCheckNeeded: Array<{ item: AnalysisItem; oldContent: string }>;
 }
 
 export async function generatePages(
@@ -164,10 +163,8 @@ export async function generatePages(
 			if (existingFile instanceof TFile) {
 				try {
 					const existingContent = await app.vault.cachedRead(existingFile);
-					if (!/^status:\s*["']?reviewed["']?/m.test(existingContent)) {
-						const updated = existingContent.replace(/^status:\s*["']?\w+["']?\s*$/m, 'status: "outdated"');
+					const updated = existingContent.replace(/^status:\s*["']?\w+["']?\s*$/m, 'status: "outdated"');
 						await app.vault.modify(existingFile, updated);
-					}
 				} catch (e) {
 					console.warn("compile-pages: mark outdated failed:", e);
 				}
@@ -188,7 +185,6 @@ export async function generatePages(
 	const changedPaths = new Set(changedFiles.map(f => f.path));
 	const finalRegen: AnalysisItem[] = [];
 	const syncProtected: AnalysisItem[] = [];
-	const conflictCheckNeeded: Array<{ item: AnalysisItem; oldContent: string }> = [];
 	for (const item of regen) {
 		const pagePath = getPagePath(item);
 		const existingFile = app.vault.getAbstractFileByPath(`${wikiFolder}/${pagePath}`);
@@ -201,12 +197,14 @@ export async function generatePages(
 					continue;
 				}
 				if (/status:\s*["']?reviewed["']?/m.test(head)) {
-					if (item.source_file && !changedPaths.has(item.source_file)) {
+					if (changedPaths.size === 0) {
 						syncProtected.push(item);
 						continue;
 					}
-					conflictCheckNeeded.push({ item, oldContent: existingContent });
-					finalRegen.push(item);
+					// reviewed 页面源素材变更时，标记为 outdated 而非静默覆盖
+					const updated = existingContent.replace(/^status:\s*["']?\w+["']?\s*$/m, 'status: "outdated"');
+					try { await app.vault.modify(existingFile, updated); } catch {}
+					syncProtected.push(item);
 					continue;
 				}
 			} catch (e) {
@@ -323,7 +321,6 @@ export async function generatePages(
 		skippedByDiff: skip.length,
 		removed: remove.length,
 		protectedByReview: syncProtected.length,
-		conflictCheckNeeded,
 	};
 }
 

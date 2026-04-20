@@ -4,7 +4,7 @@ import { Notice, Setting } from "obsidian";
 import type SecondBrain from "../main";
 import { DEFAULT_LICENSE, type LicenseInfo } from "../types";
 import { t } from "../core/i18n";
-import { validateLicense, activateLicense, deactivateLicense, isPro, getTrialDaysLeft, isTrialActive } from "../core/license";
+import { validateLicense, activateLicense, activateByOrder, deactivateLicense, isPro, getTrialDaysLeft, isTrialActive } from "../core/license";
 
 const COMPARE_FEATURES = [
 	"manualCompile", "wikiBrowse", "deepseek",
@@ -41,6 +41,64 @@ export function renderLicenseSettings(containerEl: HTMLElement, plugin: SecondBr
 	if (state.expiresAt) {
 		const d = new Date(state.expiresAt).toLocaleDateString();
 		statusRow.createEl("span", { text: t("license.expiresAt", lang, { date: d }), cls: "sb-license-expires" });
+	}
+
+	// 爱发电订单号激活（仅未激活时显示，放在最前面）
+	if (!isPro(state)) {
+		const orderSection = content.createDiv({ cls: "sb-license-order-section" });
+
+		// 购买链接 + 订单激活
+		const purchaseRow = orderSection.createDiv({ cls: "sb-license-purchase" });
+		const purchaseLink = purchaseRow.createEl("a", {
+			text: t("license.goBuy", lang),
+			href: t("license.purchaseUrl", lang),
+		});
+		purchaseLink.setAttribute("target", "_blank");
+
+		let orderInput: HTMLInputElement | null = null;
+		new Setting(orderSection)
+			.setName(t("license.orderLabel", lang))
+			.setDesc(t("license.orderDesc", lang))
+			.addText((text) => {
+				text.setPlaceholder(t("license.orderPlaceholder", lang));
+				orderInput = text.inputEl;
+			})
+			.addButton((btn) => {
+				btn.setButtonText(t("license.orderActivate", lang));
+				btn.setClass("mod-cta");
+				btn.onClick(async () => {
+					const orderId = orderInput?.value?.trim();
+					if (!orderId) {
+						new Notice(t("license.orderFail", lang));
+						return;
+					}
+					btn.setDisabled(true);
+					try {
+						const instanceName = plugin.app.vault.getName();
+						const { licenseInfo, licenseKey } = await activateByOrder(orderId, instanceName);
+						plugin.licenseInfo = licenseInfo;
+						plugin.settings.licenseKey = licenseKey;
+						await plugin.saveSettings();
+						await plugin.saveLicenseInfo();
+						new Notice(t("license.orderSuccess", lang));
+						plugin.refreshSettingsTab();
+					} catch (e: unknown) {
+						const msg = e instanceof Error ? e.message : String(e);
+						if (msg?.includes("not found") || msg?.includes("not paid")) {
+							new Notice(t("license.orderNotFound", lang));
+						} else if (msg?.includes("Rate limit")) {
+							new Notice(t("license.rateLimit", lang));
+						} else {
+							new Notice(t("license.orderFail", lang));
+						}
+					} finally {
+						btn.setDisabled(false);
+					}
+				});
+			});
+
+		// 分隔线
+		content.createEl("div", { cls: "sb-license-divider", text: t("license.orKey", lang) });
 	}
 
 	// License Key 输入
@@ -122,7 +180,7 @@ export function renderLicenseSettings(containerEl: HTMLElement, plugin: SecondBr
 	} else if (state.status === "none" || state.status === "inactive" || state.status === "expired") {
 		if (!state.key) {
 			const trialHint = content.createDiv({ cls: "sb-trial-hint" });
-			trialHint.createEl("span", { text: t("pro.trialStarted", lang).split("!")[0] + " — " + t("pro.trialDaysLeft", lang, { days: 3 }).replace("3", "3") });
+			trialHint.createEl("span", { text: t("pro.trialStarted", lang).split("!")[0] + " — " + t("pro.trialDaysLeft", lang, { days: 14 }) });
 		}
 	}
 
@@ -137,7 +195,7 @@ export function renderLicenseSettings(containerEl: HTMLElement, plugin: SecondBr
 	}
 }
 
-function renderCompareTable(container: HTMLElement, lang: string, state: LicenseInfo): void {
+function renderCompareTable(container: HTMLElement, lang: string, _state: LicenseInfo): void {
 	const wrapper = container.createDiv({ cls: "sb-compare-table-wrap" });
 	wrapper.createEl("div", { text: t("pro.compareTitle", lang), cls: "sb-compare-title" });
 
@@ -157,9 +215,9 @@ function renderCompareTable(container: HTMLElement, lang: string, state: License
 		nameCell.createDiv({ text: t(`pro.compare.${feat}Desc`, lang), cls: "sb-compare-feat-desc" });
 
 		const freeCell = tr.createEl("td", { cls: "sb-compare-check" });
-		freeCell.innerHTML = FREE_FEATURES.has(feat) ? "&#10003;" : "";
+		freeCell.textContent = FREE_FEATURES.has(feat) ? "\u2713" : "";
 
 		const proCell = tr.createEl("td", { cls: "sb-compare-check sb-compare-check-pro" });
-		proCell.innerHTML = "&#10003;";
+		proCell.textContent = "\u2713";
 	}
 }

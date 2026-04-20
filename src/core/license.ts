@@ -1,9 +1,12 @@
-// License 验证模块 — 离线验证（爱发电兑换码）
+// License 验证模块 — 离线哈希验证 + 爱发电订单号在线激活
 
 import type { LicenseInfo } from "../types";
 import { DEFAULT_LICENSE } from "../types";
 
-// 预生成的 license key SHA256 哈希（key 不直接存于代码中）
+// Cloudflare Worker 地址（部署后替换）
+const WORKER_URL = "https://sb-license.graceruowenwang.workers.dev";
+
+// 预生成的 license key SHA256 哈希（离线验证用）
 const VALID_HASHES = new Set([
 	"02d3c775d1e8afec5de80b745227276fb68e36566b9294aecbfd72f1b9c59deb",
 	"ae3218bdbd83337270d04262dff4eb4d88d91cae4f62578b9ecb4f8e08d9ae4e",
@@ -47,6 +50,40 @@ async function sha256(text: string): Promise<string> {
 	const data = encoder.encode(text);
 	const hash = await crypto.subtle.digest("SHA-256", data);
 	return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+// 通过爱发电订单号在线激活：调用 Cloudflare Worker 验证订单
+export async function activateByOrder(orderId: string, instanceName: string): Promise<{ licenseInfo: LicenseInfo; licenseKey: string }> {
+	if (!checkRateLimit()) {
+		throw new Error("Rate limit exceeded. Please try again later.");
+	}
+
+	const resp = await fetch(`${WORKER_URL}/activate-order`, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ order_id: orderId, instance_name: instanceName }),
+	});
+
+	const data = await resp.json() as { activated?: boolean; license_key?: string; error?: string };
+
+	if (!data.activated || !data.license_key) {
+		throw new Error(data.error || "Activation failed");
+	}
+
+	const licenseInfo: LicenseInfo = {
+		key: data.license_key,
+		status: "active",
+		plan: "pro",
+		expiresAt: null,
+		lastValidated: new Date().toISOString(),
+		graceStart: null,
+		trialStart: null,
+		instanceId: instanceName,
+		freeChatUsed: 0,
+		freeChatMonth: "",
+	};
+
+	return { licenseInfo, licenseKey: data.license_key };
 }
 
 // 离线激活：验证 key 哈希是否在预置列表中

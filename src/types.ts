@@ -20,6 +20,8 @@ export interface PluginSettings {
 	setupCompleted: boolean;
 	licenseKey: string;
 	proWelcomeShown: boolean;
+	enableGapDetection: boolean;
+	enableLinkEnrichment: boolean;
 }
 
 export const DEFAULT_SETTINGS: PluginSettings = {
@@ -42,6 +44,8 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	setupCompleted: false,
 	licenseKey: "",
 	proWelcomeShown: false,
+	enableGapDetection: true,
+	enableLinkEnrichment: true,
 };
 
 export interface RawFile {
@@ -96,6 +100,7 @@ export interface CompileCache {
 	indexEntries: Record<string, { type: string; level: string; name: string; title: string; desc: string }>;
 	failedPages: Record<string, FailedPageEntry>;
 	dependencies: Record<string, string[]>;
+	gapPages?: Record<string, { name: string; detectedAt: string; referenceCount: number; level: string }>;
 	compileHistory?: CompileHistoryEntry[];
 	usageStats?: UsageStats;
 	weeklyReportLastDate?: string;
@@ -169,6 +174,9 @@ export interface CompileResult {
 	reused: boolean;
 	report?: CompileReport;
 	changeImpact?: ChangeImpact[];
+	gapDetected?: number;
+	stubsGenerated?: number;
+	linksAdded?: number;
 }
 
 export interface Fingerprint {

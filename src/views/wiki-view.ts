@@ -2,8 +2,9 @@
 
 import { ItemView, WorkspaceLeaf, MarkdownRenderer, Component, Notice, TFile, Modal } from "obsidian";
 import type { SecondBrainPlugin } from "../types";
+import { runCompile } from "../core/compile";
 import { openPluginSettings } from "../types";
-import { readWikiFiles, writeLogEntry } from "../core/file-utils";
+import { readWikiFiles, writeLogEntry, vectorSearch, restoreEmbeddingStore } from "../core/file-utils";
 import { computeWikiHealth } from "../core/health";
 import { scanVaultForMaterials, importToRaw } from "../core/vault-scanner";
 import { t } from "../core/i18n";
@@ -31,12 +32,14 @@ export class WikiView extends ItemView {
 	private component: Component;
 	private indexBtn: HTMLButtonElement;
 	private sortMode: "name-asc" | "name-desc" | "type" | "level" | "recent" = "name-asc";
+	private statusFilter: "all" | "draft" | "reviewed" = "all";
 	private batchMode = false;
 	private selectedPages = new Set<string>();
 	private batchBar: HTMLElement | null = null;
 	private pageLimit = 50;
 	private searchTimer: ReturnType<typeof setTimeout> | null = null;
 	private dropdownEl: HTMLElement | null = null;
+	private dropdownCloseHandler: (() => void) | null = null;
 
 	constructor(leaf: WorkspaceLeaf, plugin: SecondBrainPlugin) {
 		super(leaf);
@@ -93,6 +96,20 @@ export class WikiView extends ItemView {
 			this.renderIndex();
 		});
 
+		const statusSelect = row2.createEl("select", { cls: "sb-wiki-sort" });
+		const statusOptions: Array<{ value: string; key: string }> = [
+			{ value: "all", key: "wiki.filterAll" },
+			{ value: "draft", key: "wiki.statusDraft" },
+			{ value: "reviewed", key: "wiki.statusReviewed" },
+		];
+		for (const opt of statusOptions) {
+			statusSelect.createEl("option", { text: t(opt.key, lang), attr: { value: opt.value } });
+		}
+		statusSelect.addEventListener("change", () => {
+			this.statusFilter = statusSelect.value as typeof this.statusFilter;
+			this.renderIndex();
+		});
+
 			const moreBtn = row2.createEl("button", { text: "...", cls: "sb-wiki-more-btn" });
 		this.dropdownEl = row2.createDiv({ cls: "sb-wiki-dropdown" });
 		this.dropdownEl.style.display = "none";
@@ -114,9 +131,10 @@ export class WikiView extends ItemView {
 			this.batchMode = result.batchMode;
 			this.batchBar = result.batchBar;
 		});
-		document.addEventListener("click", () => {
+		this.dropdownCloseHandler = () => {
 			if (this.dropdownEl) this.dropdownEl.style.display = "none";
-		});
+		};
+		document.addEventListener("click", this.dropdownCloseHandler);
 
 		this.bodyEl = container.createDiv({ cls: "sb-wiki-body" });
 		// Issue #13: search debounce
@@ -146,6 +164,8 @@ export class WikiView extends ItemView {
 			extractLevel: (c) => extractFmField(c, "level"),
 			extractTags: (c) => extractTags(c),
 			markAsReviewed: (name: string) => this.markAsReviewed(name),
+			markForRegeneration: (name: string) => this.markForRegeneration(name),
+			renderIndex: () => this.renderIndex(),
 		};
 	}
 
@@ -233,88 +253,93 @@ export class WikiView extends ItemView {
 		const lang = this.plugin.settings.language;
 		this.bodyEl.empty();
 
-		const cc = this.wikiPages.filter(f => f.path.includes("concepts/")).length;
-		const ec = this.wikiPages.filter(f => f.path.includes("entities/")).length;
-		const sc = this.wikiPages.filter(f => f.path.includes("sources/")).length;
+		if (!query) {
+			const cc = this.wikiPages.filter(f => f.path.includes("concepts/")).length;
+			const ec = this.wikiPages.filter(f => f.path.includes("entities/")).length;
+			const sc = this.wikiPages.filter(f => f.path.includes("sources/")).length;
+			const health = this.wikiPages.length > 0 ? computeWikiHealth(this.wikiPages) : null;
+			const totalPages = health?.total ?? this.wikiPages.length;
+			const reviewedCount = health?.reviewed ?? 0;
+			const draftCount = totalPages - reviewedCount;
 
-		const stats = this.bodyEl.createDiv({ cls: "sb-wiki-stats" });
-		stats.innerHTML =
-			`<span class="sb-stat-item"><span class="sb-stat-num">${cc}</span><span class="sb-stat-label">${t("wiki.concepts", lang)}</span></span>` +
-			`<span class="sb-stat-item"><span class="sb-stat-num">${ec}</span><span class="sb-stat-label">${t("wiki.entities", lang)}</span></span>` +
-			`<span class="sb-stat-item"><span class="sb-stat-num">${sc}</span><span class="sb-stat-label">${t("wiki.sources", lang)}</span></span>`;
-
-		if (requirePro(this.plugin.licenseInfo, "health-check")) {
-			const linkCount = this.wikiPages.reduce((sum, p) => {
-				const matches = p.content.match(/\[\[([^\]]+)\]\]/g);
-				return sum + (matches ? matches.length : 0);
-			}, 0);
-			stats.innerHTML += `<span class="sb-stat-item sb-stat-pro"><span class="sb-stat-num">${linkCount}</span><span class="sb-stat-label">${t("pro.stats.linkLabel", lang)}</span></span>`;
-		}
-
-		// Feature 5: Knowledge growth stats panel
-		const draftCount = this.wikiPages.filter(f => extractStatus(f.content) === "draft").length;
-		const reviewedCount = this.wikiPages.filter(f => extractStatus(f.content) === "reviewed").length;
-		const totalPages = this.wikiPages.length;
-		const reviewPct = totalPages > 0 ? Math.round((reviewedCount / totalPages) * 100) : 0;
-		const growthPanel = this.bodyEl.createDiv({ cls: "sb-wiki-growth-panel" });
-		growthPanel.innerHTML =
-			`<div class="sb-growth-stat"><span class="sb-growth-num">${totalPages}</span><span class="sb-growth-label">${t("wiki.growthTotalPages", lang)}</span></div>` +
-			`<div class="sb-growth-stat"><span class="sb-growth-num sb-growth-draft">${draftCount}</span><span class="sb-growth-label">${t("wiki.growthDraftPages", lang)}</span></div>` +
-			`<div class="sb-growth-stat"><span class="sb-growth-num sb-growth-reviewed">${reviewedCount}</span><span class="sb-growth-label">${t("wiki.growthReviewedPages", lang)}</span></div>` +
-			`<div class="sb-growth-progress-wrap"><span class="sb-growth-label">${t("wiki.growthReviewProgress", lang, { pct: reviewPct })}</span><div class="sb-growth-progress-bar"><div class="sb-growth-progress-fill" style="width:${reviewPct}%"></div></div></div>`;
-
-		// Health dashboard
-		if (this.wikiPages.length > 0) {
-			const health = computeWikiHealth(this.wikiPages);
-			const healthEl = this.bodyEl.createDiv({ cls: "sb-health" });
-			const healthRow = healthEl.createDiv({ cls: "sb-health-row" });
-
-			const barWrap = healthRow.createDiv({ cls: "sb-health-bar" });
-			const freshPct = 100 - health.staleness;
-			const barColor = freshPct >= 70 ? "var(--text-success)" : freshPct >= 40 ? "var(--text-warning)" : "var(--text-error)";
-			barWrap.createDiv({ cls: "sb-health-fill", attr: { style: `width:${freshPct}%;background:${barColor}` } });
-
-			const healthStats = healthRow.createDiv({ cls: "sb-health-stats" });
-			healthStats.createEl("span", { cls: "sb-health-badge", text: `${freshPct}%` });
-			healthStats.createEl("span", { cls: "sb-health-label", text: t("health.healthBar", lang) });
-			healthStats.createEl("span", { cls: "sb-health-sep", text: "|" });
-			healthStats.createEl("span", { cls: "sb-health-badge", text: String(health.avgLinkCount) });
-			healthStats.createEl("span", { cls: "sb-health-label", text: t("health.avgLinks", lang) });
-			healthStats.createEl("span", { cls: "sb-health-sep", text: "|" });
-			healthStats.createEl("span", { cls: "sb-health-badge", text: `${health.reviewed}/${health.total}` });
-			healthStats.createEl("span", { cls: "sb-health-label", text: t("health.reviewProgress", lang, { reviewed: String(health.reviewed), total: String(health.total) }) });
-
-			if (health.stalePages.length > 0) {
-				const staleToggle = healthEl.createDiv({ cls: "sb-health-stale-toggle" });
-				staleToggle.createEl("span", { text: t("health.stalePages", lang) + ` (${health.stalePages.length})`, cls: "sb-health-stale-label" });
-				const toggleIcon = staleToggle.createEl("span", { text: "▸", cls: "sb-health-toggle-icon" });
-				const staleList = healthEl.createDiv({ cls: "sb-health-stale-list" });
-				staleList.style.display = "none";
-				for (const sp of health.stalePages) {
-					const row = staleList.createDiv({ cls: "sb-health-stale-row" });
-					const nameLink = row.createEl("a", { text: sp.name, cls: "sb-health-stale-name" });
-					nameLink.addEventListener("click", (ev) => { ev.preventDefault(); this.navigateTo(sp.name); });
-					row.createEl("span", { text: t("health.daysAgo", lang, { n: sp.daysSinceUpdate }), cls: "sb-health-stale-days" });
-					if (sp.level) row.createEl("span", { text: sp.level, cls: "sb-health-stale-level" });
+			// 紧凑概览：一行核心指标，点击展开
+			const overviewToggle = this.bodyEl.createDiv({ cls: "sb-wiki-overview-toggle" });
+			const statItems: Array<{ num: string; label: string; cls?: string }> = [
+					{ num: String(totalPages), label: t("wiki.growthTotalPages", lang) },
+					{ num: String(cc), label: t("wiki.concepts", lang) },
+					{ num: String(ec), label: t("wiki.entities", lang) },
+					{ num: String(sc), label: t("wiki.sources", lang) },
+					{ num: String(reviewedCount), label: t("wiki.statusReviewed", lang), cls: "sb-growth-reviewed" },
+					{ num: String(draftCount), label: t("wiki.statusDraft", lang), cls: "sb-growth-draft" },
+				];
+				for (const item of statItems) {
+					const span = overviewToggle.createEl("span", { cls: "sb-stat-item" });
+					span.createEl("span", { text: item.num, cls: "sb-stat-num" + (item.cls ? " " + item.cls : "") });
+					span.createEl("span", { text: item.label, cls: "sb-stat-label" });
 				}
-				staleToggle.addEventListener("click", () => {
-					const open = staleList.style.display !== "none";
-					staleList.style.display = open ? "none" : "";
-					toggleIcon.textContent = open ? "▸" : "▾";
-				});
-			}
-		}
 
-		const recentPages = this.wikiPages
+			const overviewDetail = this.bodyEl.createDiv({ cls: "sb-wiki-overview-detail" });
+			overviewDetail.style.display = "none";
+
+			if (health) {
+				const reviewPct = totalPages > 0 ? Math.round((reviewedCount / totalPages) * 100) : 0;
+				const progressWrap = overviewDetail.createDiv({ cls: "sb-growth-progress-wrap" });
+					progressWrap.createEl("span", { text: t("wiki.growthReviewProgress", lang, { pct: reviewPct }), cls: "sb-growth-label" });
+					const progressBar = progressWrap.createDiv({ cls: "sb-growth-progress-bar" });
+					progressBar.createDiv({ cls: "sb-growth-progress-fill", attr: { style: `width:${reviewPct}%` } });
+
+				const freshPct = 100 - health.staleness;
+				const barColor = freshPct >= 70 ? "var(--text-success)" : freshPct >= 40 ? "var(--text-warning)" : "var(--text-error)";
+				const healthRow = overviewDetail.createDiv({ cls: "sb-health-row" });
+				const barWrap = healthRow.createDiv({ cls: "sb-health-bar" });
+				barWrap.createDiv({ cls: "sb-health-fill", attr: { style: `width:${freshPct}%;background:${barColor}` } });
+				const healthStats = healthRow.createDiv({ cls: "sb-health-stats" });
+				healthStats.createEl("span", { cls: "sb-health-badge", text: `${freshPct}%` });
+				healthStats.createEl("span", { cls: "sb-health-label", text: t("health.healthBar", lang) });
+				healthStats.createEl("span", { cls: "sb-health-sep", text: "|" });
+				healthStats.createEl("span", { cls: "sb-health-badge", text: String(health.avgLinkCount) });
+				healthStats.createEl("span", { cls: "sb-health-label", text: t("health.avgLinks", lang) });
+				healthStats.createEl("span", { cls: "sb-health-sep", text: "|" });
+				healthStats.createEl("span", { cls: "sb-health-badge", text: `${reviewedCount}/${totalPages}` });
+				healthStats.createEl("span", { cls: "sb-health-label", text: t("health.reviewProgress", lang, { reviewed: String(reviewedCount), total: String(totalPages) }) });
+
+				if (health.stalePages.length > 0) {
+					const staleToggle = overviewDetail.createDiv({ cls: "sb-health-stale-toggle" });
+					staleToggle.createEl("span", { text: t("health.stalePages", lang) + ` (${health.stalePages.length})`, cls: "sb-health-stale-label" });
+					const toggleIcon = staleToggle.createEl("span", { text: "▸", cls: "sb-health-toggle-icon" });
+					const staleList = overviewDetail.createDiv({ cls: "sb-health-stale-list" });
+					staleList.style.display = "none";
+					for (const sp of health.stalePages) {
+						const row = staleList.createDiv({ cls: "sb-health-stale-row" });
+						row.createEl("a", { text: sp.name, cls: "sb-health-stale-name" })
+							.addEventListener("click", (ev) => { ev.preventDefault(); this.navigateTo(sp.name); });
+						row.createEl("span", { text: t("health.daysAgo", lang, { n: sp.daysSinceUpdate }), cls: "sb-health-stale-days" });
+						if (sp.level) row.createEl("span", { text: sp.level, cls: "sb-health-stale-level" });
+					}
+					staleToggle.addEventListener("click", () => {
+						const open = staleList.style.display !== "none";
+						staleList.style.display = open ? "none" : "";
+						toggleIcon.textContent = open ? "▸" : "▾";
+					});
+				}
+			}
+
+			overviewToggle.addEventListener("click", () => {
+				const open = overviewDetail.style.display !== "none";
+				overviewDetail.style.display = open ? "none" : "";
+				overviewToggle.classList.toggle("sb-overview-expanded", !open);
+			});
+
+				const recentPages = this.wikiPages
 			.map(f => ({ name: f.path.split("/").pop()!.replace(".md", ""), date: extractUpdated(f.content) }))
 			.filter(f => f.date)
 			.sort((a, b) => b.date.localeCompare(a.date))
-			.slice(0, 8);
+			.slice(0, 4);
 		if (recentPages.length > 0) {
 			this.bodyEl.createEl("h3", { text: t("wiki.recentUpdates", lang), cls: "sb-wiki-h3" });
 			const recentGrid = this.bodyEl.createDiv({ cls: "sb-wiki-grid" });
 			for (const rp of recentPages) {
-				const card = recentGrid.createDiv({ cls: "sb-wiki-card" });
+				const card = recentGrid.createDiv({ cls: "sb-wiki-card", attr: { "data-name": rp.name } });
 				card.createEl("a", { text: rp.name, cls: "sb-wiki-card-title" })
 					.addEventListener("click", (ev) => { ev.preventDefault(); this.navigateTo(rp.name); });
 				card.createEl("span", { text: rp.date, cls: "sb-wiki-card-date" });
@@ -327,71 +352,144 @@ export class WikiView extends ItemView {
 			}
 		}
 
-				// 收集 index 中的已知页面名
-		const indexNames = new Set<string>();
-		for (const sec of this.indexData)
-			for (const sub of sec.subs)
-				for (const i of sub.items) indexNames.add(i.name);
+		} else {
+			const matchCount = this.wikiPages.filter(f => {
+				const name = f.path.split("/").pop()!.replace(".md", "");
+				if (name === "index" || name === "log") return false;
+				return name.toLowerCase().includes(query) || f.content.toLowerCase().includes(query);
+			}).length;
+			this.bodyEl.createEl("p", { text: `${matchCount} 条结果`, cls: "sb-wiki-search-hint" });
+		}
 
-		for (const sec of this.indexData) {
-			let hasTitle = false;
-			for (const sub of sec.subs) {
-				let items = sub.items;
-				if (query) {
-					items = items.filter(i =>
-						i.name.toLowerCase().includes(query) ||
-						i.display.toLowerCase().includes(query) ||
-						(i.desc || "").toLowerCase().includes(query)
-					);
-				}
-				if (query && items.length === 0) continue;
+// 统一页面列表：合并 index 条目和非 index 页面
+			const indexNames = new Set<string>();
+			for (const sec of this.indexData)
+				for (const sub of sec.subs)
+					for (const i of sub.items) indexNames.add(i.name);
 
-				items = this.sortItems(items);
+			type PageEntry = { name: string; display: string; desc: string; section: string; subSection: string };
+			const entries: PageEntry[] = [];
 
-				if (!hasTitle) {
-					this.bodyEl.createEl("h2", { text: sec.title, cls: "sb-wiki-h2" });
-					hasTitle = true;
-				}
-				if (sub.title) {
-					this.bodyEl.createEl("h3", { text: sub.title, cls: "sb-wiki-h3" });
-				}
-
-				const grid = this.bodyEl.createDiv({ cls: "sb-wiki-grid" });
-				for (const item of items) {
-					const card = grid.createDiv({ cls: "sb-wiki-card" });
-					const page = this.findPage(item.name);
-					const pageTags = page ? extractTags(page.content) : [];
-
-					if (page) {
-						const pageStatus = extractStatus(page.content);
-						if (pageStatus === "draft") {
-							card.classList.add("sb-wiki-card-draft");
-							card.createEl("span", { text: t("wiki.statusDraft", lang), cls: "sb-wiki-status-badge sb-status-draft" });
-						} else if (pageStatus === "reviewed") {
-							card.classList.add("sb-wiki-card-reviewed");
-							card.createEl("span", { text: t("wiki.statusReviewed", lang), cls: "sb-wiki-status-badge sb-status-reviewed" });
-						}
-					}
-
-					card.createEl("a", { text: item.display, cls: "sb-wiki-card-title" })
-						.addEventListener("click", (ev) => {
-							ev.preventDefault();
-							this.navigateTo(item.name);
-						});
-
-					if (item.desc) {
-						card.createEl("p", { text: item.desc, cls: "sb-wiki-card-desc" });
-					}
-
-					if (pageTags.length > 0) {
-						const tagRow = card.createDiv({ cls: "sb-wiki-card-tags" });
-						for (const tag of pageTags.slice(0, 3)) {
-							tagRow.createEl("span", { text: tag, cls: "sb-wiki-tag" });
-						}
+			// index 条目
+			for (const sec of this.indexData) {
+				for (const sub of sec.subs) {
+					for (const item of sub.items) {
+						entries.push({ name: item.name, display: item.display, desc: item.desc || "", section: sec.title, subSection: sub.title });
 					}
 				}
 			}
-		}
+
+			// 不在 index 中的页面
+			for (const f of this.wikiPages) {
+				const name = f.path.split("/").pop()!.replace(".md", "");
+				if (name === "index" || name === "log") continue;
+				if (indexNames.has(name)) continue;
+				const fmTitle = f.content.match(/^title:\s*["']?(.+?)["']?\s*$/m);
+				const stripped = f.content.replace(/^---\n[\s\S]*?\n---\n*/, "");
+				const firstLine = stripped.split("\n").find((l: string) => l.trim() && !l.startsWith("#") && !l.startsWith(">")) || "";
+				entries.push({ name, display: fmTitle ? fmTitle[1] : name, desc: firstLine.slice(0, 120), section: "", subSection: "" });
+			}
+
+			// 搜索过滤：关键词 + 语义
+			let filtered = entries;
+			if (query) {
+				const keywordMatch = new Set(entries.filter((e: PageEntry) => {
+					if (e.name.toLowerCase().includes(query) || e.display.toLowerCase().includes(query) || e.desc.toLowerCase().includes(query)) return true;
+					const page = this.findPage(e.name);
+					return page != null && page.content.toLowerCase().includes(query);
+				}).map(e => e.name));
+
+				// 后台语义搜索，有结果时追加渲染
+				const filesMap: Record<string, string> = {};
+				for (const p of this.wikiPages) filesMap[p.path] = p.content;
+				vectorSearch(query, filesMap, this.plugin.settings, 10).then(results => {
+					const semanticNames = new Set<string>();
+					for (const r of results) {
+						const name = r.filePath.split("/").pop()!.replace(".md", "");
+						if (!keywordMatch.has(name)) semanticNames.add(name);
+					}
+					if (semanticNames.size === 0) return;
+					// 在已有结果后追加语义匹配区
+					const semEntries = entries.filter(e => semanticNames.has(e.name));
+					if (semEntries.length === 0) return;
+					this.bodyEl.createEl("h2", { text: t("wiki.semanticMatch", lang), cls: "sb-wiki-h2" });
+					const grid = this.bodyEl.createDiv({ cls: "sb-wiki-grid" });
+					for (const entry of semEntries) {
+						const card = grid.createDiv({ cls: "sb-wiki-card sb-wiki-card-semantic" });
+						const page = this.findPage(entry.name);
+						if (page) {
+							const ps = extractStatus(page.content);
+							if (ps === "draft") card.createEl("span", { text: t("wiki.statusDraft", lang), cls: "sb-wiki-status-badge sb-status-draft" });
+							else if (ps === "reviewed") card.createEl("span", { text: t("wiki.statusReviewed", lang), cls: "sb-wiki-status-badge sb-status-reviewed" });
+						}
+						card.createEl("a", { text: entry.display, cls: "sb-wiki-card-title" })
+							.addEventListener("click", (ev) => { ev.preventDefault(); this.navigateTo(entry.name); });
+						if (entry.desc) card.createEl("p", { text: entry.desc, cls: "sb-wiki-card-desc" });
+					}
+				}).catch(() => {});
+
+				filtered = entries.filter(e => keywordMatch.has(e.name));
+			}
+
+			// 状态筛选
+			if (this.statusFilter !== "all") {
+				filtered = filtered.filter((e: PageEntry) => {
+					const page = this.findPage(e.name);
+					if (!page) return false;
+					const s = extractStatus(page.content);
+					return this.statusFilter === "draft" ? s !== "reviewed" : s === "reviewed";
+				});
+			}
+
+			// 渲染：按 index 分组，无分组的统一放在一个 grid 中
+			const renderedSections = new Set<string>();
+			let currentGrid: HTMLElement | null = null;
+
+			for (const entry of filtered) {
+				const secKey = entry.section + "/" + entry.subSection;
+				if (entry.section && !renderedSections.has(secKey)) {
+					if (!renderedSections.has(entry.section)) {
+						this.bodyEl.createEl("h2", { text: entry.section, cls: "sb-wiki-h2" });
+						renderedSections.add(entry.section);
+					}
+					if (entry.subSection) {
+						this.bodyEl.createEl("h3", { text: entry.subSection, cls: "sb-wiki-h3" });
+					}
+					currentGrid = this.bodyEl.createDiv({ cls: "sb-wiki-grid" });
+					renderedSections.add(secKey);
+				} else if (!currentGrid) {
+					currentGrid = this.bodyEl.createDiv({ cls: "sb-wiki-grid" });
+				}
+
+				const page = this.findPage(entry.name);
+				const pageTags = page ? extractTags(page.content) : [];
+				const card = (currentGrid as HTMLElement).createDiv({ cls: "sb-wiki-card", attr: { "data-name": entry.name } });
+
+				if (page) {
+					const pageStatus = extractStatus(page.content);
+					if (pageStatus === "draft") {
+						card.classList.add("sb-wiki-card-draft");
+						card.createEl("span", { text: t("wiki.statusDraft", lang), cls: "sb-wiki-status-badge sb-status-draft" });
+					} else if (pageStatus === "reviewed") {
+						card.classList.add("sb-wiki-card-reviewed");
+						card.createEl("span", { text: t("wiki.statusReviewed", lang), cls: "sb-wiki-status-badge sb-status-reviewed" });
+					}
+				}
+
+				card.createEl("a", { text: entry.display, cls: "sb-wiki-card-title" })
+					.addEventListener("click", (ev) => { ev.preventDefault(); this.navigateTo(entry.name); });
+
+				if (entry.desc) {
+					card.createEl("p", { text: entry.desc, cls: "sb-wiki-card-desc" });
+				}
+
+				if (pageTags.length > 0) {
+					const tagRow = card.createDiv({ cls: "sb-wiki-card-tags" });
+					for (const tag of pageTags.slice(0, 3)) {
+						tagRow.createEl("span", { text: tag, cls: "sb-wiki-tag" });
+					}
+				}
+			}
 
 		// 不在 index 中的 wiki 页面（搜索或 index 为空时展示）
 		const extraPages = this.wikiPages.filter(f => {
@@ -399,7 +497,7 @@ export class WikiView extends ItemView {
 			if (name === "index" || name === "log") return false;
 			if (indexNames.has(name)) return false;
 			if (query) {
-				return name.toLowerCase().includes(query) || f.content.slice(0, 500).toLowerCase().includes(query);
+				return name.toLowerCase().includes(query) || f.content.toLowerCase().includes(query);
 			}
 			return true;
 		});
@@ -645,7 +743,25 @@ export class WikiView extends ItemView {
 		}
 
 		const pageStatus = extractStatus(page.content);
-		if (pageStatus === "draft") {
+		if (pageStatus === "gap") {
+			const banner = this.bodyEl.createDiv({ cls: "sb-draft-banner" });
+			banner.createEl("span", { text: t("wiki.gap", lang), cls: "sb-draft-label" });
+			const regenBtn = banner.createEl("button", { text: t("wiki.regeneratePage", lang), cls: "sb-draft-review-btn" });
+			regenBtn.addEventListener("click", async () => {
+				await this.markForRegeneration(name);
+					regenBtn.textContent = t("wiki.regeneratePageDone", lang);
+				regenBtn.setAttribute("disabled", "true");
+			});
+		} else if (pageStatus === "outdated") {
+			const banner = this.bodyEl.createDiv({ cls: "sb-draft-banner" });
+			banner.createEl("span", { text: t("wiki.outdated", lang), cls: "sb-draft-label" });
+			const regenBtn = banner.createEl("button", { text: t("wiki.regeneratePage", lang), cls: "sb-draft-review-btn" });
+			regenBtn.addEventListener("click", async () => {
+				await this.markForRegeneration(name);
+					regenBtn.textContent = t("wiki.regeneratePageDone", lang);
+				regenBtn.setAttribute("disabled", "true");
+			});
+		} else if (pageStatus === "draft") {
 			const banner = this.bodyEl.createDiv({ cls: "sb-draft-banner" });
 			banner.createEl("span", { text: t("wiki.draft", lang), cls: "sb-draft-label" });
 			const reviewBtn = banner.createEl("button", { text: t("wiki.markReviewed", lang), cls: "sb-draft-review-btn" });
@@ -826,6 +942,27 @@ ${strippedContent.slice(0, 6000)}` },
 		}
 	}
 
+	private async markForRegeneration(name: string): Promise<void> {
+		const page = this.findPage(name);
+		if (!page) return;
+		const updated = page.content.replace(/^status:\s*["']?\w+["']?\s*$/m, 'status: "draft"');
+		const wf = this.plugin.settings.wikiFolder;
+		const fullPath = `${wf}/${page.path}`;
+		const file = this.app.vault.getAbstractFileByPath(fullPath);
+		if (file instanceof TFile) {
+			await this.app.vault.modify(file, updated);
+			page.content = updated;
+			new Notice(t("wiki.regeneratePageDone", this.plugin.settings.language));
+			try {
+				await runCompile(this.app, this.plugin.settings, undefined, false, this.plugin as any);
+				await this.loadWiki();
+				this.renderPage(name);
+			} catch (e) {
+				console.warn("markForRegeneration: compile failed:", e);
+			}
+		}
+	}
+
 	private findBacklinks(name: string): Array<{ name: string; display: string }> {
 		const results: Array<{ name: string; display: string }> = [];
 		const searchPatterns = [`[[${name}]]`, `[[${name}|`, `[[${name}#`];
@@ -842,5 +979,13 @@ ${strippedContent.slice(0, 6000)}` },
 
 	async onClose() {
 		this.component.unload();
+		if (this.searchTimer) {
+			clearTimeout(this.searchTimer);
+			this.searchTimer = null;
+		}
+		if (this.dropdownCloseHandler) {
+			document.removeEventListener("click", this.dropdownCloseHandler);
+			this.dropdownCloseHandler = null;
+		}
 	}
 }

@@ -268,7 +268,14 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 		} else if (state === "compiling") {
 			this.statusBarItem.setText(pro ? t("pro.statusCompiling", lang) : t("sb.compiling", lang));
 		} else if (state === "pending") {
-			this.statusBarItem.setText(pro ? t("pro.statusPending", lang) : t("sb.pending", lang, { n: count || 0 }));
+			// wiki 非空时显示就绪，只有首次（wiki 为空）才显示待编译
+			const wikiDir = this.app.vault.getAbstractFileByPath(this.settings.wikiFolder);
+			const hasWikiPages = wikiDir && (wikiDir as any).children && (wikiDir as any).children.length > 0;
+			if (hasWikiPages) {
+				this.statusBarItem.setText(pro ? t("pro.statusReady", lang) : t("sb.ready", lang));
+			} else {
+				this.statusBarItem.setText(pro ? t("pro.statusPending", lang) : t("sb.pending", lang, { n: count || 0 }));
+			}
 		}
 	}
 

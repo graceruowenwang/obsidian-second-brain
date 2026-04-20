@@ -34,6 +34,8 @@ export interface WikiViewCtx {
 	extractLevel(content: string): string;
 	extractTags(content: string): string[];
 	markAsReviewed(name: string): Promise<void>;
+	markForRegeneration(name: string): Promise<void>;
+	renderIndex(): void;
 }
 
 // Frontmatter 提取工具

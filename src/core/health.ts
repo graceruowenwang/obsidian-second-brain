@@ -25,6 +25,8 @@ export interface WikiHealth {
 	total: number;
 	/** 已审核页面数 */
 	reviewed: number;
+	/** 知识缺口页面数 (status=gap) */
+	gapPages: number;
 }
 
 const STALE_THRESHOLD_DAYS = 30;
@@ -49,12 +51,13 @@ export function computeWikiHealth(wikiPages: WikiPage[]): WikiHealth {
 	const total = allPages.length;
 
 	if (total === 0) {
-		return { staleness: 0, avgLinkCount: 0, orphanRisk: 0, stalePages: [], total: 0, reviewed: 0 };
+		return { staleness: 0, avgLinkCount: 0, orphanRisk: 0, stalePages: [], total: 0, reviewed: 0, gapPages: 0 };
 	}
 
 	let totalLinks = 0;
 	let orphanCount = 0;
 	let reviewed = 0;
+	let gapPages = 0;
 
 	const staleCandidates: StalePage[] = [];
 
@@ -65,6 +68,7 @@ export function computeWikiHealth(wikiPages: WikiPage[]): WikiHealth {
 
 		const status = extractStatus(page.content);
 		if (status === "reviewed") reviewed++;
+		if (status === "gap") gapPages++;
 
 		if (!page.path.includes("concepts/")) continue;
 
@@ -94,5 +98,6 @@ export function computeWikiHealth(wikiPages: WikiPage[]): WikiHealth {
 		stalePages: staleCandidates.slice(0, MAX_STALE_PAGES),
 		total,
 		reviewed,
+		gapPages,
 	};
 }
