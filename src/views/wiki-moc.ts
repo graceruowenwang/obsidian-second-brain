@@ -50,16 +50,27 @@ export async function showMoc(ctx: WikiViewCtx): Promise<void> {
 		return;
 	}
 
-	const grid = ctx.bodyEl.createDiv({ cls: "sb-wiki-grid" });
+	const list = ctx.bodyEl.createDiv({ cls: "sb-wiki-list sb-wiki-list-moc" });
 	for (const page of mocPages) {
 		const name = page.path.split("/").pop()!.replace(".md", "");
-		const card = grid.createDiv({ cls: "sb-wiki-card sb-wiki-card-reviewed" });
+		const row = list.createDiv({
+			cls: "sb-wiki-list-row sb-wiki-list-row-moc",
+			attr: { "data-name": name, role: "button", tabindex: "0" },
+		});
+		row.addEventListener("click", () => ctx.navigateTo(name));
+		row.addEventListener("keydown", (ev) => {
+			if (ev.key === "Enter" || ev.key === " ") {
+				ev.preventDefault();
+				ctx.navigateTo(name);
+			}
+		});
+		row.createDiv({ cls: "sb-wiki-list-kind sb-wiki-list-kind-moc", text: t("wiki.mocShort", lang) });
+		const main = row.createDiv({ cls: "sb-wiki-list-main" });
 		const fmTitle = page.content.match(/^title:\s*["']?(.+?)["']?\s*$/m);
-		card.createEl("a", { text: fmTitle ? fmTitle[1] : name, cls: "sb-wiki-card-title" })
-			.addEventListener("click", (ev) => { ev.preventDefault(); ctx.navigateTo(name); });
+		main.createEl("div", { text: fmTitle ? fmTitle[1] : name, cls: "sb-wiki-list-title" });
 		const stripped = page.content.replace(/^---\n[\s\S]*?\n---\n*/, "");
 		const firstLine = stripped.split("\n").find(l => l.trim() && !l.startsWith("#") && !l.startsWith(">")) || "";
-		if (firstLine) card.createEl("p", { text: firstLine.slice(0, 120), cls: "sb-wiki-card-desc" });
+		if (firstLine) main.createEl("div", { cls: "sb-wiki-list-desc", text: firstLine.slice(0, 160) });
 	}
 }
 

@@ -66,6 +66,29 @@ export function extractUpdated(content: string): string {
 	return extractFmField(content, "last_updated");
 }
 
+/** 读取 frontmatter 中的 executive_summary（Wiki 提炼摘要） */
+export function extractExecutiveSummary(content: string): string {
+	const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+	if (!fmMatch) return "";
+	for (const line of fmMatch[1].split("\n")) {
+		const trimmed = line.trimStart();
+		if (!trimmed.startsWith("executive_summary:")) continue;
+		let raw = trimmed.slice("executive_summary:".length).trim();
+		if (raw.startsWith('"')) {
+			try {
+				return JSON.parse(raw) as string;
+			} catch {
+				return raw.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, "\\");
+			}
+		}
+		if (raw.startsWith("'")) {
+			return raw.slice(1, -1).replace(/\\'/g, "'");
+		}
+		return raw;
+	}
+	return "";
+}
+
 export function extractFmArray(content: string, field: string): string[] {
 	const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
 	if (!fmMatch) return [];

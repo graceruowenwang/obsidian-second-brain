@@ -1,6 +1,6 @@
 // Wiki 预览视图 -- 结构化浏览 + 内联页面预览 + 反向链接
 
-import { ItemView, WorkspaceLeaf, MarkdownRenderer, Component, Notice, TFile, Modal } from "obsidian";
+import { ItemView, WorkspaceLeaf, MarkdownRenderer, Component, Notice, TFile, Modal, setIcon } from "obsidian";
 import type { SecondBrainPlugin } from "../types";
 import { runCompile } from "../core/compile";
 import { openPluginSettings } from "../types";
@@ -13,9 +13,11 @@ import { openSynthesisDialog } from "./wiki-synthesis";
 import { toggleBatchReview } from "./wiki-batch";
 import { setAsyncButton } from "../ui/async-button";
 import type { WikiPage, IndexItem, IndexSection, WikiViewCtx } from "./wiki-shared";
-import { extractFmField, extractTags, stripFrontmatter, extractStatus, extractUpdated, extractFmArray } from "./wiki-shared";
+import { extractFmField, extractTags, stripFrontmatter, extractStatus, extractUpdated, extractFmArray, extractExecutiveSummary } from "./wiki-shared";
 
 export const VIEW_TYPE_WIKI = "second-brain-wiki";
+
+type WikiIndexEntry = { name: string; display: string; desc: string; section: string; subSection: string };
 
 /** Stable heading ids for in-preview outline links */
 function wikiHeadingSlug(text: string, used: Set<string>): string {
@@ -38,6 +40,7 @@ export class WikiView extends ItemView {
 	private bodyEl: HTMLElement;
 	private searchEl: HTMLInputElement;
 	private sortSelect: HTMLSelectElement;
+	private statusSelect: HTMLSelectElement;
 	private wikiPages: WikiPage[] = [];
 	private indexData: IndexSection[] = [];
 	private currentView: "index" | "page" = "index";
@@ -76,28 +79,27 @@ export class WikiView extends ItemView {
 
 		const toolbar = container.createDiv({ cls: "sb-wiki-toolbar" });
 
-		// Row 1: view toggle + search + refresh
 		const row1 = toolbar.createDiv({ cls: "sb-wiki-toolbar-row1" });
+		row1.style.position = "relative";
 
 		const toggle = row1.createDiv({ cls: "sb-wiki-view-toggle" });
 		this.indexBtn = toggle.createEl("button", { text: t("wiki.tabIndex", lang), cls: "sb-wiki-view-btn active" });
-		const mocBtn = toggle.createEl("button", { text: "MOC", cls: "sb-wiki-view-btn" });
+		const mocBtn = toggle.createEl("button", { text: t("wiki.mocShort", lang), cls: "sb-wiki-view-btn" });
 		this.indexBtn.addEventListener("click", () => this.showIndex());
 		mocBtn.addEventListener("click", () => showMoc(this.ctx()));
 
 		this.searchEl = row1.createEl("input", {
-			attr: { placeholder: t("wiki.search", lang), type: "text" },
+			attr: { placeholder: t("wiki.search", lang), type: "text", "aria-label": t("wiki.search", lang) },
 			cls: "sb-wiki-search",
 		});
 
-		const refreshBtn = row1.createEl("button", { text: t("wiki.refresh", lang), cls: "sb-wiki-refresh" });
-		refreshBtn.addEventListener("click", () => this.loadWiki());
-
-		// Row 2: sort + more dropdown (synth + batch)
-		const row2 = toolbar.createDiv({ cls: "sb-wiki-toolbar-row2" });
-		row2.style.position = "relative";
-
-		this.sortSelect = row2.createEl("select", { cls: "sb-wiki-sort" });
+		const filterDetails = row1.createEl("details", { cls: "sb-wiki-toolbar-filters" });
+		const filterSummary = filterDetails.createEl("summary", { cls: "sb-wiki-toolbar-filters-summary" });
+		setIcon(filterSummary.createSpan({ cls: "sb-wiki-toolbar-filters-icon" }), "sliders-horizontal");
+		filterSummary.createSpan({ text: t("wiki.filtersSummary", lang), cls: "sb-wiki-toolbar-filters-text" });
+		const filterBody = filterDetails.createDiv({ cls: "sb-wiki-toolbar-filters-body" });
+		filterBody.createEl("label", { text: t("wiki.sortLabel", lang), cls: "sb-wiki-filter-label" });
+		this.sortSelect = filterBody.createEl("select", { cls: "sb-wiki-sort" });
 		const sortOptions: Array<{ value: string; key: string }> = [
 			{ value: "name-asc", key: "wiki.sortNameAsc" },
 			{ value: "name-desc", key: "wiki.sortNameDesc" },
@@ -108,27 +110,41 @@ export class WikiView extends ItemView {
 		for (const opt of sortOptions) {
 			this.sortSelect.createEl("option", { text: t(opt.key, lang), attr: { value: opt.value } });
 		}
+		this.sortSelect.value = this.sortMode;
 		this.sortSelect.addEventListener("change", () => {
 			this.sortMode = this.sortSelect.value as typeof this.sortMode;
 			this.renderIndex();
 		});
-
-		const statusSelect = row2.createEl("select", { cls: "sb-wiki-sort" });
+		filterBody.createEl("label", { text: t("wiki.statusLabel", lang), cls: "sb-wiki-filter-label" });
+		this.statusSelect = filterBody.createEl("select", { cls: "sb-wiki-sort" });
 		const statusOptions: Array<{ value: string; key: string }> = [
 			{ value: "all", key: "wiki.filterAll" },
 			{ value: "draft", key: "wiki.statusDraft" },
 			{ value: "reviewed", key: "wiki.statusReviewed" },
 		];
 		for (const opt of statusOptions) {
-			statusSelect.createEl("option", { text: t(opt.key, lang), attr: { value: opt.value } });
+			this.statusSelect.createEl("option", { text: t(opt.key, lang), attr: { value: opt.value } });
 		}
-		statusSelect.addEventListener("change", () => {
-			this.statusFilter = statusSelect.value as typeof this.statusFilter;
+		this.statusSelect.value = this.statusFilter;
+		this.statusSelect.addEventListener("change", () => {
+			this.statusFilter = this.statusSelect.value as typeof this.statusFilter;
 			this.renderIndex();
 		});
 
-			const moreBtn = row2.createEl("button", { text: "...", cls: "sb-wiki-more-btn" });
-		this.dropdownEl = row2.createDiv({ cls: "sb-wiki-dropdown" });
+		const refreshBtn = row1.createEl("button", {
+			attr: { "aria-label": t("wiki.refresh", lang), title: t("wiki.refresh", lang) },
+			cls: "sb-wiki-refresh sb-wiki-icon-btn",
+		});
+		setIcon(refreshBtn, "refresh-cw");
+		refreshBtn.addEventListener("click", () => this.loadWiki());
+
+		const moreBtn = row1.createEl("button", {
+			attr: { "aria-label": t("wiki.moreMenu", lang), title: t("wiki.moreMenu", lang) },
+			cls: "sb-wiki-more-btn sb-wiki-icon-btn",
+		});
+		setIcon(moreBtn, "more-vertical");
+
+		this.dropdownEl = row1.createDiv({ cls: "sb-wiki-dropdown" });
 		this.dropdownEl.style.display = "none";
 		const synthItem = this.dropdownEl.createEl("button", { text: t("wiki.synthBtn", lang), cls: "sb-wiki-dropdown-item" });
 		const batchItem = this.dropdownEl.createEl("button", { text: t("wiki.batchReview", lang), cls: "sb-wiki-dropdown-item" });
@@ -241,12 +257,168 @@ export class WikiView extends ItemView {
 		return sections;
 	}
 
+	private sortPageEntries(entries: WikiIndexEntry[]): WikiIndexEntry[] {
+		const copy = [...entries];
+		const page = (name: string) => this.findPage(name);
+		const getUpdated = (name: string) => extractUpdated(page(name)?.content || "") || "";
+		const getType = (name: string) => (page(name) ? extractFmField(page(name)!.content, "type") : "") || "";
+		const getLevel = (name: string) => (page(name) ? extractFmField(page(name)!.content, "level") : "") || "";
+		const cmpName = (a: WikiIndexEntry, b: WikiIndexEntry) =>
+			a.display.localeCompare(b.display, undefined, { sensitivity: "base" });
+
+		switch (this.sortMode) {
+			case "name-asc":
+				copy.sort(cmpName);
+				break;
+			case "name-desc":
+				copy.sort((a, b) => -cmpName(a, b));
+				break;
+			case "type":
+				copy.sort((a, b) => getType(a.name).localeCompare(getType(b.name)) || cmpName(a, b));
+				break;
+			case "level":
+				copy.sort((a, b) => getLevel(a.name).localeCompare(getLevel(b.name)) || cmpName(a, b));
+				break;
+			case "recent":
+				copy.sort((a, b) => getUpdated(b.name).localeCompare(getUpdated(a.name)) || cmpName(a, b));
+				break;
+		}
+		return copy;
+	}
+
+	private appendWikiListRow(
+		container: HTMLElement,
+		entry: WikiIndexEntry,
+		lang: string,
+		opts?: { semantic?: boolean },
+	): void {
+		const page = this.findPage(entry.name);
+		const path = page?.path || "";
+		const kind: "concept" | "entity" | "source" | "other" = path.includes("concepts/")
+			? "concept"
+			: path.includes("entities/")
+				? "entity"
+				: path.includes("sources/")
+					? "source"
+					: "other";
+		const kindKey = kind === "concept" ? "wiki.kindShortConcept" : kind === "entity" ? "wiki.kindShortEntity" : kind === "source" ? "wiki.kindShortSource" : "wiki.kindShortOther";
+		const row = container.createDiv({
+			cls: "sb-wiki-list-row" + (opts?.semantic ? " sb-wiki-list-row-semantic" : ""),
+			attr: { "data-name": entry.name },
+		});
+		row.setAttribute("role", "button");
+		row.tabIndex = 0;
+		row.addEventListener("keydown", (ev) => {
+			if (ev.key === "Enter" || ev.key === " ") {
+				ev.preventDefault();
+				this.navigateTo(entry.name);
+			}
+		});
+		row.addEventListener("click", (ev) => {
+			if ((ev.target as HTMLElement).closest(".sb-batch-checkbox")) return;
+			this.navigateTo(entry.name);
+		});
+
+		const kindEl = row.createDiv({ cls: `sb-wiki-list-kind sb-wiki-list-kind-${kind}`, text: t(kindKey, lang) });
+		kindEl.setAttribute("aria-hidden", "true");
+
+		const main = row.createDiv({ cls: "sb-wiki-list-main" });
+		main.createEl("div", { text: entry.display, cls: "sb-wiki-list-title" });
+		const trail = [entry.section, entry.subSection].filter(Boolean).join(" › ");
+		if (trail) main.createDiv({ cls: "sb-wiki-list-path", text: trail });
+		if (entry.desc) main.createEl("div", { cls: "sb-wiki-list-desc", text: entry.desc.slice(0, 160) });
+		const tags = page ? extractTags(page.content) : [];
+		if (tags.length > 0) {
+			const tagRow = main.createDiv({ cls: "sb-wiki-list-tags" });
+			for (const tag of tags.slice(0, 4)) {
+				tagRow.createEl("span", { text: tag, cls: "sb-wiki-list-tag" });
+			}
+		}
+
+		const meta = row.createDiv({ cls: "sb-wiki-list-meta" });
+		if (page) {
+			const ps = extractStatus(page.content);
+			if (ps === "draft") meta.createEl("span", { cls: "sb-wiki-list-status sb-wiki-list-status-draft", text: t("wiki.statusDraft", lang) });
+			else if (ps === "reviewed") meta.createEl("span", { cls: "sb-wiki-list-status sb-wiki-list-status-reviewed", text: t("wiki.statusReviewed", lang) });
+			const d = extractUpdated(page.content);
+			if (d) meta.createEl("span", { cls: "sb-wiki-list-date", text: d });
+		}
+	}
+
+	private renderWikiEmpty(lang: string): void {
+		this.bodyEl.createDiv({ cls: "sb-wiki-empty" });
+		const guidance = this.bodyEl.createDiv({ cls: "sb-wiki-empty-guidance" });
+		guidance.createEl("h3", { text: t("empty.wikiTitle", lang) });
+		const steps = guidance.createDiv({ cls: "sb-empty-steps" });
+		const step1 = steps.createDiv({ cls: "sb-empty-step" });
+		step1.createEl("span", { text: "1", cls: "sb-empty-step-num" });
+		step1.createEl("span", { text: t("empty.step1Put", lang), cls: "sb-empty-step-text" });
+		const sampleFolder = this.app.vault.getAbstractFileByPath("raw-sample");
+		const rawFolder = this.plugin.settings.rawFolder;
+		const rawDir = this.app.vault.getAbstractFileByPath(rawFolder);
+		let rawHasFiles = false;
+		if (rawDir) {
+			const allFiles = this.app.vault.getFiles();
+			rawHasFiles = allFiles.some(f => f.path.startsWith(rawFolder + "/") && !f.path.includes("_usage"));
+		}
+		if (!rawHasFiles && sampleFolder) {
+			const sampleBtn = guidance.createEl("button", { text: t("empty.loadSamples", lang), cls: "sb-empty-btn" });
+			sampleBtn.style.marginBottom = "8px";
+			sampleBtn.addEventListener("click", async () => {
+				sampleBtn.textContent = "...";
+				try {
+					const files = this.app.vault.getFiles().filter(f => f.path.startsWith("raw-sample/"));
+					for (const f of files) {
+						const targetPath = f.path.replace("raw-sample/", rawFolder + "/");
+						const existing = this.app.vault.getAbstractFileByPath(targetPath);
+						if (!existing) {
+							const fileContent = await this.app.vault.read(f);
+							const folderPath = targetPath.substring(0, targetPath.lastIndexOf("/"));
+							const folder = this.app.vault.getAbstractFileByPath(folderPath);
+							if (!folder) {
+								const parts = folderPath.split("/");
+								let cur = "";
+								for (const p of parts) {
+									cur = cur ? cur + "/" + p : p;
+									if (!this.app.vault.getAbstractFileByPath(cur)) {
+										await this.app.vault.createFolder(cur);
+									}
+								}
+							}
+							await this.app.vault.create(targetPath, fileContent);
+						}
+					}
+					sampleBtn.textContent = t("empty.samplesLoaded", lang);
+				} catch (e) {
+					sampleBtn.textContent = t("empty.samplesFail", lang);
+				}
+			});
+		}
+		const step2 = steps.createDiv({ cls: "sb-empty-step" });
+		step2.createEl("span", { text: "2", cls: "sb-empty-step-num" });
+		step2.createEl("span", { text: t("empty.step2Compile", lang), cls: "sb-empty-step-text" });
+		const step3 = steps.createDiv({ cls: "sb-empty-step" });
+		step3.createEl("span", { text: "3", cls: "sb-empty-step-num" });
+		step3.createEl("span", { text: t("empty.step3Browse", lang), cls: "sb-empty-step-text" });
+		const btnRow = guidance.createDiv({ cls: "sb-empty-btn-row" });
+		btnRow.createEl("button", { text: t("empty.openSettings", lang), cls: "sb-empty-btn" })
+			.addEventListener("click", () => openPluginSettings(this.app));
+		btnRow.createEl("button", { text: t("empty.startCompile", lang), cls: "sb-empty-btn mod-cta" })
+			.addEventListener("click", () => this.plugin.activateView("second-brain-compile"));
+	}
 
 	private renderIndex() {
 		const query = (this.searchEl?.value || "").toLowerCase();
 		const lang = this.plugin.settings.language;
 		const indexGen = ++this.indexRenderGeneration;
+		if (this.sortSelect) this.sortSelect.value = this.sortMode;
+		if (this.statusSelect) this.statusSelect.value = this.statusFilter;
 		this.bodyEl.empty();
+
+		if (this.wikiPages.length === 0) {
+			this.renderWikiEmpty(lang);
+			return;
+		}
 
 		if (!query) {
 			const cc = this.wikiPages.filter(f => f.path.includes("concepts/")).length;
@@ -325,28 +497,6 @@ export class WikiView extends ItemView {
 				overviewToggle.classList.toggle("sb-overview-expanded", !open);
 			});
 
-				const recentPages = this.wikiPages
-			.map(f => ({ name: f.path.split("/").pop()!.replace(".md", ""), date: extractUpdated(f.content) }))
-			.filter(f => f.date)
-			.sort((a, b) => b.date.localeCompare(a.date))
-			.slice(0, 4);
-		if (recentPages.length > 0) {
-			this.bodyEl.createEl("h3", { text: t("wiki.recentUpdates", lang), cls: "sb-wiki-h3" });
-			const recentGrid = this.bodyEl.createDiv({ cls: "sb-wiki-grid" });
-			for (const rp of recentPages) {
-				const card = recentGrid.createDiv({ cls: "sb-wiki-card", attr: { "data-name": rp.name } });
-				card.createEl("a", { text: rp.name, cls: "sb-wiki-card-title" })
-					.addEventListener("click", (ev) => { ev.preventDefault(); this.navigateTo(rp.name); });
-				card.createEl("span", { text: rp.date, cls: "sb-wiki-card-date" });
-				const page = this.findPage(rp.name);
-				if (page) {
-					const lines = page.content.split("\n");
-					const desc = lines.find(l => l.trim() && !l.startsWith("---") && !l.startsWith("#") && !l.startsWith("title:") && !l.startsWith("type:") && !l.startsWith("tags:"));
-					if (desc) card.createEl("p", { text: desc.slice(0, 80), cls: "sb-wiki-card-desc" });
-				}
-			}
-		}
-
 		} else {
 			const matchCount = this.wikiPages.filter(f => {
 				const name = f.path.split("/").pop()!.replace(".md", "");
@@ -362,8 +512,7 @@ export class WikiView extends ItemView {
 				for (const sub of sec.subs)
 					for (const i of sub.items) indexNames.add(i.name);
 
-			type PageEntry = { name: string; display: string; desc: string; section: string; subSection: string };
-			const entries: PageEntry[] = [];
+			const entries: WikiIndexEntry[] = [];
 
 			// index 条目
 			for (const sec of this.indexData) {
@@ -388,7 +537,7 @@ export class WikiView extends ItemView {
 			// 搜索过滤：关键词 + 语义
 			let filtered = entries;
 			if (query) {
-				const keywordMatch = new Set(entries.filter((e: PageEntry) => {
+				const keywordMatch = new Set(entries.filter((e: WikiIndexEntry) => {
 					if (e.name.toLowerCase().includes(query) || e.display.toLowerCase().includes(query) || e.desc.toLowerCase().includes(query)) return true;
 					const page = this.findPage(e.name);
 					return page != null && page.content.toLowerCase().includes(query);
@@ -405,31 +554,22 @@ export class WikiView extends ItemView {
 						if (!keywordMatch.has(name)) semanticNames.add(name);
 					}
 					if (semanticNames.size === 0) return;
-					// 在已有结果后追加语义匹配区
 					const semEntries = entries.filter(e => semanticNames.has(e.name));
 					if (semEntries.length === 0) return;
-					this.bodyEl.createEl("h2", { text: t("wiki.semanticMatch", lang), cls: "sb-wiki-h2" });
-					const grid = this.bodyEl.createDiv({ cls: "sb-wiki-grid" });
-					for (const entry of semEntries) {
-						const card = grid.createDiv({ cls: "sb-wiki-card sb-wiki-card-semantic" });
-						const page = this.findPage(entry.name);
-						if (page) {
-							const ps = extractStatus(page.content);
-							if (ps === "draft") card.createEl("span", { text: t("wiki.statusDraft", lang), cls: "sb-wiki-status-badge sb-status-draft" });
-							else if (ps === "reviewed") card.createEl("span", { text: t("wiki.statusReviewed", lang), cls: "sb-wiki-status-badge sb-status-reviewed" });
-						}
-						card.createEl("a", { text: entry.display, cls: "sb-wiki-card-title" })
-							.addEventListener("click", (ev) => { ev.preventDefault(); this.navigateTo(entry.name); });
-						if (entry.desc) card.createEl("p", { text: entry.desc, cls: "sb-wiki-card-desc" });
+					const host = this.bodyEl.querySelector(".sb-wiki-index-scroll");
+					if (!host) return;
+					host.createEl("h2", { text: t("wiki.semanticMatch", lang), cls: "sb-wiki-h2 sb-wiki-list-section-title" });
+					const semList = host.createDiv({ cls: "sb-wiki-list sb-wiki-list-semantic" });
+					for (const entry of this.sortPageEntries(semEntries)) {
+						this.appendWikiListRow(semList, entry, lang, { semantic: true });
 					}
 				}).catch(() => {});
 
 				filtered = entries.filter(e => keywordMatch.has(e.name));
 			}
 
-			// 状态筛选
 			if (this.statusFilter !== "all") {
-				filtered = filtered.filter((e: PageEntry) => {
+				filtered = filtered.filter((e: WikiIndexEntry) => {
 					const page = this.findPage(e.name);
 					if (!page) return false;
 					const s = extractStatus(page.content);
@@ -437,170 +577,28 @@ export class WikiView extends ItemView {
 				});
 			}
 
-			// 渲染：按 index 分组，无分组的统一放在一个 grid 中
-			const renderedSections = new Set<string>();
-			let currentGrid: HTMLElement | null = null;
-
-			for (const entry of filtered) {
-				const secKey = entry.section + "/" + entry.subSection;
-				if (entry.section && !renderedSections.has(secKey)) {
-					if (!renderedSections.has(entry.section)) {
-						this.bodyEl.createEl("h2", { text: entry.section, cls: "sb-wiki-h2" });
-						renderedSections.add(entry.section);
-					}
-					if (entry.subSection) {
-						this.bodyEl.createEl("h3", { text: entry.subSection, cls: "sb-wiki-h3" });
-					}
-					currentGrid = this.bodyEl.createDiv({ cls: "sb-wiki-grid" });
-					renderedSections.add(secKey);
-				} else if (!currentGrid) {
-					currentGrid = this.bodyEl.createDiv({ cls: "sb-wiki-grid" });
-				}
-
-				const page = this.findPage(entry.name);
-				const pageTags = page ? extractTags(page.content) : [];
-				const card = (currentGrid as HTMLElement).createDiv({ cls: "sb-wiki-card", attr: { "data-name": entry.name } });
-
-				if (page) {
-					const pageStatus = extractStatus(page.content);
-					if (pageStatus === "draft") {
-						card.classList.add("sb-wiki-card-draft");
-						card.createEl("span", { text: t("wiki.statusDraft", lang), cls: "sb-wiki-status-badge sb-status-draft" });
-					} else if (pageStatus === "reviewed") {
-						card.classList.add("sb-wiki-card-reviewed");
-						card.createEl("span", { text: t("wiki.statusReviewed", lang), cls: "sb-wiki-status-badge sb-status-reviewed" });
-					}
-				}
-
-				card.createEl("a", { text: entry.display, cls: "sb-wiki-card-title" })
-					.addEventListener("click", (ev) => { ev.preventDefault(); this.navigateTo(entry.name); });
-
-				if (entry.desc) {
-					card.createEl("p", { text: entry.desc, cls: "sb-wiki-card-desc" });
-				}
-
-				if (pageTags.length > 0) {
-					const tagRow = card.createDiv({ cls: "sb-wiki-card-tags" });
-					for (const tag of pageTags.slice(0, 3)) {
-						tagRow.createEl("span", { text: tag, cls: "sb-wiki-tag" });
-					}
-				}
+			const sorted = this.sortPageEntries(filtered);
+			const listMount = this.bodyEl.createDiv({ cls: "sb-wiki-index-scroll" });
+			listMount.createEl("h2", { text: t("wiki.pagesHeading", lang), cls: "sb-wiki-h2 sb-wiki-list-section-title" });
+			const listRoot = listMount.createDiv({ cls: "sb-wiki-list" });
+			const visible = sorted.slice(0, this.pageLimit);
+			for (const entry of visible) {
+				this.appendWikiListRow(listRoot, entry, lang);
+			}
+			if (sorted.length === 0) {
+				listRoot.createDiv({ cls: "sb-wiki-list-empty", text: t("wiki.listEmpty", lang) });
 			}
 
-		// 不在 index 中的 wiki 页面（搜索或 index 为空时展示）
-		const extraPages = this.wikiPages.filter(f => {
-			const name = f.path.split("/").pop()!.replace(".md", "");
-			if (name === "index" || name === "log") return false;
-			if (indexNames.has(name)) return false;
-			if (query) {
-				return name.toLowerCase().includes(query) || f.content.toLowerCase().includes(query);
-			}
-			return true;
-		});
-
-		if (extraPages.length > 0) {
-			this.bodyEl.createEl("h3", { text: t("wiki.otherMatches", lang), cls: "sb-wiki-h3" });
-			const grid = this.bodyEl.createDiv({ cls: "sb-wiki-grid" });
-			for (const f of extraPages.slice(0, this.pageLimit)) {
-				const name = f.path.split("/").pop()!.replace(".md", "");
-				const card = grid.createDiv({ cls: "sb-wiki-card" });
-				const pageStatus = extractStatus(f.content);
-				if (pageStatus === "draft") {
-					card.classList.add("sb-wiki-card-draft");
-					card.createEl("span", { text: t("wiki.statusDraft", lang), cls: "sb-wiki-status-badge sb-status-draft" });
-				} else if (pageStatus === "reviewed") {
-					card.classList.add("sb-wiki-card-reviewed");
-					card.createEl("span", { text: t("wiki.statusReviewed", lang), cls: "sb-wiki-status-badge sb-status-reviewed" });
-				}
-
-				const fmTitle = f.content.match(/^title:\s*["']?(.+?)["']?\s*$/m);
-				card.createEl("a", { text: fmTitle ? fmTitle[1] : name, cls: "sb-wiki-card-title" })
-					.addEventListener("click", (ev) => { ev.preventDefault(); this.navigateTo(name); });
-				const stripped = f.content.replace(/^---\n[\s\S]*?\n---\n*/, "");
-				const firstLine = stripped.split("\n").find(l => l.trim() && !l.startsWith("#") && !l.startsWith(">")) || "";
-				if (firstLine) card.createEl("p", { text: firstLine.slice(0, 120), cls: "sb-wiki-card-desc" });
-			}
-		}
-
-		if (this.wikiPages.length === 0) {
-			this.bodyEl.createDiv({ cls: "sb-wiki-empty" });
-			const guidance = this.bodyEl.createDiv({ cls: "sb-wiki-empty-guidance" });
-			guidance.createEl("h3", { text: t("empty.wikiTitle", lang) });
-
-			// 3-step guide
-			const steps = guidance.createDiv({ cls: "sb-empty-steps" });
-			const step1 = steps.createDiv({ cls: "sb-empty-step" });
-			step1.createEl("span", { text: "1", cls: "sb-empty-step-num" });
-			step1.createEl("span", { text: t("empty.step1Put", lang), cls: "sb-empty-step-text" });
-
-			// Detect if raw-sample exists and raw is empty
-			const sampleFolder = this.app.vault.getAbstractFileByPath("raw-sample");
-			const rawFolder = this.plugin.settings.rawFolder;
-			const rawDir = this.app.vault.getAbstractFileByPath(rawFolder);
-			let rawHasFiles = false;
-			if (rawDir) {
-				const allFiles = this.app.vault.getFiles();
-				rawHasFiles = allFiles.some(f => f.path.startsWith(rawFolder + "/") && !f.path.includes("_usage"));
-			}
-			if (!rawHasFiles && sampleFolder) {
-				const sampleBtn = guidance.createEl("button", { text: t("empty.loadSamples", lang), cls: "sb-empty-btn" });
-				sampleBtn.style.marginBottom = "8px";
-				sampleBtn.addEventListener("click", async () => {
-					sampleBtn.textContent = "...";
-					try {
-						const files = this.app.vault.getFiles().filter(f => f.path.startsWith("raw-sample/"));
-						for (const f of files) {
-							const targetPath = f.path.replace("raw-sample/", rawFolder + "/");
-							const existing = this.app.vault.getAbstractFileByPath(targetPath);
-							if (!existing) {
-								const fileContent = await this.app.vault.read(f);
-								const folderPath = targetPath.substring(0, targetPath.lastIndexOf("/"));
-								const folder = this.app.vault.getAbstractFileByPath(folderPath);
-								if (!folder) {
-									const parts = folderPath.split("/");
-									let cur = "";
-									for (const p of parts) {
-										cur = cur ? cur + "/" + p : p;
-										if (!this.app.vault.getAbstractFileByPath(cur)) {
-											await this.app.vault.createFolder(cur);
-										}
-									}
-								}
-								await this.app.vault.create(targetPath, fileContent);
-							}
-						}
-						sampleBtn.textContent = t("empty.samplesLoaded", lang);
-					} catch (e) {
-						sampleBtn.textContent = t("empty.samplesFail", lang);
-					}
+			if (sorted.length > this.pageLimit) {
+				const loadMoreBtn = listMount.createEl("button", {
+					text: t("wiki.loadMore", lang, { n: String(sorted.length - this.pageLimit) }),
+					cls: "sb-wiki-load-more",
+				});
+				loadMoreBtn.addEventListener("click", () => {
+					this.pageLimit += 50;
+					this.renderIndex();
 				});
 			}
-
-			const step2 = steps.createDiv({ cls: "sb-empty-step" });
-			step2.createEl("span", { text: "2", cls: "sb-empty-step-num" });
-			step2.createEl("span", { text: t("empty.step2Compile", lang), cls: "sb-empty-step-text" });
-
-			const step3 = steps.createDiv({ cls: "sb-empty-step" });
-			step3.createEl("span", { text: "3", cls: "sb-empty-step-num" });
-			step3.createEl("span", { text: t("empty.step3Browse", lang), cls: "sb-empty-step-text" });
-
-			const btnRow = guidance.createDiv({ cls: "sb-empty-btn-row" });
-			btnRow.createEl("button", { text: t("empty.openSettings", lang), cls: "sb-empty-btn" })
-				.addEventListener("click", () => openPluginSettings(this.app));
-			btnRow.createEl("button", { text: t("empty.startCompile", lang), cls: "sb-empty-btn mod-cta" })
-			.addEventListener("click", () => this.plugin.activateView("second-brain-compile"));
-		}
-
-		if (this.wikiPages.length > this.pageLimit) {
-			const loadMoreBtn = this.bodyEl.createEl("button", {
-				text: t("wiki.loadMore", lang, { n: this.wikiPages.length - this.pageLimit }),
-				cls: "sb-wiki-load-more"
-			});
-			loadMoreBtn.addEventListener("click", () => {
-				this.pageLimit += 50;
-				this.renderIndex();
-			});
-		}
 	}
 
 	// --- Page ---
@@ -640,8 +638,11 @@ export class WikiView extends ItemView {
 		}
 
 		const breadcrumb = this.bodyEl.createDiv({ cls: "sb-wiki-breadcrumb" });
-		breadcrumb.createEl("button", { text: t("wiki.back", lang), cls: "sb-wiki-back" })
-			.addEventListener("click", () => this.goBack());
+		const backBtn = breadcrumb.createEl("button", { cls: "sb-wiki-back", attr: { "aria-label": t("wiki.backNav", lang) } });
+		backBtn.addEventListener("click", () => this.goBack());
+		const backIcon = backBtn.createSpan({ cls: "sb-wiki-back-icon-wrap" });
+		setIcon(backIcon, "arrow-left");
+		backBtn.createSpan({ text: t("wiki.backNav", lang), cls: "sb-wiki-back-text" });
 		breadcrumb.createEl("span", { text: name, cls: "sb-wiki-breadcrumb-title" });
 
 		breadcrumb.createEl("button", { text: t("wiki.openEditor", lang), cls: "sb-wiki-edit-btn" })
@@ -706,6 +707,13 @@ export class WikiView extends ItemView {
 			const badge = metaRow.createDiv({ cls: "sb-wiki-meta-badge" });
 			badge.createEl("span", { text: t("wiki.metaUpdated", lang), cls: "sb-wiki-meta-label" });
 			badge.createEl("span", { text: fmUpdated, cls: "sb-wiki-meta-value" });
+		}
+
+		const execSummary = extractExecutiveSummary(page.content);
+		if (execSummary) {
+			const sumEl = this.bodyEl.createDiv({ cls: "sb-wiki-executive-summary" });
+			sumEl.createEl("div", { text: t("wiki.executiveSummaryTitle", lang), cls: "sb-wiki-executive-summary-title" });
+			sumEl.createEl("div", { text: execSummary, cls: "sb-wiki-executive-summary-body" });
 		}
 
 		// Feature 3: Source citation display
@@ -800,8 +808,11 @@ export class WikiView extends ItemView {
 					}
 					summaryBtn.textContent = t("wiki.summaryDistilled", lang);
 					summaryBtn.classList.add("mod-cta");
+					new Notice(t("wiki.summaryDistilledHint", lang));
+					await this.renderPage(name);
 				} catch (e) {
 					summaryBtn.textContent = t("wiki.distillSummary", lang);
+					new Notice(t("wiki.summaryDistillFail", lang, { msg: e instanceof Error ? e.message : String(e) }));
 				}
 			});
 		}

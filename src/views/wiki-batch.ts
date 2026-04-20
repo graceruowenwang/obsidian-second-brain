@@ -40,21 +40,20 @@ export function toggleBatchReview(ctx: WikiViewCtx, btn: HTMLButtonElement, batc
 	// 取消按钮
 	const cancelBtn = newBar.createEl("button", { text: t("set.cancel", lang), cls: "sb-batch-cancel-btn" });
 
-	// 给每个卡片加 checkbox
-	const cards = ctx.bodyEl.querySelectorAll(".sb-wiki-card");
-	const cardCheckboxes: HTMLInputElement[] = [];
+	const rows = ctx.bodyEl.querySelectorAll<HTMLElement>(".sb-wiki-list-row[data-name]");
+	const rowCheckboxes: HTMLInputElement[] = [];
 
-	cards.forEach((cardEl: HTMLElement) => {
-		const titleLink = cardEl.querySelector(".sb-wiki-card-title") as HTMLAnchorElement;
-		if (!titleLink) return;
-		const name = titleLink.textContent || "";
+	rows.forEach((rowEl) => {
+		const name = rowEl.dataset.name || "";
+		if (!name) return;
 
 		const checkbox = document.createElement("input");
 		checkbox.type = "checkbox";
 		checkbox.className = "sb-batch-checkbox";
-		cardEl.insertBefore(checkbox, cardEl.firstChild);
-		cardCheckboxes.push(checkbox);
+		rowEl.insertBefore(checkbox, rowEl.firstChild);
+		rowCheckboxes.push(checkbox);
 
+		checkbox.addEventListener("click", (e) => e.stopPropagation());
 		checkbox.addEventListener("change", () => {
 			if (checkbox.checked) {
 				selectedPages.add(name);
@@ -72,17 +71,17 @@ export function toggleBatchReview(ctx: WikiViewCtx, btn: HTMLButtonElement, batc
 		applyBtn.disabled = n === 0;
 		regenBtn.textContent = t("wiki.batchRegenBtn", lang, { n });
 		regenBtn.disabled = n === 0;
-		selectAllCb.checked = n === cards.length && cards.length > 0;
+		selectAllCb.checked = n === rows.length && rows.length > 0;
 	}
 
 	selectAllCb.addEventListener("change", () => {
 		const checked = selectAllCb.checked;
-		cardCheckboxes.forEach(cb => { cb.checked = checked; });
+		rowCheckboxes.forEach(cb => { cb.checked = checked; });
 		selectedPages.clear();
 		if (checked) {
-			cards.forEach((cardEl: HTMLElement) => {
-				const titleLink = cardEl.querySelector(".sb-wiki-card-title") as HTMLAnchorElement;
-				if (titleLink) selectedPages.add(titleLink.textContent || "");
+			rows.forEach((rowEl) => {
+				const n = rowEl.dataset.name;
+				if (n) selectedPages.add(n);
 			});
 		}
 		updateCount();
