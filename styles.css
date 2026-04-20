@@ -75,6 +75,7 @@
 	display: flex;
 	flex-direction: column;
 	height: 100%;
+	min-height: 0;
 	background: var(--background-primary);
 }
 
@@ -83,48 +84,82 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 8px 16px;
+	gap: 12px;
+	padding: 10px 18px 12px;
 	border-bottom: 1px solid var(--background-modifier-border);
+	flex-shrink: 0;
+	background: linear-gradient(
+		180deg,
+		color-mix(in srgb, var(--background-secondary) 85%, var(--background-primary)) 0%,
+		var(--background-primary) 100%
+	);
+}
+
+.sb-chat-title-block {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+}
+
+.sb-chat-title-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--interactive-accent);
 	flex-shrink: 0;
 }
 
+.sb-chat-title-icon svg {
+	width: 18px;
+	height: 18px;
+}
+
 .sb-chat-title {
-	font-size: 16px;
+	font-size: 15px;
 	font-weight: 600;
 	color: var(--text-normal);
+	letter-spacing: -0.01em;
 }
 
 .sb-chat-clear-btn {
 	font-size: 12px;
-	padding: 4px 12px;
+	padding: 6px 14px;
 	border: 1px solid var(--background-modifier-border);
-	border-radius: 4px;
-	background: transparent;
+	border-radius: 8px;
+	background: var(--background-primary);
 	color: var(--text-muted);
 	cursor: pointer;
+	flex-shrink: 0;
+	transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .sb-chat-clear-btn:hover {
 	background: var(--background-modifier-hover);
 	color: var(--text-normal);
+	border-color: color-mix(in srgb, var(--interactive-accent) 35%, var(--background-modifier-border));
 }
 
 /* 消息区 */
 .sb-messages {
 	flex: 1;
+	min-height: 0;
 	overflow-y: auto;
-	padding: 12px 0;
+	scroll-behavior: smooth;
+	overscroll-behavior: contain;
+	padding: 16px 0 20px;
 	display: flex;
 	flex-direction: column;
-	gap: 6px;
+	gap: 14px;
 }
 
 /* 单条消息 */
 .sb-msg {
 	display: flex;
-	gap: 8px;
-	padding: 0 16px;
+	gap: 10px;
+	padding: 0 18px;
 	max-width: 100%;
+	align-items: flex-end;
 }
 
 .sb-msg-user {
@@ -137,8 +172,8 @@
 
 /* 头像 */
 .sb-avatar {
-	width: 24px;
-	height: 24px;
+	width: 28px;
+	height: 28px;
 	border-radius: 50%;
 	display: flex;
 	align-items: center;
@@ -148,47 +183,53 @@
 	flex-shrink: 0;
 }
 
+.sb-avatar svg {
+	width: 15px;
+	height: 15px;
+	stroke-width: 2;
+}
+
 .sb-avatar-user {
-	background: var(--interactive-accent);
-	color: var(--text-on-accent);
+	background: color-mix(in srgb, var(--interactive-accent) 18%, var(--background-primary));
+	color: var(--interactive-accent);
+	border: 1px solid color-mix(in srgb, var(--interactive-accent) 45%, var(--background-modifier-border));
 }
 
 .sb-avatar-ai {
 	background: var(--background-secondary);
 	color: var(--text-muted);
 	border: 1px solid var(--background-modifier-border);
+	box-shadow: 0 1px 0 color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
 }
 
 /* 气泡 */
 .sb-bubble {
-	padding: 8px 12px;
-	border-radius: 12px;
+	padding: 10px 14px;
+	border-radius: 14px;
 	font-size: 13px;
-	line-height: 1.5;
+	line-height: 1.55;
 	word-break: break-word;
 }
 
 .sb-msg-ai .sb-bubble {
-	max-width: 80%;
+	max-width: min(720px, 100%);
 	background: var(--background-secondary);
 	color: var(--text-normal);
-	border-bottom-left-radius: 4px;
+	border: 1px solid var(--background-modifier-border);
+	border-bottom-left-radius: 5px;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+	box-shadow: 0 1px 2px color-mix(in srgb, var(--background-modifier-box-shadow) 25%, transparent);
 }
 
 .sb-bubble-user {
 	background: var(--interactive-accent);
 	color: var(--text-on-accent);
-	border-bottom-right-radius: 4px;
-	max-width: 60%;
+	border-bottom-right-radius: 5px;
+	max-width: min(560px, 85%);
 	width: fit-content;
-	padding: 6px 12px;
+	padding: 8px 14px;
 	white-space: pre-wrap;
-}
-
-.sb-msg-ai .sb-bubble {
-	background: var(--background-secondary);
-	color: var(--text-normal);
-	border-bottom-left-radius: 4px;
+	box-shadow: 0 1px 2px color-mix(in srgb, var(--interactive-accent) 35%, transparent);
 }
 
 /* AI 消息内的 Markdown 渲染 */
@@ -356,65 +397,90 @@ pre:hover .sb-copy-btn {
 /* 来源引用 */
 .sb-sources {
 	font-size: 11px;
-	color: var(--text-faint);
-	margin-top: 8px;
-	padding-top: 6px;
-	border-top: 1px solid var(--background-modifier-border);
+	color: var(--text-muted);
+	margin-top: 10px;
+	padding-top: 10px;
+	border-top: 1px dashed var(--background-modifier-border);
 	display: flex;
 	align-items: center;
 	flex-wrap: wrap;
-	gap: 4px;
+	gap: 6px;
+	line-height: 1.4;
 }
 
 .sb-source-link {
 	color: var(--text-accent);
 	cursor: pointer;
 	text-decoration: none;
+	padding: 2px 6px;
+	margin: 0 2px 2px 0;
+	border-radius: 6px;
+	background: color-mix(in srgb, var(--text-accent) 8%, transparent);
+	transition: background 0.15s ease;
 }
 
 .sb-source-link:hover {
-	text-decoration: underline;
+	text-decoration: none;
+	background: color-mix(in srgb, var(--text-accent) 16%, transparent);
 }
 
 /* 欢迎区 */
 .sb-welcome {
 	text-align: center;
-	padding: 60px 24px 40px;
+	padding: 40px 28px 36px;
+	margin: 12px 18px 8px;
+	max-width: 560px;
+	align-self: center;
+	width: calc(100% - 36px);
 	color: var(--text-muted);
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 16px;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.07);
+	box-shadow: 0 1px 3px color-mix(in srgb, var(--background-modifier-box-shadow) 20%, transparent);
 }
 
 .sb-welcome h3 {
 	color: var(--text-normal);
-	font-size: 18px;
-	margin-bottom: 8px;
+	font-size: 17px;
+	font-weight: 600;
+	margin: 0 0 10px;
+	letter-spacing: -0.02em;
 }
 
 .sb-welcome p {
-	font-size: 14px;
-	margin-bottom: 24px;
+	font-size: 13px;
+	line-height: 1.55;
+	margin: 0 0 22px;
+}
+
+.sb-welcome .sb-empty-btn-row {
+	margin-top: 4px;
 }
 
 .sb-tips {
 	display: flex;
 	flex-wrap: wrap;
 	justify-content: center;
-	gap: 8px;
+	gap: 10px;
 }
 
 .sb-tip-chip {
-	padding: 8px 16px;
+	padding: 9px 16px;
 	border: 1px solid var(--background-modifier-border);
-	border-radius: 20px;
-	font-size: 13px;
+	border-radius: 999px;
+	font-size: 12px;
 	color: var(--text-muted);
 	cursor: pointer;
-	transition: all 0.2s;
+	transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+	background: var(--background-primary);
 }
 
 .sb-tip-chip:hover {
-	background: var(--background-secondary);
+	background: var(--background-modifier-hover);
 	color: var(--text-normal);
-	border-color: var(--interactive-accent);
+	border-color: color-mix(in srgb, var(--interactive-accent) 40%, var(--background-modifier-border));
+	box-shadow: 0 0 0 1px color-mix(in srgb, var(--interactive-accent) 12%, transparent);
 }
 
 /* 加载动画 */
@@ -447,52 +513,80 @@ pre:hover .sb-copy-btn {
 
 /* 输入区 */
 .sb-input-area {
+	padding: 12px 18px 16px;
+	border-top: 1px solid var(--background-modifier-border);
+	background: linear-gradient(
+		180deg,
+		var(--background-primary) 0%,
+		color-mix(in srgb, var(--background-secondary) 55%, var(--background-primary)) 100%
+	);
+	flex-shrink: 0;
+}
+
+.sb-chat-composer {
+	display: flex;
+	align-items: flex-end;
+	gap: 10px;
+	max-width: 900px;
+	margin: 0 auto;
+	width: 100%;
+	min-width: 0;
+}
+
+.sb-chat-composer-actions {
 	display: flex;
 	gap: 8px;
-	padding: 10px 16px;
-	border-top: 1px solid var(--background-modifier-border);
-	background: var(--background-primary);
 	flex-shrink: 0;
-	align-items: flex-end;
+	align-items: center;
 }
 
 .sb-chat-input {
 	flex: 1;
+	min-width: 0;
 	padding: 10px 14px;
 	border: 1px solid var(--background-modifier-border);
-	border-radius: 10px;
-	background: var(--background-secondary);
+	border-radius: 12px;
+	background: var(--background-primary);
 	color: var(--text-normal);
 	font-size: 14px;
 	line-height: 1.5;
 	resize: none;
-	min-height: 42px;
+	min-height: 44px;
 	max-height: 150px;
 	font-family: var(--font-text);
+	box-shadow: inset 0 1px 2px color-mix(in srgb, var(--background-modifier-border) 35%, transparent);
+	transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
 .sb-chat-input:focus {
 	outline: none;
-	border-color: var(--interactive-accent);
+	border-color: color-mix(in srgb, var(--interactive-accent) 55%, var(--background-modifier-border));
 	background: var(--background-primary);
+	box-shadow:
+		inset 0 1px 2px color-mix(in srgb, var(--interactive-accent) 12%, transparent),
+		0 0 0 3px color-mix(in srgb, var(--interactive-accent) 14%, transparent);
 }
 
 .sb-send-btn {
-	padding: 10px 20px;
-	height: 42px;
+	padding: 10px 18px;
+	min-height: 44px;
 	flex-shrink: 0;
+	border-radius: 10px;
+	font-weight: 500;
 }
 
 .sb-stop-btn {
-	padding: 10px 20px;
-	height: 42px;
+	padding: 10px 16px;
+	min-height: 44px;
 	flex-shrink: 0;
 	border: 1px solid var(--text-error);
-	background: transparent;
+	background: var(--background-primary);
 	color: var(--text-error);
-	border-radius: var(--button-radius);
+	border-radius: 10px;
 	cursor: pointer;
-	font-size: 14px;
+	font-size: 13px;
+	font-weight: 500;
+	transition: background 0.15s ease, color 0.15s ease;
 }
 
 .sb-stop-btn:hover {
@@ -727,6 +821,74 @@ pre:hover .sb-copy-btn {
 	font-weight: 600;
 	color: var(--text-normal);
 	letter-spacing: -0.2px;
+}
+
+/* Wiki 单页：侧栏大纲 + 正文（相对链接解析依赖 sourcePath） */
+.sb-wiki-page-wrap {
+	display: flex;
+	align-items: flex-start;
+	gap: 16px;
+}
+
+.sb-wiki-toc-col {
+	display: none;
+	flex: 0 0 min(160px, 28%);
+	max-height: calc(100vh - 120px);
+	overflow-y: auto;
+	padding: 8px 10px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	background: var(--background-secondary);
+	position: sticky;
+	top: 4px;
+}
+
+.sb-wiki-toc-title {
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--text-muted);
+	margin-bottom: 8px;
+}
+
+.sb-wiki-toc-nav {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.sb-wiki-toc-link {
+	font-size: 12px;
+	line-height: 1.35;
+	color: var(--text-muted);
+	text-decoration: none;
+	border-radius: 4px;
+	padding: 2px 4px;
+	word-break: break-word;
+}
+
+.sb-wiki-toc-link:hover {
+	color: var(--text-normal);
+	background: var(--background-modifier-hover);
+}
+
+.sb-wiki-toc-level-1 {
+	font-weight: 600;
+}
+
+.sb-wiki-toc-level-2 {
+	padding-left: 6px;
+}
+
+.sb-wiki-toc-level-3 {
+	padding-left: 14px;
+	font-size: 11px;
+}
+
+.sb-wiki-page-wrap .sb-wiki-page-content {
+	flex: 1;
+	min-width: 0;
 }
 
 .sb-wiki-edit-btn {
@@ -1195,29 +1357,80 @@ pre:hover .sb-copy-btn {
 
 /* === Time Estimate === */
 .sb-time-estimate {
-	font-size: 11px;
+	font-size: 10px;
 	color: var(--text-faint);
 	padding-top: 2px;
+	font-variant-numeric: tabular-nums;
 }
 
 /* === Compile Summary === */
 .sb-compile-summary {
 	display: flex;
-	align-items: center;
-	justify-content: space-between;
+	flex-direction: column;
+	align-items: stretch;
 	gap: 10px;
-	padding: 10px 14px;
+	padding: 12px 14px;
 	background: var(--background-secondary);
 	border: 1px solid var(--background-modifier-border);
-	border-radius: 8px;
+	border-radius: 10px;
 	margin-bottom: 8px;
-	flex-wrap: wrap;
+	border-left: 3px solid var(--text-success);
+	box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
+}
+
+.sb-compile-summary--errors {
+	border-left-color: var(--text-error);
 }
 
 .sb-compile-summary-header {
-	font-size: 13px;
-	font-weight: 600;
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
 	color: var(--text-success);
+}
+
+.sb-compile-summary--errors .sb-compile-summary-header {
+	color: var(--text-error);
+}
+
+.sb-compile-summary-badges {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 8px;
+}
+
+.sb-compile-summary-badges .sb-compile-stat-badge {
+	width: 100%;
+	min-width: 0;
+	box-sizing: border-box;
+	padding: 8px 6px;
+}
+
+.sb-compile-summary-time {
+	font-size: 11px;
+	color: var(--text-muted);
+	padding-top: 8px;
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+.sb-compile-summary-fail {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	flex-wrap: wrap;
+	font-size: 12px;
+	color: var(--text-error);
+}
+
+.sb-compile-guide {
+	margin-top: 2px;
+}
+
+.sb-compile-guide-btn.mod-cta {
+	width: 100%;
+	margin-top: 2px;
 }
 
 .sb-compile-summary-stats {
@@ -1303,23 +1516,24 @@ pre:hover .sb-copy-btn {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	gap: 8px;
-	padding: 4px 12px;
+	gap: 10px;
+	flex-wrap: wrap;
+	padding: 8px 14px;
 	font-size: 11px;
-	color: var(--text-faint);
-	background: var(--background-primary);
+	color: var(--text-muted);
+	background: color-mix(in srgb, var(--background-secondary) 70%, var(--background-primary));
 	border-top: 1px solid var(--background-modifier-border);
 }
 
 .sb-context-clear {
-	font-size: 10px;
-	padding: 2px 8px;
+	font-size: 11px;
+	padding: 4px 10px;
 	border: 1px solid var(--background-modifier-border);
-	border-radius: 3px;
-	background: transparent;
-	color: var(--text-faint);
+	border-radius: 8px;
+	background: var(--background-primary);
+	color: var(--text-muted);
 	cursor: pointer;
-	transition: all 0.15s;
+	transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 	font-family: inherit;
 	line-height: 1;
 	min-height: unset;
@@ -1329,6 +1543,7 @@ pre:hover .sb-copy-btn {
 .sb-context-clear:hover {
 	background: var(--background-modifier-hover);
 	color: var(--text-normal);
+	border-color: color-mix(in srgb, var(--interactive-accent) 30%, var(--background-modifier-border));
 }
 
 /* === Source Score Badge === */
@@ -1646,22 +1861,32 @@ pre:hover .sb-copy-btn {
 .sb-chat-title-row {
 	display: flex;
 	align-items: center;
-	gap: 8px;
+	gap: 10px;
+	flex: 1;
+	min-width: 0;
+	flex-wrap: wrap;
 }
 
 .sb-chat-pro-info {
 	display: flex;
 	gap: 6px;
 	margin-left: auto;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: flex-end;
 }
 
 .sb-chat-pro-tag {
 	font-size: 10px;
-	padding: 2px 8px;
-	background: var(--background-secondary);
+	padding: 3px 9px;
+	background: var(--background-primary);
 	border: 1px solid var(--background-modifier-border);
-	border-radius: 10px;
-	color: var(--text-faint);
+	border-radius: 999px;
+	color: var(--text-muted);
+	max-width: 220px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 /* === 功能亮点卡片 === */
@@ -1927,37 +2152,57 @@ pre:hover .sb-copy-btn {
 /* === Compile Stage Indicator (Issue #8) === */
 .sb-compile-stages {
 	display: flex;
-	gap: 12px;
-	margin-top: 6px;
+	gap: 8px 10px;
+	margin-top: 2px;
 	flex-wrap: wrap;
+	justify-content: space-between;
 }
 .sb-compile-stage-dot {
 	display: flex;
 	align-items: center;
-	gap: 4px;
-	opacity: 0.4;
-	transition: opacity 0.3s;
+	gap: 5px;
+	opacity: 0.38;
+	transition: opacity 0.25s ease, transform 0.2s ease;
+}
+.sb-compile-stage-dot.sb-compile-stage-done {
+	opacity: 0.78;
 }
 .sb-compile-stage-dot.sb-compile-stage-active {
 	opacity: 1;
+	transform: translateY(-1px);
+}
+.sb-compile-stage-dot.sb-compile-stage-active .sb-compile-stage-label {
+	color: var(--text-normal);
+	font-weight: 600;
+}
+.sb-compile-stage-dot.sb-compile-stage-done .sb-compile-stage-label {
+	color: var(--text-muted);
 }
 .sb-compile-stage-icon {
 	width: 8px;
 	height: 8px;
 	border-radius: 50%;
 	flex-shrink: 0;
+	box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
 }
 .sb-compile-stage-label {
 	font-size: 10px;
 	color: var(--text-faint);
+	line-height: 1.2;
+	transition: color 0.2s ease;
 }
 .sb-compile-current-file {
 	font-size: 10px;
-	color: var(--text-faint);
-	padding-top: 2px;
+	color: var(--text-muted);
+	padding: 6px 8px;
+	margin-top: 2px;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+	background: var(--background-primary);
+	border-radius: 6px;
+	border: 1px solid var(--background-modifier-border);
+	font-family: var(--font-monospace);
 }
 
 
@@ -2080,25 +2325,32 @@ pre:hover .sb-copy-btn {
 
 /* === Compile History === */
 .sb-compile-history {
-	margin-bottom: 8px;
-	padding: 8px 0;
-	border-bottom: 1px solid var(--background-modifier-border);
+	margin-bottom: 4px;
+	padding: 10px 10px 8px;
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
 }
 .sb-compile-history-title {
-	font-size: 12px;
-	font-weight: 600;
+	font-size: 11px;
+	font-weight: 700;
 	color: var(--text-muted);
-	margin: 0 0 6px;
+	margin: 0 0 8px;
 	padding: 0;
-	letter-spacing: 0.3px;
+	letter-spacing: 0.04em;
 	text-transform: uppercase;
 }
 .sb-history-entry {
 	display: flex;
 	align-items: center;
 	gap: 8px;
-	padding: 3px 0;
+	padding: 5px 6px;
 	font-size: 11px;
+	border-radius: 6px;
+	transition: background 0.15s ease;
+}
+.sb-history-entry:hover {
+	background: var(--background-modifier-hover);
 }
 .sb-history-tag {
 	font-size: 9px;

@@ -17,6 +17,22 @@ import { extractFmField, extractTags, stripFrontmatter, extractStatus, extractUp
 
 export const VIEW_TYPE_WIKI = "second-brain-wiki";
 
+/** Stable heading ids for in-preview outline links */
+function wikiHeadingSlug(text: string, used: Set<string>): string {
+	let slug = (text || "section")
+		.trim()
+		.toLowerCase()
+		.replace(/\s+/g, "-")
+		.replace(/[^a-z0-9\u4e00-\u9fff-]+/gi, "")
+		.replace(/^-+|-+$/g, "") || "section";
+	if (slug.length > 64) slug = slug.slice(0, 64);
+	let id = slug;
+	let n = 0;
+	while (used.has(id)) id = `${slug}-${++n}`;
+	used.add(id);
+	return id;
+}
+
 export class WikiView extends ItemView {
 	plugin: SecondBrainPlugin;
 	private bodyEl: HTMLElement;
@@ -37,6 +53,10 @@ export class WikiView extends ItemView {
 	private searchTimer: ReturnType<typeof setTimeout> | null = null;
 	private dropdownEl: HTMLElement | null = null;
 	private dropdownCloseHandler: (() => void) | null = null;
+	/** Invalidates stale vectorSearch callbacks after a new index render */
+	private indexRenderGeneration = 0;
+	/** Scroll position when leaving a wiki page (restore on return / back) */
+	private pageScrollTop = new Map<string, number>();
 
 	constructor(leaf: WorkspaceLeaf, plugin: SecondBrainPlugin) {
 		super(leaf);
@@ -174,12 +194,14 @@ export class WikiView extends ItemView {
 
 		this.currentName = "";
 		this.navHistory = [];
+		this.pageScrollTop.clear();
 
 		this.currentView = "index";
 		this.renderIndex();
 	}
 
 	private showIndex() {
+		this.pageScrollTop.clear();
 		this.currentView = "index";
 		this.currentName = "";
 		this.navHistory = [];
@@ -223,6 +245,7 @@ export class WikiView extends ItemView {
 	private renderIndex() {
 		const query = (this.searchEl?.value || "").toLowerCase();
 		const lang = this.plugin.settings.language;
+		const indexGen = ++this.indexRenderGeneration;
 		this.bodyEl.empty();
 
 		if (!query) {
@@ -330,7 +353,7 @@ export class WikiView extends ItemView {
 				if (name === "index" || name === "log") return false;
 				return name.toLowerCase().includes(query) || f.content.toLowerCase().includes(query);
 			}).length;
-			this.bodyEl.createEl("p", { text: `${matchCount} 条结果`, cls: "sb-wiki-search-hint" });
+			this.bodyEl.createEl("p", { text: t("wiki.searchResultsCount", lang, { n: String(matchCount) }), cls: "sb-wiki-search-hint" });
 		}
 
 // 统一页面列表：合并 index 条目和非 index 页面
@@ -375,6 +398,7 @@ export class WikiView extends ItemView {
 				const filesMap: Record<string, string> = {};
 				for (const p of this.wikiPages) filesMap[p.path] = p.content;
 				vectorSearch(query, filesMap, this.plugin.settings, 10).then(results => {
+					if (indexGen !== this.indexRenderGeneration || this.currentView !== "index") return;
 					const semanticNames = new Set<string>();
 					for (const r of results) {
 						const name = r.filePath.split("/").pop()!.replace(".md", "");
@@ -582,6 +606,9 @@ export class WikiView extends ItemView {
 	// --- Page ---
 
 	private async navigateTo(name: string) {
+		if (this.currentView === "page" && this.currentName) {
+			this.pageScrollTop.set(this.currentName, this.bodyEl.scrollTop);
+		}
 		const marker = this.currentName;
 		this.navHistory.push(marker);
 		this.currentName = name;
@@ -590,6 +617,9 @@ export class WikiView extends ItemView {
 	}
 
 	private async goBack() {
+		if (this.currentView === "page" && this.currentName) {
+			this.pageScrollTop.set(this.currentName, this.bodyEl.scrollTop);
+		}
 		const prev = this.navHistory.pop();
 		if (!prev || prev === "") {
 			this.showIndex();
@@ -776,21 +806,26 @@ export class WikiView extends ItemView {
 			});
 		}
 
-		const contentEl = this.bodyEl.createDiv({ cls: "sb-wiki-page-content" });
+		const pageWrap = this.bodyEl.createDiv({ cls: "sb-wiki-page-wrap" });
+		const tocCol = pageWrap.createDiv({ cls: "sb-wiki-toc-col" });
+		const contentEl = pageWrap.createDiv({ cls: "sb-wiki-page-content" });
 		const stripped = stripFrontmatter(page.content);
+		const wf = this.plugin.settings.wikiFolder;
+		const sourcePath = `${wf}/${page.path}`;
 		this.component.unload();
 		this.component = new Component();
-		await MarkdownRenderer.render(this.app, stripped, contentEl, "", this.component);
+		await MarkdownRenderer.render(this.app, stripped, contentEl, sourcePath, this.component);
 
-		contentEl.querySelectorAll("a.internal-link").forEach((link: HTMLAnchorElement) => {
-			const href = link.getAttribute("data-href") || link.getAttribute("href") || "";
-			const targetName = href.split("/").pop()!.replace(".md", "").split("|")[0].split("#")[0];
-			link.addEventListener("click", (ev) => {
-				ev.preventDefault();
-				ev.stopPropagation();
-				this.navigateTo(targetName);
+		this.attachPageOutline(lang, tocCol, contentEl);
+		this.wireInternalLinks(contentEl, wf);
+
+		const savedScroll = this.pageScrollTop.get(name);
+		if (savedScroll != null) {
+			requestAnimationFrame(() => {
+				this.bodyEl.scrollTop = savedScroll;
+				this.pageScrollTop.delete(name);
 			});
-		});
+		}
 
 		const backlinks = this.findBacklinks(name);
 		if (backlinks.length > 0) {
@@ -803,7 +838,65 @@ export class WikiView extends ItemView {
 		}
 	}
 
+	private attachPageOutline(lang: string, tocCol: HTMLElement, contentEl: HTMLElement): void {
+		tocCol.empty();
+		tocCol.style.display = "none";
 
+		const headings = Array.from(contentEl.querySelectorAll<HTMLElement>("h1, h2, h3"));
+		if (headings.length < 2) return;
+
+		const used = new Set<string>();
+		for (const h of headings) {
+			if (!h.id) {
+				h.id = wikiHeadingSlug(h.textContent || "section", used);
+			} else {
+				used.add(h.id);
+			}
+		}
+
+		tocCol.style.display = "";
+		tocCol.createEl("div", { text: t("wiki.pageOutline", lang), cls: "sb-wiki-toc-title" });
+		const nav = tocCol.createEl("nav", { cls: "sb-wiki-toc-nav" });
+		for (const h of headings) {
+			const level = h.tagName === "H1" ? 1 : h.tagName === "H2" ? 2 : 3;
+			const a = nav.createEl("a", {
+				cls: `sb-wiki-toc-link sb-wiki-toc-level-${level}`,
+				text: h.textContent?.trim() || "",
+				attr: { href: "#" + h.id },
+			});
+			a.addEventListener("click", (ev) => {
+				ev.preventDefault();
+				h.scrollIntoView({ behavior: "smooth", block: "start" });
+			});
+		}
+	}
+
+	private wireInternalLinks(contentEl: HTMLElement, wikiFolder: string): void {
+		contentEl.querySelectorAll("a.internal-link").forEach((link: HTMLAnchorElement) => {
+			const href = link.getAttribute("data-href") || link.getAttribute("href") || "";
+			const targetName = href.split("/").pop()!.replace(".md", "").split("|")[0].split("#")[0];
+			const target = this.findPage(targetName);
+			if (!target) link.classList.add("is-unresolved");
+
+			link.addEventListener("click", (ev) => {
+				if (ev.metaKey || ev.ctrlKey) {
+					ev.preventDefault();
+					ev.stopPropagation();
+					if (target) {
+						const fullPath = `${wikiFolder}/${target.path}`;
+						const file = this.app.vault.getAbstractFileByPath(fullPath);
+						if (file instanceof TFile) {
+							this.app.workspace.getLeaf("tab").openFile(file);
+						}
+					}
+					return;
+				}
+				ev.preventDefault();
+				ev.stopPropagation();
+				this.navigateTo(targetName);
+			});
+		});
+	}
 
 	private openInEditor(name: string) {
 		const page = this.findPage(name);
