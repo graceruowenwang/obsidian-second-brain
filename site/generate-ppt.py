@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate Bilibili promotional video PPT for Second Brain plugin.
 
-Obsidian purple theme with dark background. Introduces Obsidian first,
+Light theme with purple accents. Introduces Obsidian first,
 then plugin features. No WeChat contact.
 """
 
@@ -13,21 +13,21 @@ from pptx.enum.shapes import MSO_SHAPE
 from pptx.oxml.ns import qn
 import os
 
-# Obsidian purple theme
-BG_DARK = RGBColor(0x1E, 0x1E, 0x2E)       # Obsidian dark bg
-BG_CARD = RGBColor(0x2A, 0x27, 0x3B)        # slightly lighter card
-BG_CARD_ACTIVE = RGBColor(0x30, 0x2C, 0x44) # active card
-OBS_PURPLE = RGBColor(0xA0, 0x86, 0xDA)     # Obsidian purple accent
-OBS_PURPLE_BRIGHT = RGBColor(0xBB, 0x99, 0xFF) # brighter purple
-OBS_PURPLE_DIM = RGBColor(0x70, 0x58, 0xA5) # dimmer purple
-BRAND_PURPLE = RGBColor(0x7C, 0x3A, 0xED)   # brand purple
-BRAND_GREEN = RGBColor(0x4E, 0xC9, 0xB0)    # teal green
-TEXT_WHITE = RGBColor(0xDC, 0xDC, 0xDC)      # light gray text
-TEXT_BRIGHT = RGBColor(0xF5, 0xF5, 0xF5)     # bright white
-TEXT_DIM = RGBColor(0x98, 0x98, 0xB0)        # dimmed text
-TEXT_MUTED = RGBColor(0x68, 0x68, 0x80)      # very muted
-RED = RGBColor(0xE0, 0x6C, 0x75)             # soft red
-BORDER_DIM = RGBColor(0x3C, 0x38, 0x52)      # dim border
+# Light theme
+BG_DARK = RGBColor(0xF8, 0xF7, 0xFC)        # light lavender bg
+BG_CARD = RGBColor(0xEF, 0xED, 0xF6)         # card bg
+BG_CARD_ACTIVE = RGBColor(0xE8, 0xE4, 0xF3)  # active card
+OBS_PURPLE = RGBColor(0x7C, 0x3A, 0xED)      # brand purple
+OBS_PURPLE_BRIGHT = RGBColor(0x6D, 0x28, 0xD9) # deeper purple
+OBS_PURPLE_DIM = RGBColor(0xA7, 0x8B, 0xFA)  # light purple
+BRAND_PURPLE = RGBColor(0x7C, 0x3A, 0xED)    # brand purple
+BRAND_GREEN = RGBColor(0x05, 0x96, 0x69)     # dark green
+TEXT_WHITE = RGBColor(0x37, 0x41, 0x51)       # dark gray text (primary)
+TEXT_BRIGHT = RGBColor(0x1F, 0x29, 0x37)      # near-black text (headings)
+TEXT_DIM = RGBColor(0x6B, 0x72, 0x80)         # secondary text
+TEXT_MUTED = RGBColor(0x9C, 0xA3, 0xAF)       # muted text
+RED = RGBColor(0xDC, 0x26, 0x26)              # red
+BORDER_DIM = RGBColor(0xDD, 0xDB, 0xE5)       # light border
 
 prs = Presentation()
 prs.slide_width = Inches(13.333)
@@ -186,7 +186,7 @@ add_bg(slide)
 add_decor_line(slide, Inches(5.5), Inches(1.5), Inches(2.3), OBS_PURPLE_DIM)
 
 add_rounded_rect(slide, Inches(5.2), Inches(1.8), Inches(2.9), Inches(0.5),
-                 fill_color=RGBColor(0x2A, 0x24, 0x45),
+                 fill_color=RGBColor(0xDD, 0xDB, 0xE5),
                  border_color=OBS_PURPLE_DIM,
                  text="Obsidian Plugin", font_size=14, text_color=OBS_PURPLE)
 
@@ -286,7 +286,7 @@ kw_start = Inches(3.2)
 for i, kw in enumerate(kw_items):
     x = kw_start + i * (kw_w + kw_gap)
     add_rounded_rect(slide, x, kw_y, kw_w, Inches(0.7),
-                     fill_color=RGBColor(0x3D, 0x25, 0x30),
+                     fill_color=RGBColor(0xFD, 0xEB, 0xEB),
                      border_color=RED,
                      text=kw, font_size=24, text_color=RED)
 
@@ -324,7 +324,7 @@ slide = prs.slides.add_slide(prs.slide_layouts[6])
 add_bg(slide)
 
 add_rounded_rect(slide, Inches(0.8), Inches(0.5), Inches(2.0), Inches(0.45),
-                 fill_color=RGBColor(0x2A, 0x24, 0x45),
+                 fill_color=RGBColor(0xDD, 0xDB, 0xE5),
                  border_color=OBS_PURPLE_DIM,
                  text="\u8BBE\u8BA1\u7406\u5FF5", font_size=13, text_color=OBS_PURPLE)
 
@@ -457,7 +457,7 @@ slide = prs.slides.add_slide(prs.slide_layouts[6])
 add_bg(slide)
 
 add_rounded_rect(slide, Inches(0.8), Inches(0.5), Inches(2.0), Inches(0.45),
-                 fill_color=RGBColor(0x2A, 0x24, 0x45),
+                 fill_color=RGBColor(0xDD, 0xDB, 0xE5),
                  border_color=OBS_PURPLE_DIM,
                  text="\u6838\u5FC3\u529F\u80FD", font_size=13, text_color=OBS_PURPLE)
 
@@ -486,7 +486,7 @@ slide = prs.slides.add_slide(prs.slide_layouts[6])
 add_bg(slide)
 
 add_rounded_rect(slide, Inches(0.8), Inches(0.5), Inches(2.0), Inches(0.45),
-                 fill_color=RGBColor(0x2A, 0x24, 0x45),
+                 fill_color=RGBColor(0xDD, 0xDB, 0xE5),
                  border_color=OBS_PURPLE_DIM,
                  text="\u6838\u5FC3\u529F\u80FD", font_size=13, text_color=OBS_PURPLE)
 
@@ -509,7 +509,38 @@ for i, feat in enumerate(features):
                  "\u2713  " + feat, font_size=24, color=TEXT_WHITE)
 
 # ============================================================
-# SLIDE 10: Pro Feature - AI Chat
+# SLIDE 10: Core Feature - Health Check (Lint)
+# ============================================================
+slide = prs.slides.add_slide(prs.slide_layouts[6])
+add_bg(slide)
+
+add_rounded_rect(slide, Inches(0.8), Inches(0.5), Inches(2.0), Inches(0.45),
+                 fill_color=RGBColor(0xDD, 0xDB, 0xE5),
+                 border_color=OBS_PURPLE_DIM,
+                 text="\u6838\u5FC3\u529F\u80FD", font_size=13, text_color=OBS_PURPLE)
+
+add_text_box(slide, Inches(0.8), Inches(1.2), Inches(11), Inches(0.8),
+             "\u77E5\u8BC6\u5065\u5EB7\u5EA6\u68C0\u67E5 -- \u7ED9\u4F60\u7684\u77E5\u8BC6\u5E93\u201C\u4F53\u68C0\u201D",
+             font_size=36, color=TEXT_BRIGHT, bold=True)
+
+add_text_box(slide, Inches(0.8), Inches(2.0), Inches(11), Inches(0.6),
+             "\u5BF9\u5E94 Karpathy \u7684 lint \u64CD\u4F5C\uFF0C\u81EA\u52A8\u626B\u63CF\u77E5\u8BC6\u5E93\u53D1\u73B0\u95EE\u9898",
+             font_size=18, color=TEXT_DIM)
+
+features = [
+    "\u68C0\u6D4B\u5B64\u5C9B\u9875\u9762\uFF1A\u6CA1\u6709\u53CC\u5411\u94FE\u63A5\u7684\u72EC\u7ACB\u6982\u5FF5",
+    "\u68C0\u6D4B\u6B7B\u94FE\uFF1A\u94FE\u63A5\u6307\u5411\u4E0D\u5B58\u5728\u7684\u9875\u9762",
+    "\u68C0\u6D4B\u6982\u5FF5\u7F3A\u53E3\uFF1A\u5DF2\u6709\u7D20\u6750\u4F46\u672A\u63D0\u70BC\u6210\u6982\u5FF5\u7684\u9886\u57DF",
+    "\u4E00\u952E\u4FEE\u590D\u5EFA\u8BAE\uFF0C\u4FDD\u6301\u77E5\u8BC6\u5E93\u6301\u7EED\u5065\u5EB7",
+]
+
+for i, feat in enumerate(features):
+    y = Inches(2.8) + i * Inches(1.0)
+    add_text_box(slide, Inches(1.2), y, Inches(10), Inches(0.8),
+                 "\u2713  " + feat, font_size=24, color=TEXT_WHITE)
+
+# ============================================================
+# SLIDE 11: Pro Feature - AI Chat (was 10)
 # ============================================================
 slide = prs.slides.add_slide(prs.slide_layouts[6])
 add_bg(slide)
@@ -537,7 +568,7 @@ for i, feat in enumerate(features):
                  "\u2713  " + feat, font_size=24, color=TEXT_WHITE)
 
 # ============================================================
-# SLIDE 11: Pro Feature - Auto Compile
+# SLIDE 12: Pro Feature - Auto Compile (was 11)
 # ============================================================
 slide = prs.slides.add_slide(prs.slide_layouts[6])
 add_bg(slide)
@@ -564,7 +595,62 @@ for i, feat in enumerate(features):
                  "\u2713  " + feat, font_size=24, color=TEXT_WHITE)
 
 # ============================================================
-# SLIDE 12: Transition to demo
+# SLIDE 13: Ecosystem plugins (was 12) - collecting materials
+# ============================================================
+slide = prs.slides.add_slide(prs.slide_layouts[6])
+add_bg(slide)
+
+add_text_box(slide, Inches(0), Inches(0.5), W, Inches(0.8),
+             "\u7D20\u6750\u600E\u4E48\u6765\uFF1F\u914D\u5957\u63D2\u4EF6\u63A8\u8350",
+             font_size=36, color=TEXT_BRIGHT, bold=True,
+             alignment=PP_ALIGN.CENTER)
+
+add_decor_line(slide, Inches(6.0), Inches(1.3), Inches(1.3), OBS_PURPLE)
+
+add_text_box(slide, Inches(1), Inches(1.7), Inches(11), Inches(0.6),
+             "\u8FD9\u4E9B Obsidian \u63D2\u4EF6\u5E2E\u4F60\u628A\u7D20\u6750\u81EA\u52A8\u6536\u96C6\u5230 raw/ \u76EE\u5F55\uFF0C\u518D\u7528 Second Brain \u7F16\u8BD1",
+             font_size=18, color=TEXT_DIM, alignment=PP_ALIGN.CENTER)
+
+plugins = [
+    {"name": "Obsidian Web Clipper",
+     "desc": "\u6D4F\u89C8\u5668\u63D2\u4EF6\uFF0C\u4E00\u952E\u526A\u85CF\u7F51\u9875\u6587\u7AE0\u5230 raw/"},
+    {"name": "\u5C0F\u7EA2\u4E66 Importer",
+     "desc": "\u5BFC\u5165\u5C0F\u7EA2\u4E66\u6536\u85CF\u7B14\u8BB0\u5230 Obsidian"},
+    {"name": "Podwise",
+     "desc": "\u81EA\u52A8\u6574\u7406\u64AD\u5BA2\u5185\u5BB9\uFF0C\u751F\u6210\u7ED3\u6784\u5316\u7B14\u8BB0"},
+]
+
+card_w = Inches(3.2)
+card_h = Inches(3.2)
+start_x = Inches(1.8)
+gap = Inches(0.6)
+
+for i, plugin in enumerate(plugins):
+    x = start_x + i * (card_w + gap)
+    y = Inches(2.6)
+    add_rounded_rect(slide, x, y, card_w, card_h,
+                     fill_color=BG_CARD, border_color=BORDER_DIM)
+
+    add_circle(slide, x + Inches(1.15), y + Inches(0.3), Inches(0.8),
+               fill_color=OBS_PURPLE_DIM,
+               text=["W", "\u5C0F", "P"][i],
+               font_size=20, text_color=TEXT_BRIGHT)
+
+    add_text_box(slide, x, y + Inches(1.3), card_w, Inches(0.5),
+                 plugin["name"], font_size=20, color=TEXT_BRIGHT, bold=True,
+                 alignment=PP_ALIGN.CENTER)
+
+    add_text_box(slide, x + Inches(0.2), y + Inches(1.9), card_w - Inches(0.4), Inches(1.2),
+                 plugin["desc"], font_size=16, color=TEXT_DIM,
+                 alignment=PP_ALIGN.CENTER)
+
+add_text_box(slide, Inches(0), Inches(6.2), W, Inches(0.6),
+             "\u7D20\u6750\u6536\u96C6 + Second Brain \u7F16\u8BD1 = \u4ECE\u6536\u96C6\u5230\u6574\u7406\u5168\u81EA\u52A8",
+             font_size=20, color=BRAND_GREEN, bold=True,
+             alignment=PP_ALIGN.CENTER)
+
+# ============================================================
+# SLIDE 14: Transition to demo (was 13)
 # ============================================================
 slide = prs.slides.add_slide(prs.slide_layouts[6])
 add_bg(slide)
@@ -581,7 +667,7 @@ add_text_box(slide, Inches(0), Inches(4.2), W, Inches(0.8),
              font_size=22, color=TEXT_DIM, alignment=PP_ALIGN.CENTER)
 
 # ============================================================
-# SLIDE 13: Pricing
+# SLIDE 15: Pricing (was 14)
 # ============================================================
 slide = prs.slides.add_slide(prs.slide_layouts[6])
 add_bg(slide)
@@ -629,7 +715,7 @@ buy_x = Inches(7.0)
 buy_w = Inches(4.8)
 buy_h = Inches(5.3)
 add_rounded_rect(slide, buy_x, Inches(1.5), buy_w, buy_h,
-                 fill_color=RGBColor(0x2A, 0x24, 0x45),
+                 fill_color=RGBColor(0xDD, 0xDB, 0xE5),
                  border_color=OBS_PURPLE)
 
 add_rounded_rect(slide, buy_x + Inches(0.3), Inches(1.3),
@@ -659,7 +745,7 @@ for i, feat in enumerate(buy_features):
                  "\u2713  " + feat, font_size=15, color=TEXT_WHITE)
 
 # ============================================================
-# SLIDE 14: API Cost
+# SLIDE 16: API Cost (was 15)
 # ============================================================
 slide = prs.slides.add_slide(prs.slide_layouts[6])
 add_bg(slide)
@@ -687,7 +773,7 @@ for i, item in enumerate(cost_items):
                  item["value"], font_size=22, color=BRAND_GREEN, bold=True)
 
 # ============================================================
-# SLIDE 15: Call to action
+# SLIDE 17: Call to action (was 16)
 # ============================================================
 slide = prs.slides.add_slide(prs.slide_layouts[6])
 add_bg(slide)
@@ -715,7 +801,7 @@ for i, step in enumerate(steps_cta):
                  step["text"], font_size=24, color=TEXT_WHITE)
 
 # ============================================================
-# SLIDE 16: Links & Thanks
+# SLIDE 18: Links & Thanks (was 17)
 # ============================================================
 slide = prs.slides.add_slide(prs.slide_layouts[6])
 add_bg(slide)
