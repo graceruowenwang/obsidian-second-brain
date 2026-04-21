@@ -106,7 +106,16 @@ export async function writeWikiFile(app: App, wikiFolder: string, filePath: stri
 		if (folderPath) {
 			await ensureFolder(app, folderPath);
 		}
-		await app.vault.create(fullPath, content);
+			try {
+				await app.vault.create(fullPath, content);
+			} catch (e) {
+				const file = app.vault.getAbstractFileByPath(fullPath);
+				if (file instanceof TFile) {
+					await app.vault.modify(file, content);
+				} else {
+					throw e;
+				}
+			}
 	}
 }
 
