@@ -22,12 +22,35 @@ import { encryptKeys, decryptKeys, isEncryptionAvailable, SecureStorageError } f
 import { describeLLMFailure } from "./core/llm-user-message";
 import { organizeLooseRawFiles, RAW_FLASH_INBOX } from "./core/raw-organize";
 
+/** 编译互斥锁：串行化所有对 wiki 文件的写入路径 */
+class AsyncMutex {
+	private queue: Promise<unknown> = Promise.resolve();
+	private _locked = false;
+
+	get locked(): boolean {
+		return this._locked;
+	}
+
+	async runExclusive<T>(fn: () => Promise<T>): Promise<T> {
+		const prev = this.queue;
+		let release!: () => void;
+		this.queue = new Promise<void>((resolve) => { release = resolve; });
+		try {
+			await prev.catch(() => void 0);
+			this._locked = true;
+			return await fn();
+		} finally {
+			this._locked = false;
+			release();
+		}
+	}
+}
+
 export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 	settings!: PluginSettings;
 	licenseInfo: LicenseInfo = getDefaultLicense();
 	private autoCompileTimer: ReturnType<typeof setTimeout> | null = null;
-	private isCompiling = false;
-	private compileLock: Promise<unknown> = Promise.resolve();
+	private compileMutex = new AsyncMutex();
 	private statusBarItem: HTMLElement | null = null;
 	private settingsTab: SecondBrainSettingTab | null = null;
 
@@ -40,15 +63,7 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 	 * / quickIngest 并发时互相覆盖 cache。所有编译入口都应通过此方法。
 	 */
 	async runWithCompileLock<T>(fn: () => Promise<T>): Promise<T> {
-		const prev = this.compileLock;
-		let release!: () => void;
-		this.compileLock = new Promise<void>((resolve) => { release = resolve; });
-		try {
-			await prev.catch(() => void 0);
-			return await fn();
-		} finally {
-			release();
-		}
+		return this.compileMutex.runExclusive(fn);
 	}
 
 	/** 将素材目录根下散落的文件移入标准子文件夹（不调用 LLM） */
@@ -267,11 +282,41 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 
 	// --- 数据持久化 ---
 
+	private get dataBackupPath(): string {
+		return ".obsidian/plugins/second-brain/data.json.bak";
+	}
+
 	private async loadPluginData(): Promise<Record<string, unknown>> {
-		return (await this.loadData()) as Record<string, unknown> || {};
+		const loaded = await this.loadData();
+		if (loaded && typeof loaded === "object" && Object.keys(loaded as Record<string, unknown>).length > 0) {
+			return loaded as Record<string, unknown>;
+		}
+		// data.json 为空或损坏 → 尝试从备份恢复
+		try {
+			const bak = await this.app.vault.adapter.read(this.dataBackupPath);
+			if (bak) {
+				const parsed = JSON.parse(bak);
+				if (parsed && typeof parsed === "object") {
+					console.warn("second-brain: data.json empty/corrupt, restored from backup");
+					return parsed as Record<string, unknown>;
+				}
+			}
+		} catch {
+			// 无备份文件，使用空对象
+		}
+		return {};
 	}
 
 	private async savePluginData(data: Record<string, unknown>): Promise<void> {
+		// 先备份当前 data.json
+		try {
+			const current = await this.loadData();
+			if (current) {
+				await this.app.vault.adapter.write(this.dataBackupPath, JSON.stringify(current, null, 2));
+			}
+		} catch {
+			// 首次保存无现有数据，忽略
+		}
 		await this.saveData(data);
 	}
 
@@ -356,7 +401,7 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 			if (decrypted.embeddingApiKey) this.settings.embeddingApiKey = decrypted.embeddingApiKey;
 			if (decrypted.hadFailure) {
 				console.warn("main: encrypted keys present but decryption failed on this device; existing plaintext (if any) is preserved");
-				new Notice("Second Brain: 检测到加密的 API Key 无法在当前设备解密，请在设置中重新填写。", 8000);
+				new Notice(t("notice.decryptFailed", this.settings.language), 8000);
 			}
 		}
 	}
@@ -438,10 +483,9 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 	}
 
 	private async triggerAutoCompile() {
-		if (this.isCompiling) return;
+		if (this.compileMutex.locked) return;
 		if (!this.settings.apiKey) return;
 
-		this.isCompiling = true;
 		this.updateStatusBar("compiling");
 		try {
 			const result = await this.runWithCompileLock(() =>
@@ -454,7 +498,6 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 		} catch (e: unknown) {
 			console.error("Auto compile failed:", (e instanceof Error ? e.message : String(e)));
 		} finally {
-			this.isCompiling = false;
 			this.updateStatusBar("ready");
 		}
 	}

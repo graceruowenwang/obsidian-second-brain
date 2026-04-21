@@ -116,6 +116,7 @@ export const zhCN: typeof import("./en").en = {
 		"notice.wikiCleaned": "Wiki 已清理，删除了 {n} 个文件",
 		"notice.cleanFail": "清理失败: {msg}",
 		"notice.cacheCleaned": "编译缓存已清理",
+		"notice.decryptFailed": "检测到加密的 API Key 无法在当前设备解密，请在设置中重新填写。",
 		"notice.badAnalysis": "增量分析返回格式异常，使用缓存分析",
 
 		// Compile view
@@ -479,6 +480,7 @@ export const zhCN: typeof import("./en").en = {
 		"license.trialNotice": "试用期剩余 {days} 天",
 		"license.getPro": "获取 Pro",
 		"license.purchaseUrl": "https://mp.weixin.qq.com",
+		"license.price": "¥30 买断",
 		"license.step1": "关注微信公众号，发送「购买」",
 		"license.step2": "扫码支付 30 元",
 		"license.step3": "发送「已付款」获取激活码，在此输入",

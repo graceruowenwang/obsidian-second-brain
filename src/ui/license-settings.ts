@@ -74,7 +74,7 @@ export function renderLicenseSettings(containerEl: HTMLElement, plugin: SecondBr
 		});
 
 		const priceEl = purchaseSection.createDiv({ cls: "sb-upgrade-pricing" });
-		priceEl.createEl("span", { text: "30 CNY / $5 USD one-time", cls: "sb-upgrade-price" });
+		priceEl.createEl("span", { text: t("license.price", lang), cls: "sb-upgrade-price" });
 	}
 
 	// License Key 输入
