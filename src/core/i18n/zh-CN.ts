@@ -581,6 +581,8 @@ export const zhCN: typeof import("./en").en = {
 		"wizard.step3SamplesDone": "已加载",
 		"wizard.step3SamplesFail": "加载失败",
 		"wizard.step3SamplesAlreadyHas": "raw/ 目录已有素材，跳过加载",
+		"wizard.completeGuide": "完成后，打开编译面板开始将素材编译为知识库。",
+		"wizard.openCompile": "打开编译面板",
 
 		// Usage stats
 		"stats.title": "使用统计",

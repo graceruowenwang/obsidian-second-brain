@@ -23,7 +23,7 @@ import {
 // ---- Types ----
 
 export type WikiIndexSortMode = "name-asc" | "name-desc" | "type" | "level" | "recent";
-export type WikiStatusFilter = "all" | "pending" | "reviewed" | "other";
+export type WikiStatusFilter = "all" | "pending" | "reviewed" | "gap" | "other";
 
 export interface WikiIndexEntry {
 	name: string;
@@ -377,7 +377,7 @@ export function buildWikiDataPanel(
 			severity: "err",
 			title: t("wiki.issueGap", lang, { n: String(health.gapPages) }),
 			actionLabel: t("wiki.issueGapAction", lang),
-			onAction: (btn) => void actions.runActionCompile(btn),
+			onAction: () => actions.applyWikiStatusFilter("gap"),
 		});
 		row.createEl("div", { cls: "sb-qa-row-sub", text: t("wiki.issueGapDesc", lang) });
 	}
@@ -593,7 +593,8 @@ export function renderIndex(ctx: WikiIndexCtx): void {
 			filtered = filtered.filter((e: WikiIndexEntry) => {
 				const page = ctx.findPage(e.name);
 				if (!page) return false;
-				return wikiReviewBucket(page.content) === ctx.statusFilter;
+				if (ctx.statusFilter === "gap") return wikiStatusNorm(page.content) === "gap";
+			return wikiReviewBucket(page.content) === ctx.statusFilter;
 			});
 		}
 

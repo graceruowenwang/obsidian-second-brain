@@ -130,6 +130,7 @@ export class WikiView extends ItemView {
 			{ value: "all", key: "wiki.filterAll" },
 			{ value: "pending", key: "wiki.filterPending" },
 			{ value: "reviewed", key: "wiki.statusReviewed" },
+			{ value: "gap", key: "wiki.statusGapShort" },
 			{ value: "other", key: "wiki.filterOther" },
 		];
 		for (const opt of statusOptions) {

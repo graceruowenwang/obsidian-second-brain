@@ -561,6 +561,8 @@ export const ja: typeof import("./en").en = {
 		"wizard.step3SamplesDone": "読み込み完了",
 		"wizard.step3SamplesFail": "読み込み失敗",
 		"wizard.step3SamplesAlreadyHas": "raw/ に既に素材があります",
+		"wizard.completeGuide": "設定完了！コンパイルパネルを開いて、ナレッジベースの構築を始めましょう。",
+		"wizard.openCompile": "コンパイルパネルを開く",
 
 		// Usage stats
 		"stats.title": "使用統計",

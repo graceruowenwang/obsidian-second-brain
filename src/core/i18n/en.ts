@@ -562,6 +562,8 @@ export const en = {
 		"wizard.step3SamplesDone": "Loaded",
 		"wizard.step3SamplesFail": "Load Failed",
 		"wizard.step3SamplesAlreadyHas": "raw/ already has materials, skipping",
+		"wizard.completeGuide": "All done! Open the compile panel to start building your knowledge base.",
+		"wizard.openCompile": "Open Compile Panel",
 
 		// Usage stats
 		"stats.title": "Usage statistics",

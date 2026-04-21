@@ -331,9 +331,24 @@ export function renderWikiReviewBanner(
 		banner.createEl("span", { text: t("wiki.gap", lang), cls: "sb-draft-label" });
 		const regenBtn = banner.createEl("button", { text: t("wiki.regeneratePage", lang), cls: "sb-draft-review-btn" });
 		regenBtn.addEventListener("click", async () => {
-			await markForRegeneration(page.path, ctx);
-			regenBtn.textContent = t("wiki.regeneratePageDone", lang);
-			regenBtn.setAttribute("disabled", "true");
+			regenBtn.textContent = "...";
+			// 删除 stub 文件后重新编译
+			const wf = ctx.plugin.settings.wikiFolder;
+			const fullPath = `${wf}/${page.path}`;
+			const file = ctx.app.vault.getAbstractFileByPath(fullPath);
+			if (file instanceof TFile) {
+				await ctx.app.vault.delete(file);
+			}
+			try {
+				const { runCompile } = await import("../core/compile");
+				await ctx.plugin.runWithCompileLock(() =>
+					runCompile(ctx.app, ctx.plugin.settings, undefined, false, ctx.plugin as any),
+				);
+				await ctx.loadWiki();
+				ctx.showIndex();
+			} catch (e) {
+				console.warn("gap regen: compile failed:", e);
+			}
 		});
 	} else if (sn === "outdated") {
 		const banner = bodyEl.createDiv({ cls: "sb-draft-banner" });
