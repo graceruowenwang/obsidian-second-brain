@@ -117,10 +117,11 @@ export class CompileView extends ItemView {
 		bindHoverHint(statsHeading, t("compile.tooltip.usageStats", lang));
 		this.dataStatsMount = statsSection.createDiv({ cls: "sb-compile-data-section-body" });
 
-		const histSection = dataPanel.createDiv({ cls: "sb-compile-data-section sb-compile-data-section--history" });
-		histSection.createEl("h3", { cls: "sb-compile-data-section-title", text: t("compile.dataSection3Title", lang) });
-		histSection.createEl("p", { cls: "sb-compile-data-section-lead", text: t("compile.dataSection3Lead", lang) });
-		this.dataHistoryMount = histSection.createDiv({ cls: "sb-compile-data-section-body" });
+		const histDetails = dataPanel.createEl("details", { cls: "sb-compile-data-section sb-compile-data-section--history" });
+		const histSummary = histDetails.createEl("summary", { cls: "sb-compile-data-section-summary" });
+		histSummary.createEl("span", { text: t("compile.dataSection3Title", lang), cls: "sb-compile-data-section-title" });
+		histSummary.createEl("span", { text: t("compile.dataSection3Lead", lang), cls: "sb-compile-data-section-lead-inline" });
+		this.dataHistoryMount = histDetails.createDiv({ cls: "sb-compile-data-section-body" });
 
 		// 编译摘要 + 日志：同一滚动区，避免摘要被 flex 挤出可视区或裁切
 		const lowerScroll = container.createDiv({ cls: "sb-compile-lower-scroll" });

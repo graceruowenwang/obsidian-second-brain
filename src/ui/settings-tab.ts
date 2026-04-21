@@ -178,7 +178,7 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 			}));
 
 		// --- 工作区（素材 / Wiki 目录） ---
-		const wsDetails = containerEl.createEl("details", { cls: "sb-settings-section", attr: { open: "" } });
+		const wsDetails = containerEl.createEl("details", { cls: "sb-settings-section" });
 		wsDetails.createEl("summary", { text: t("set.sectionWorkspace", lang) });
 		const wsContent = wsDetails.createDiv();
 
@@ -200,7 +200,7 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 			}));
 
 		// --- 界面与模板 ---
-		const uiDetails = containerEl.createEl("details", { cls: "sb-settings-section", attr: { open: "" } });
+		const uiDetails = containerEl.createEl("details", { cls: "sb-settings-section" });
 		uiDetails.createEl("summary", { text: t("set.sectionUi", lang) });
 		const uiContent = uiDetails.createDiv();
 

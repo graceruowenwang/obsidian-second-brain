@@ -241,7 +241,47 @@
 	color: var(--text-muted);
 }
 
-.second-brain-compile .sb-compile-vault-status {
+.second-brain-compile .sb-compile-data-section--history > summary {
+	list-style: none;
+	cursor: pointer;
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+	padding: 2px 0;
+	transition: color 0.12s ease;
+}
+
+.second-brain-compile .sb-compile-data-section--history > summary::-webkit-details-marker {
+	display: none;
+}
+
+.second-brain-compile .sb-compile-data-section--history > summary:hover {
+	color: var(--text-normal);
+}
+
+.second-brain-compile .sb-compile-data-section--history > summary::before {
+	content: "\25B6";
+	display: inline-block;
+	font-size: 9px;
+	opacity: 0.5;
+	transition: transform 0.15s ease;
+	margin-right: 2px;
+	flex-shrink: 0;
+}
+
+.second-brain-compile .sb-compile-data-section--history[open] > summary::before {
+	transform: rotate(90deg);
+}
+
+.second-brain-compile .sb-compile-data-section--history .sb-compile-data-section-title {
+	margin: 0;
+	font-size: 13px;
+}
+
+.second-brain-compile .sb-compile-data-section-lead-inline {
+	font-size: 11px;
+	color: var(--text-muted);
+}
 	font-size: 12px;
 	line-height: 1.5;
 	padding: 8px 10px;
@@ -1907,6 +1947,32 @@ pre:hover .sb-copy-btn {
 .second-brain-wiki .sb-wiki-toolbar-row1 > .sb-wiki-search {
 	flex: 1 1 160px;
 	min-width: 0;
+}
+
+.second-brain-wiki .sb-wiki-toolbar-select {
+	flex: 0 0 auto;
+	min-width: 0;
+	max-width: 140px;
+	font-size: 12px;
+	line-height: 1.4;
+	padding: 5px 24px 5px 8px;
+	border-radius: var(--sb-wiki-radius-sm, 8px);
+	border: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 82%, transparent);
+	background: var(--sb-wiki-surface, var(--background-secondary));
+	color: var(--text-muted);
+	cursor: pointer;
+	appearance: none;
+	-webkit-appearance: none;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+	background-repeat: no-repeat;
+	background-position: right 6px center;
+	background-size: 12px;
+	transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.second-brain-wiki .sb-wiki-toolbar-select:hover {
+	color: var(--text-normal);
+	border-color: color-mix(in srgb, var(--interactive-accent) 30%, var(--sb-wiki-border, var(--background-modifier-border)));
 }
 
 .second-brain-wiki .sb-wiki-toolbar-quick {

@@ -109,13 +109,7 @@ export class WikiView extends ItemView {
 			cls: "sb-wiki-search",
 		});
 
-		const filterDetails = row1.createEl("details", { cls: "sb-wiki-toolbar-filters" });
-		const filterSummary = filterDetails.createEl("summary", { cls: "sb-wiki-toolbar-filters-summary" });
-		setIcon(filterSummary.createSpan({ cls: "sb-wiki-toolbar-filters-icon" }), "sliders-horizontal");
-		filterSummary.createSpan({ text: t("wiki.filtersSummary", lang), cls: "sb-wiki-toolbar-filters-text" });
-		const filterBody = filterDetails.createDiv({ cls: "sb-wiki-toolbar-filters-body" });
-		filterBody.createEl("label", { text: t("wiki.sortLabel", lang), cls: "sb-wiki-filter-label" });
-		this.sortSelect = filterBody.createEl("select", { cls: "sb-wiki-sort" });
+		this.sortSelect = row1.createEl("select", { cls: "sb-wiki-sort sb-wiki-toolbar-select", attr: { title: t("wiki.sortLabel", lang) } });
 		const sortOptions: Array<{ value: string; key: string }> = [
 			{ value: "name-asc", key: "wiki.sortNameAsc" },
 			{ value: "name-desc", key: "wiki.sortNameDesc" },
@@ -131,8 +125,7 @@ export class WikiView extends ItemView {
 			this.sortMode = this.sortSelect.value as typeof this.sortMode;
 			this.renderIndex();
 		});
-		filterBody.createEl("label", { text: t("wiki.statusLabel", lang), cls: "sb-wiki-filter-label" });
-		this.statusSelect = filterBody.createEl("select", { cls: "sb-wiki-sort" });
+		this.statusSelect = row1.createEl("select", { cls: "sb-wiki-sort sb-wiki-toolbar-select", attr: { title: t("wiki.statusLabel", lang) } });
 		const statusOptions: Array<{ value: string; key: string }> = [
 			{ value: "all", key: "wiki.filterAll" },
 			{ value: "pending", key: "wiki.filterPending" },
