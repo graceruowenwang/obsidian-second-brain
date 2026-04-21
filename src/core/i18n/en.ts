@@ -232,7 +232,7 @@ export const en = {
 		"chat.fileNotFound": "File not found: {name}",
 		"chat.welcome": "Hello, I'm your knowledge base assistant",
 		"chat.welcomeDesc": "Compile materials first, then ask me anything about concepts, entities, or sources in the knowledge base.",
-		"chat.suggestion1": "What is the core definition of this concept?",
+		"chat.suggestion1": "Map out the relationships between concepts in my knowledge base",
 		"chat.suggestion2": "Help me map the relationships between these concepts",
 		"chat.suggestion3": "What materials are related to XX?",
 		"chat.noApiKey": "Please configure API Key first",

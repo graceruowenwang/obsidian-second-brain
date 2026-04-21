@@ -194,7 +194,12 @@ export class ChatView extends ItemView {
 		welcome.createEl("h3", { text: t("chat.welcome", lang) });
 		welcome.createEl("p", { text: t("chat.welcomeDesc", lang) });
 		const tips = welcome.createDiv({ cls: "sb-tips" });
-		const examples = [t("chat.suggestion1", lang), t("chat.suggestion2", lang), t("chat.suggestion3", lang)];
+		// Dynamic suggestion: pick a real wiki page name for suggestion 3
+		const wikiNames = Object.keys(this.wikiMap)
+			.map(p => p.split("/").pop()!.replace(".md", ""))
+			.filter(n => n !== "index" && n !== "log");
+		const randomName = wikiNames.length > 0 ? wikiNames[Math.floor(Math.random() * wikiNames.length)] : "a concept";
+		const examples = [t("chat.suggestion1", lang), t("chat.suggestion2", lang), t("chat.suggestion3", lang, { name: randomName })];
 		for (const ex of examples) {
 			const chip = tips.createDiv({ cls: "sb-tip-chip", text: ex });
 			chip.addEventListener("click", () => {

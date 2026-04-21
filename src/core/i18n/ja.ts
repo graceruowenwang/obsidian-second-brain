@@ -232,7 +232,7 @@ export const ja: typeof import("./en").en = {
 		"chat.fileNotFound": "ファイルが見つかりません: {name}",
 		"chat.welcome": "こんにちは、ナレッジベースアシスタントです",
 		"chat.welcomeDesc": "先に素材をコンパイルしてから、ナレッジベースの概念、実体、ソースについて何でもお聞きください。",
-		"chat.suggestion1": "この概念の核心的な定義は何ですか？",
+		"chat.suggestion1": "ナレッジベース内の概念間の関係を整理して",
 		"chat.suggestion2": "これらの概念間の関係を整理してください",
 		"chat.suggestion3": "XX に関連する素材はありますか？",
 		"chat.noApiKey": "先に API Key を構成してください",
