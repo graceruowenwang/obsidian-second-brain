@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { needsRevalidation } from "../license";
+import { needsRevalidation, shouldStartCompileTrial } from "../license";
 import type { LicenseInfo } from "../../types";
 
 function make(overrides: Partial<LicenseInfo> = {}): LicenseInfo {
@@ -38,5 +38,42 @@ describe("needsRevalidation", () => {
 
 	it("lastValidated 是非法字符串 → 保守返回 true（需要重新验证）", () => {
 		expect(needsRevalidation(make({ lastValidated: "not-a-date" }))).toBe(true);
+	});
+});
+
+describe("shouldStartCompileTrial", () => {
+	it("已填激活码 → 不启动", () => {
+		expect(shouldStartCompileTrial(make({ status: "none", plan: "free" }), "ABC-123")).toBe(false);
+	});
+
+	it("已付费 active → 不启动", () => {
+		expect(shouldStartCompileTrial(make({ status: "active", plan: "pro" }), "")).toBe(false);
+	});
+
+	it("grace 迁移窗口 → 不启动", () => {
+		expect(
+			shouldStartCompileTrial(
+				make({ status: "grace", plan: "pro", graceStart: new Date().toISOString() }),
+				"",
+			),
+		).toBe(false);
+	});
+
+	it("已在 trial 且已有 trialStart → 不启动", () => {
+		expect(
+			shouldStartCompileTrial(
+				make({
+					status: "trial",
+					plan: "pro",
+					trialStart: new Date().toISOString(),
+				}),
+				"",
+			),
+		).toBe(false);
+	});
+
+	it("无 key、无试用记录 → 启动（含公测 BETA_MODE 场景）", () => {
+		expect(shouldStartCompileTrial(make({ status: "none", plan: "free", trialStart: null }), "")).toBe(true);
+		expect(shouldStartCompileTrial(make({ status: "trial", plan: "pro", trialStart: null }), "  ")).toBe(true);
 	});
 });

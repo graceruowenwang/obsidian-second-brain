@@ -3,9 +3,10 @@
 import { App, Modal, Setting } from "obsidian";
 import type { LLMProviderId, SecondBrainPlugin } from "../types";
 import { callLLM } from "../core/llm";
-import { PROVIDER_PRESETS } from "../core/presets";
+import { PROVIDER_PRESETS, providerPresetOrUndefined } from "../core/presets";
 import { t } from "../core/i18n";
 import { RAW_STANDARD_SUBFOLDERS } from "../core/raw-organize";
+import { hasAnySampleSource, loadSamplesIntoVault } from "../core/sample-loader";
 
 export class SetupWizardModal extends Modal {
 	private plugin: SecondBrainPlugin;
@@ -101,7 +102,7 @@ export class SetupWizardModal extends Modal {
 				});
 			});
 
-		new Setting(this.container)
+		const apiKeySetting = new Setting(this.container)
 			.setName(t("set.apiKey", lang))
 			.addText((t2) => {
 				t2.setPlaceholder("sk-...").setValue(this.plugin.settings.apiKey);
@@ -111,6 +112,10 @@ export class SetupWizardModal extends Modal {
 					await this.plugin.saveSettings();
 				});
 			});
+			const preset = providerPresetOrUndefined(this.plugin.settings.provider);
+			if (preset) {
+				apiKeySetting.descEl.createEl("a", { text: t("set.getApiKey", lang), href: preset.keyUrl });
+			}
 
 		const btnRow = this.container.createDiv({ cls: "sb-wizard-btn-row" });
 
@@ -133,7 +138,7 @@ export class SetupWizardModal extends Modal {
 		});
 
 		const nextBtn = btnRow.createEl("button", { text: t("wizard.next", lang), cls: "mod-cta" });
-		nextBtn.addEventListener("click", () => { this.step = 3; this.renderStep(); });
+		nextBtn.addEventListener("click", () => { this.step = 2; this.renderStep(); });
 
 		const skipBtn = btnRow.createEl("button", { text: t("wizard.skip", lang) });
 		skipBtn.addEventListener("click", () => this.finish());
@@ -182,9 +187,9 @@ export class SetupWizardModal extends Modal {
 
 		const statusEl = this.container.createDiv({ cls: "sb-wizard-samples-status" });
 
-		// Check if raw-sample/ exists
-		const sampleFolder = this.app.vault.getAbstractFileByPath("raw-sample");
 		const rawFolder = this.plugin.settings.rawFolder;
+		const wikiFolder = this.plugin.settings.wikiFolder;
+		const hasSampleSource = hasAnySampleSource(this.app);
 		const hasRaw = this.app.vault.getAbstractFileByPath(rawFolder);
 		let rawHasFiles = false;
 		if (hasRaw) {
@@ -197,33 +202,11 @@ export class SetupWizardModal extends Modal {
 		} else {
 			const loadBtn = statusEl.createEl("button", { text: t("wizard.step3SamplesLoad", lang), cls: "mod-cta" });
 			loadBtn.style.marginTop = "12px";
+			loadBtn.disabled = !hasSampleSource;
 			loadBtn.addEventListener("click", async () => {
 				loadBtn.textContent = "...";
 				try {
-					if (sampleFolder) {
-						const files = this.app.vault.getFiles().filter(f => f.path.startsWith("raw-sample/"));
-						for (const f of files) {
-							const targetPath = f.path.replace("raw-sample/", rawFolder + "/");
-							const existing = this.app.vault.getAbstractFileByPath(targetPath);
-							if (!existing) {
-								const content = await this.app.vault.read(f);
-								// Ensure folder
-								const folderPath = targetPath.substring(0, targetPath.lastIndexOf("/"));
-								const folder = this.app.vault.getAbstractFileByPath(folderPath);
-								if (!folder) {
-									const parts = folderPath.split("/");
-									let cur = "";
-									for (const p of parts) {
-										cur = cur ? cur + "/" + p : p;
-										if (!this.app.vault.getAbstractFileByPath(cur)) {
-											await this.app.vault.createFolder(cur);
-										}
-									}
-								}
-								await this.app.vault.create(targetPath, content);
-							}
-						}
-					}
+					await loadSamplesIntoVault(this.app, rawFolder, wikiFolder);
 					loadBtn.textContent = t("wizard.step3SamplesDone", lang);
 					loadBtn.classList.add("mod-cta");
 				} catch (e) {
@@ -251,7 +234,7 @@ export class SetupWizardModal extends Modal {
 
 		const btnRow = this.container.createDiv({ cls: "sb-wizard-btn-row" });
 		const prevBtn = btnRow.createEl("button", { text: t("wizard.prev", lang) });
-		prevBtn.addEventListener("click", () => { this.step = 2; this.renderStep(); });
+		prevBtn.addEventListener("click", () => { this.step = 3; this.renderStep(); });
 
 		const doneBtn = btnRow.createEl("button", { text: t("wizard.done", lang), cls: "mod-cta" });
 		doneBtn.addEventListener("click", () => this.finish());

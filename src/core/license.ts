@@ -7,9 +7,13 @@ import { DEFAULT_LICENSE } from "../types";
 // true  : 所有 Pro 功能免费使用、免费聊天无限额度（适用于面包多审核期间 / 早鸟阶段）
 // false : 正式付费模式（恢复原有激活码 + 试用期 + 每月免费额度的完整逻辑）
 //
-// 切换到 false 后用户无感知升级：已激活 Pro 的继续 Pro，未激活的回到
-// Free 档 + 14 天试用。只需要改这一行然后重新发布即可。
+// 公测对外说明：首次编译成功后会进入 TRIAL_PERIOD_DAYS 天完整 Pro 试用（见 getCompileTrialLicense）。
+// 切换到 false 后用户无感知升级：已激活 Pro 的继续 Pro，未激活的回到 Free 档 + 上述试用。
+// BETA_MODE 仅改这一行然后重新发布即可。
 export const BETA_MODE = true;
+
+/** 完整 Pro 试用天数（与对外「公测 14 天完整试用」一致；门控以 TRIAL_PERIOD 为准） */
+export const TRIAL_PERIOD_DAYS = 14;
 
 const LICENSE_API = "https://sb-license.ruowenwang.site";
 
@@ -38,7 +42,7 @@ const VALID_HASHES = new Set([
 ]);
 
 const GRACE_PERIOD = 14 * 24 * 60 * 60 * 1000;
-const TRIAL_PERIOD = 14 * 24 * 60 * 60 * 1000;
+const TRIAL_PERIOD = TRIAL_PERIOD_DAYS * 24 * 60 * 60 * 1000;
 const RATE_LIMIT_WINDOW = 60 * 60 * 1000;
 const MAX_ATTEMPTS_PER_HOUR = 5;
 
@@ -281,6 +285,19 @@ export function getCompileTrialLicense(): LicenseInfo {
 		freeChatUsed: 0,
 		freeChatMonth: "",
 	};
+}
+
+/**
+ * 首次编译成功后是否应写入「编译触发的 Pro 试用」。
+ * 与 {@link isPro} / {@link BETA_MODE} 解耦：公测全开 Pro 时仍记录试用起点，便于设置页展示剩余天数。
+ */
+export function shouldStartCompileTrial(state: LicenseInfo, licenseKey: string): boolean {
+	if (licenseKey.trim()) return false;
+	if (state.status === "active") return false;
+	// 老用户迁移 grace 与编译试用分开，避免覆盖 grace 窗口
+	if (state.status === "grace") return false;
+	if (state.status === "trial" && state.trialStart) return false;
+	return true;
 }
 
 export function isTrialActive(state: LicenseInfo): boolean {

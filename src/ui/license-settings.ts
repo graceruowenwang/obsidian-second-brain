@@ -4,7 +4,7 @@ import { Notice, Setting } from "obsidian";
 import type SecondBrain from "../main";
 import { DEFAULT_LICENSE, type LicenseInfo } from "../types";
 import { t } from "../core/i18n";
-import { validateLicense, activateLicense, deactivateLicense, isPro, getTrialDaysLeft, isTrialActive, BETA_MODE } from "../core/license";
+import { validateLicense, activateLicense, deactivateLicense, isPro, getTrialDaysLeft, isTrialActive, BETA_MODE, TRIAL_PERIOD_DAYS } from "../core/license";
 
 /**
  * 与实现一致：FREE_FEATURES 为免费版可用；其余行为 Pro 专属（见 feature-gate PRO_FEATURES）。
@@ -156,7 +156,7 @@ export function renderLicenseSettings(containerEl: HTMLElement, plugin: SecondBr
 	} else if (state.status === "none" || state.status === "inactive" || state.status === "expired") {
 		if (!state.key) {
 			const trialHint = content.createDiv({ cls: "sb-trial-hint" });
-			trialHint.createEl("span", { text: t("pro.trialStarted", lang).split("!")[0] + " — " + t("pro.trialDaysLeft", lang, { days: 14 }) });
+			trialHint.createEl("span", { text: t("pro.trialStarted", lang).split("!")[0] + " — " + t("pro.trialDaysLeft", lang, { days: TRIAL_PERIOD_DAYS }) });
 		}
 	}
 }

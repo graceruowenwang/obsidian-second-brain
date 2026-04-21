@@ -241,6 +241,54 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 			createProBadge(genTplSetting.nameEl, lang);
 		}
 
+		// 直接展示并编辑 wiki template prompt（pageRules），避免用户只看到文件路径却找不到 prompt 内容。
+		const tplPromptSetting = new Setting(uiContent)
+			.setName(t("set.tplPrompt", lang))
+			.setDesc(t("set.tplPromptDesc", lang));
+		let promptDraft = "";
+		let promptLoaded = false;
+		tplPromptSetting.addTextArea((ta) => {
+			ta.setPlaceholder(t("set.tplPromptLoading", lang)).setValue("");
+			ta.inputEl.rows = 10;
+			ta.inputEl.style.width = "100%";
+			ta.onChange((v) => {
+				promptDraft = v;
+			});
+		});
+		tplPromptSetting.addButton((btn) =>
+			btn.setButtonText(t("set.tplPromptSave", lang)).onClick(async () => {
+				if (!promptLoaded) return;
+				try {
+					const { loadTemplateConfig, generateTemplateFile } = await import("../core/templates");
+					const path = this.plugin.settings.templateFile;
+					const existing = this.app.vault.getAbstractFileByPath(path);
+					if (!(existing instanceof TFile)) {
+						await generateTemplateFile(this.app, path, this.plugin.settings.language);
+					}
+					const tpl = await loadTemplateConfig(this.app, path, this.plugin.settings.language);
+					const merged = { ...tpl, pageRules: promptDraft };
+					const file = this.app.vault.getAbstractFileByPath(path);
+					if (file instanceof TFile) {
+						await this.app.vault.modify(file, JSON.stringify(merged, null, 2));
+						new Notice(t("notice.tplPromptSaved", lang));
+					}
+				} catch (e: unknown) {
+					new Notice(t("notice.tplFail", lang, { msg: (e instanceof Error ? e.message : String(e)) }));
+				}
+			}),
+		);
+		void (async () => {
+			try {
+				const { loadTemplateConfig } = await import("../core/templates");
+				const tpl = await loadTemplateConfig(this.app, this.plugin.settings.templateFile, this.plugin.settings.language);
+				promptDraft = tpl.pageRules || "";
+				const area = tplPromptSetting.controlEl.querySelector("textarea") as HTMLTextAreaElement | null;
+				if (area) area.value = promptDraft;
+			} finally {
+				promptLoaded = true;
+			}
+		})();
+
 		// --- 编译与智能增强 ---
 		const compileDetails = containerEl.createEl("details", { cls: "sb-settings-section" });
 		compileDetails.createEl("summary", { text: t("set.sectionCompile", lang) });

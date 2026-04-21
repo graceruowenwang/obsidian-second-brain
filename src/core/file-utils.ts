@@ -15,6 +15,15 @@ export function getStorage(_app: App, plugin?: StorageLike): StorageLike {
 	throw new Error("Plugin instance required for data storage");
 }
 
+export function normalizeVaultFolderPath(path: string): string {
+	return (path || "")
+		.trim()
+		.replace(/\\/g, "/")
+		.replace(/^\/+/, "")
+		.replace(/\/+/g, "/")
+		.replace(/\/+$/, "");
+}
+
 // 递归获取文件夹下所有 .md 文件
 export function getAllMdFiles(folder: TFolder): TFile[] {
 	const files: TFile[] = [];
@@ -31,7 +40,8 @@ export function getAllMdFiles(folder: TFolder): TFile[] {
 
 // 读取 raw/ 目录下所有文件（并行读取）
 export async function readRawFiles(app: App, rawFolder: string): Promise<Array<{ path: string; content: string }>> {
-	const folder = app.vault.getAbstractFileByPath(rawFolder);
+	const normalized = normalizeVaultFolderPath(rawFolder);
+	const folder = app.vault.getAbstractFileByPath(normalized) ?? app.vault.getAbstractFileByPath(rawFolder);
 	if (!folder || !(folder instanceof TFolder)) return [];
 	const tfiles = getAllMdFiles(folder);
 	const contents = await Promise.all(tfiles.map(f => app.vault.cachedRead(f)));
@@ -40,11 +50,13 @@ export async function readRawFiles(app: App, rawFolder: string): Promise<Array<{
 
 // 读取 wiki/ 目录下所有文件（并行读取）
 export async function readWikiFiles(app: App, wikiFolder: string): Promise<Array<{ path: string; content: string }>> {
-	const folder = app.vault.getAbstractFileByPath(wikiFolder);
+	const normalized = normalizeVaultFolderPath(wikiFolder);
+	const folder = app.vault.getAbstractFileByPath(normalized) ?? app.vault.getAbstractFileByPath(wikiFolder);
 	if (!folder || !(folder instanceof TFolder)) return [];
 	const tfiles = getAllMdFiles(folder);
 	const contents = await Promise.all(tfiles.map(f => app.vault.cachedRead(f)));
-	return tfiles.map((f, i) => ({ path: f.path.replace(wikiFolder + "/", ""), content: contents[i] }));
+	const prefix = normalized + "/";
+	return tfiles.map((f, i) => ({ path: f.path.startsWith(prefix) ? f.path.slice(prefix.length) : f.path, content: contents[i] }));
 }
 
 // 写入 wiki 文件（确保目录存在）
@@ -73,7 +85,12 @@ export async function deleteWikiFile(app: App, wikiFolder: string, filePath: str
 
 // 确保目录存在
 export async function ensureFolder(app: App, folderPath: string): Promise<void> {
-	const parts = folderPath.split("/");
+	const normalized = normalizeVaultFolderPath(folderPath);
+	if (!normalized) return;
+	const already = app.vault.getAbstractFileByPath(normalized);
+	if (already instanceof TFolder) return;
+
+	const parts = normalized.split("/");
 	let current = "";
 	for (const part of parts) {
 		current = current ? `${current}/${part}` : part;

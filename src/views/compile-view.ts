@@ -1,13 +1,13 @@
 // 编译面板 -- 右侧栏 View，显示编译进度和日志
 
-import { ItemView, WorkspaceLeaf, Notice, TFolder } from "obsidian";
+import { ItemView, WorkspaceLeaf, Notice, TAbstractFile, TFolder } from "obsidian";
 import { bindHoverHint } from "../ui/hover-hint";
 import { runCompile } from "../core/compile";
 import { readRawFiles } from "../core/file-utils";
 import type { SecondBrainPlugin, ProgressEvent, CompileResult, CompileCache, CompileHistoryEntry } from "../types";
 import { getSuccessRate, getAvgDurationSec } from "../core/usage-stats";
 import { t } from "../core/i18n";
-import { isPro, getCompileTrialLicense } from "../core/license";
+import { shouldStartCompileTrial, getCompileTrialLicense } from "../core/license";
 import { friendlyCompilePageError, describeLLMFailure } from "../core/llm-user-message";
 import type { LLMErrorCode } from "../core/llm";
 
@@ -29,6 +29,9 @@ export class CompileView extends ItemView {
 	private dataVaultMount!: HTMLElement;
 	private dataStatsMount!: HTMLElement;
 	private dataHistoryMount!: HTMLElement;
+	private rawRefreshTimer: number | null = null;
+	private estimateTimer: number | null = null;
+	private latestProgressPercent = 0;
 
 	constructor(leaf: WorkspaceLeaf, plugin: SecondBrainPlugin) {
 		super(leaf);
@@ -127,15 +130,38 @@ export class CompileView extends ItemView {
 		await this.loadRawFileList();
 		await this.renderStats();
 		await this.renderHistory();
+
+		// 监听 raw 目录变化，避免在其他入口导入素材后面板仍显示旧的“空目录”状态。
+		this.registerEvent(this.app.vault.on("create", (file) => this.onRawFolderChanged(file)));
+		this.registerEvent(this.app.vault.on("delete", (file) => this.onRawFolderChanged(file)));
+		this.registerEvent(this.app.vault.on("rename", (file) => this.onRawFolderChanged(file)));
+	}
+
+	private onRawFolderChanged(file: TAbstractFile): void {
+		const rawFolder = this.plugin.settings.rawFolder;
+		const rawPrefix = `${rawFolder}/`;
+		const path = file.path;
+		if (path !== rawFolder && !path.startsWith(rawPrefix)) return;
+		if (this.rawRefreshTimer != null) window.clearTimeout(this.rawRefreshTimer);
+		this.rawRefreshTimer = window.setTimeout(() => {
+			this.rawRefreshTimer = null;
+			void this.refreshVaultStripOnly();
+		}, 120);
 	}
 
 	/** 素材目录是否存在、其中可用文件数（不含 _usage） */
 	private async readRawSummary(): Promise<{ folder: string; count: number; exists: boolean }> {
 		const rawFolder = this.plugin.settings.rawFolder;
-		const folder = this.app.vault.getAbstractFileByPath(rawFolder);
+		const normalized = rawFolder
+			.trim()
+			.replace(/\\/g, "/")
+			.replace(/^\/+/, "")
+			.replace(/\/+/g, "/")
+			.replace(/\/+$/, "");
+		const folder = this.app.vault.getAbstractFileByPath(normalized) ?? this.app.vault.getAbstractFileByPath(rawFolder);
 		const exists = folder instanceof TFolder;
 		if (!exists) return { folder: rawFolder, count: 0, exists: false };
-		const files = await readRawFiles(this.app, rawFolder);
+		const files = await readRawFiles(this.app, normalized || rawFolder);
 		const userList = files.filter(f => !f.path.includes("_usage"));
 		return { folder: rawFolder, count: userList.length, exists: true };
 	}
@@ -162,10 +188,12 @@ export class CompileView extends ItemView {
 		const lang = this.plugin.settings.language;
 		const s = await this.readRawSummary();
 		this.renderVaultStrip(s, lang);
-		if (s.count > 0) {
+		if (!s.exists) {
+			this.addLog(t("compile.folderMissing", lang, { folder: s.folder }), "err");
+		} else if (s.count > 0) {
 			this.addLog(t("compile.filesFound", lang, { folder: s.folder, n: s.count }), "ok");
 		} else {
-			this.addLog(t("compile.folderEmpty", lang, { folder: s.folder }), "err");
+			this.addLog(t("compile.folderNoCompilable", lang, { folder: s.folder }), "err");
 		}
 	}
 
@@ -181,6 +209,32 @@ export class CompileView extends ItemView {
 			this.abortController.abort();
 			this.abortController = null;
 		}
+		this.stopEstimateTimer();
+	}
+
+	private stopEstimateTimer(): void {
+		if (this.estimateTimer != null) {
+			window.clearInterval(this.estimateTimer);
+			this.estimateTimer = null;
+		}
+	}
+
+	private elapsedSeconds(): number {
+		const ms = Date.now() - this.compileStartTime;
+		// 避免 sub-second 编译阶段显示 0s，导致用户误以为计时失效。
+		return ms > 0 ? Math.max(1, Math.ceil(ms / 1000)) : 0;
+	}
+
+	private updateTimeEstimate(lang: string): void {
+		if (this.latestProgressPercent <= 20) {
+			this.timeEstimateEl.style.display = "none";
+			return;
+		}
+		const elapsed = this.elapsedSeconds();
+		const percent = Math.max(1, Math.min(100, this.latestProgressPercent));
+		const remain = percent >= 100 ? 0 : Math.max(1, Math.ceil((elapsed * (100 - percent)) / percent));
+		this.timeEstimateEl.textContent = t("compile.estimate", lang, { elapsed, remain });
+		this.timeEstimateEl.style.display = "";
 	}
 
 	private async startCompile(force = false) {
@@ -197,6 +251,7 @@ export class CompileView extends ItemView {
 
 		this.compiling = true;
 		this.compileStartTime = Date.now();
+		this.latestProgressPercent = 0;
 		this.abortController = new AbortController();
 		this.compileBtn.textContent = t("compile.compiling", lang);
 		bindHoverHint(this.compileBtn, t("compile.tooltip.compilingPrimary", lang));
@@ -205,6 +260,7 @@ export class CompileView extends ItemView {
 		this.progressFill.style.width = "0%";
 		this.progressFill.style.background = "";
 		this.timeEstimateEl.style.display = "none";
+		this.stopEstimateTimer();
 		this.resetStageDots();
 
 		// 移除之前的编译摘要
@@ -214,6 +270,7 @@ export class CompileView extends ItemView {
 		const onProgress = (e: ProgressEvent) => {
 			this.progressFill.style.width = `${e.percent}%`;
 			this.progressLabel.textContent = t("compile.progress", lang, { step: e.stepName, detail: e.detail, pct: e.percent });
+			this.latestProgressPercent = e.percent;
 
 			// 阶段指示：已完成 / 当前 / 未开始
 			this.stageIndicator.querySelectorAll(".sb-compile-stage-dot").forEach((dot, i) => {
@@ -229,12 +286,12 @@ export class CompileView extends ItemView {
 				this.currentFileEl.style.display = "";
 			}
 
-			// 时间预估：进度超过 20% 时显示
+			// 时间预估：进度超过 20% 时显示，并每秒刷新一次避免长阶段卡在旧数值。
 			if (e.percent > 20) {
-				const elapsed = Math.round((Date.now() - this.compileStartTime) / 1000);
-				const remain = Math.round(elapsed * (100 - e.percent) / e.percent);
-				this.timeEstimateEl.textContent = t("compile.estimate", lang, { elapsed, remain });
-				this.timeEstimateEl.style.display = "";
+				this.updateTimeEstimate(lang);
+				if (this.estimateTimer == null) {
+					this.estimateTimer = window.setInterval(() => this.updateTimeEstimate(lang), 1000);
+				}
 			}
 		};
 
@@ -304,11 +361,11 @@ export class CompileView extends ItemView {
 			}
 
 			// 编译摘要
-			const elapsed = Math.round((Date.now() - this.compileStartTime) / 1000);
+			const elapsed = this.elapsedSeconds();
 			this.renderCompileSummary(elapsed, errorCount, force, result);
 
-			// 首次编译成功 → 触发 3 天 Pro 试用
-			if (!isPro(this.plugin.licenseInfo) && !this.plugin.settings.licenseKey) {
+			// 首次编译成功 → 记录完整 Pro 试用起点（公测 BETA_MODE 下门控仍全开，但设置页可显示剩余天数）
+			if (shouldStartCompileTrial(this.plugin.licenseInfo, this.plugin.settings.licenseKey)) {
 				this.plugin.licenseInfo = getCompileTrialLicense();
 				await this.plugin.saveLicenseInfo();
 				new Notice(t("pro.trialStarted", lang));
@@ -320,8 +377,17 @@ export class CompileView extends ItemView {
 
 			new Notice(t("compile.complete", lang));
 		} catch (e: unknown) {
-			if ((e instanceof Error ? e.message : String(e)) === "编译已取消") {
+			const errMsg = e instanceof Error ? e.message : String(e);
+			if (errMsg === "编译已取消") {
 				this.addLog(t("compile.compiling", lang) + " -- 已取消", "");
+			} else if (errMsg === "SB_RAW_MISSING") {
+				const msg = t("compile.error.rawMissing", lang, { folder: this.plugin.settings.rawFolder });
+				this.addLog(t("compile.fail", lang, { msg }), "err");
+				new Notice(t("compile.fail", lang, { msg }));
+			} else if (errMsg === "SB_RAW_NO_TEXT") {
+				const msg = t("compile.error.rawNoCompilable", lang, { folder: this.plugin.settings.rawFolder });
+				this.addLog(t("compile.fail", lang, { msg }), "err");
+				new Notice(t("compile.fail", lang, { msg }));
 			} else {
 				const friendlyMsg = describeLLMFailure(lang, e);
 				this.addLog(t("compile.fail", lang, { msg: friendlyMsg }), "err");
@@ -336,6 +402,7 @@ export class CompileView extends ItemView {
 			bindHoverHint(this.compileBtn, t("compile.tooltip.start", lang));
 			this.cancelBtn.style.display = "none";
 			this.timeEstimateEl.style.display = "none";
+			this.stopEstimateTimer();
 			this.progressFill.style.background = "";
 			this.resetStageDots();
 		}
@@ -502,5 +569,9 @@ export class CompileView extends ItemView {
 
 	async onClose() {
 		this.cancelCompile();
+		if (this.rawRefreshTimer != null) {
+			window.clearTimeout(this.rawRefreshTimer);
+			this.rawRefreshTimer = null;
+		}
 	}
 }

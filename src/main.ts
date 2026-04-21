@@ -20,7 +20,7 @@ import { computeWikiHealth } from "./core/health";
 import { SecondBrainSettingTab } from "./ui/settings-tab";
 import { encryptKeys, decryptKeys, isEncryptionAvailable, SecureStorageError } from "./core/secure-storage";
 import { describeLLMFailure } from "./core/llm-user-message";
-import { organizeLooseRawFiles } from "./core/raw-organize";
+import { organizeLooseRawFiles, RAW_FLASH_INBOX } from "./core/raw-organize";
 
 export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 	settings!: PluginSettings;
@@ -161,7 +161,7 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 			callback: () => this.organizeRawMaterials(),
 		});
 
-		// 命令：捕获当前笔记到 inbox
+		// 命令：捕获当前笔记到闪念收件箱
 		this.addCommand({
 			id: "capture-to-inbox",
 			name: t("cmd.captureToInbox", lang),
@@ -173,7 +173,7 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 				if (!content.trim()) { new Notice(t("notice.emptyNote", lang)); return; }
 				const today = new Date().toISOString().split("T")[0];
 				const title = file.basename || today;
-				const inboxPath = `${this.settings.rawFolder}/06-flash_notes/inbox/${today}-${title}.md`;
+				const inboxPath = `${this.settings.rawFolder}/${RAW_FLASH_INBOX}/${today}-${title}.md`;
 				const existing = this.app.vault.getAbstractFileByPath(inboxPath);
 				if (existing instanceof TFile) {
 					const merged = (await this.app.vault.read(existing)) + "\n\n---\n\n" + content;
@@ -362,6 +362,7 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 	}
 
 	async saveSettings() {
+		coercePluginSettings(this.settings);
 		const data = await this.loadPluginData();
 		Object.assign(data, this.settings);
 		data._licenseInfo = this.licenseInfo as unknown;

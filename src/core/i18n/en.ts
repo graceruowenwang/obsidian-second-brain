@@ -49,7 +49,7 @@ export const en = {
 		"set.rawFolderDesc": "Folder for raw materials",
 		"set.rawFolderPh": "raw",
 		"set.organizeRaw": "Organize raw folder",
-		"set.organizeRawDesc": "Move loose files under raw/ into Chinese-labeled folders (01–06 by type: articles, books, podcast notes, videos, courses, WeChat long reads; saved web pages html/url/webloc go under 01; standalone images go to 99 pending; 08 interviews & counseling; 09 flash notes/inbox). Short notes go to flash inbox by length heuristic only—not a priority/importance ranking.",
+		"set.organizeRawDesc": "Move loose files under raw/ into Chinese-labeled folders (01–06 by type: articles, book notes, podcast notes, videos, courses, WeChat long reads; saved web pages html/url/webloc go under 01; standalone images go to 99 pending; 07 interviews & counseling; 08 flash notes/inbox). Short notes go to flash inbox by length heuristic only—not a priority/importance ranking.",
 		"set.organizeRawBtn": "Organize now",
 		"set.wikiFolder": "Wiki Folder",
 		"set.wikiFolderDesc": "Folder for AI-compiled wiki output",

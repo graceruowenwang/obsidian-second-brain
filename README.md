@@ -12,11 +12,21 @@ raw/ (your notes)  -->  AI Compile  -->  wiki/ (knowledge base)
    highlights             sources               index + mind map
 ```
 
-1. **Put notes** in `raw/` (articles, highlights, flash notes, anything)
+1. **Put notes** in `raw/` — ideally material your mind has already worked through (see **Raw folder guide** below)
 2. **Compile** — AI extracts concepts, entities, and sources, writes structured wiki pages
 3. **Browse & Chat** — explore your knowledge base or ask questions with cited answers
 
 Incremental compilation: only changed files are re-processed. Subsequent compiles finish in seconds.
+
+## Raw folder guide
+
+**What to put in `raw/`:** notes that are already *yours* in a cognitive sense—**handwritten or self-authored notes** (ideas, paraphrases, reflections), and **web clippings only after you have read and absorbed them** (e.g. with your own highlights or a line on why the piece matters). `raw/` is not meant to be an endless “read later” graveyard.
+
+**What “already worked through” means:** it does **not** mean “memorized word for word.” It means you have already paid attention—read (or skimmed with intent), thought about it, and **connected it to what you already know or do**—so the file is no longer a stranger on disk. Typical signals: you wrote it yourself; or you read someone else’s piece **at least once** and left a personal trace (highlight, margin note, a one-line takeaway, or “how this relates to project X”). The opposite—saved links you never opened, full clips never read, “might be useful someday” with no concrete use—usually still counts as **unprocessed**; keep those in read-later or an inbox, and **promote into `raw/`** after they become real input. In one line: information becomes **knowledge you helped construct**, not just something you filed.
+
+**The principle:** keep the **source layer close to what your brain already holds**. The compiler turns `raw/` into a linked wiki—a *second brain* for knowledge you are ready to connect and reuse. If `raw/` is mostly unread captures, the wiki can still look busy, but it drifts away from *externalized understanding* toward *automated hoarding*—and the whole product goal—**building a second brain**—starts to skew off course.
+
+**Practical habit:** park unread links and full-text dumps outside this pipeline (or in a separate inbox). **Promote into `raw/`** once a piece has become real mental input—then compile, so the wiki tracks what you actually think with, not what you merely saved.
 
 ## Quick Start
 
@@ -71,7 +81,7 @@ Your API key stays local. Nothing is uploaded.
 | SVG Mind Map | Interactive visual knowledge graph |
 | Multi-LLM Backend | Switch between providers in one click |
 
-**Pricing**: ¥30 one-time purchase. First compile triggers a 3-day Pro trial.
+**Pricing**: ¥30 one-time purchase. Public beta: first successful compile starts a **14-day full Pro trial**.
 
 ## Folder Structure
 
@@ -117,7 +127,7 @@ npm ci --legacy-peer-deps
 npm run release
 ```
 
-Produces `second-brain.zip` containing `main.js`, `manifest.json`, `styles.css`. Extract into `.obsidian/plugins/second-brain/`.
+Produces `second-brain.zip` containing the plugin bundle: **`main.js`** (compiled code), **`manifest.json`** (plugin metadata), **`styles.css`** (styles). Extract into `.obsidian/plugins/second-brain/`.
 
 Before cutting a release build for **second-brain-release**, run **`npm run ci`** locally in this repo (typecheck + tests + production build), then `npm run release` and attach the zip to **second-brain-release** on GitHub. Pushes and PRs to `main` / `master` here run CI; successful runs attach `main.js`, `manifest.json`, and `styles.css` as a workflow artifact for sanity checks.
 
@@ -163,11 +173,21 @@ raw/ (你的素材)  -->  AI 编译  -->  wiki/ (知识库)
   闪念笔记                                索引 + 知识图谱
 ```
 
-1. **放入素材** -- 把笔记放到 `raw/` 目录下（文章、高亮、闪念笔记，什么都行）
+1. **放入素材** -- 把笔记放到 `raw/` 目录下；**建议以「大脑已经处理过」的内容为主**（见下方「素材目录使用指南」）
 2. **AI 编译** -- LLM 自动提取概念、实体和来源，生成结构化的 Wiki 页面
 3. **浏览与对话** -- 浏览知识库，或用 AI 对话功能提问，回答自动引用你的 `[[wiki-links]]`
 
 支持增量编译：只处理有变化的文件，后续编译几秒完成。
+
+### 素材目录（raw）使用指南
+
+**建议放进 `raw/` 的：**你自己**手写或亲手整理**的笔记（想法、转述、复盘），以及**已经读过、消化过**的网页剪藏（最好带自己的高亮或一两句「这对我意味着什么」）。`raw/` 不适合当成无限膨胀的「稍后读」堆场。
+
+**什么叫「大脑已经处理过」？** 这里**不是**指「能背下来、能默写」，而是指你已经用**注意力**读过、想过，并**和自己的经验或任务对上过号**——材料不再只是磁盘上的陌生字节。常见情况包括：你自己写下来的内容；或外部文章/视频稿等你**至少认真读过一遍**，并留下至少一种「个人痕迹」（高亮、批注、用自己的话写两句总结、标明「和我正在做的 X 有什么关系」）。反过来：收藏从未打开、全文剪藏一眼没看、也说不出具体使用场景，多半仍算**未处理**——更适合先放在稍后读或单独收件箱，**升格进 `raw/`** 应在它真的变成你的输入之后。**一句话：**从「别人的信息」变成「你参与过意义建构的信息」。
+
+**核心原则：**让 **raw 这一层尽量贴近「大脑已经掌握、正在使用的知识」**。插件会把 `raw/` 编译成带链接的 Wiki，扮演的是**第二大脑**——用来串联和复用你已经理解的东西。若 `raw/` 里多半是未读收藏，输出再漂亮也容易变成**囤积自动化**，整体目标会从「**外显化的理解**」悄悄偏成「**存了很多但脑里没接上**」，**建立第二大脑**这件事就容易跑偏。
+
+**习惯上可以这样分：**未读链接、整篇丢进去但还没看的材料，先放在别处或单独收件箱；**只有当你真的读进去、变成自己的输入之后，再升格进 `raw/`** 再编译，这样 Wiki 跟踪的是你**在思考时用得上的知识**，而不只是你点过保存的文件。
 
 ### 快速开始
 
@@ -222,7 +242,7 @@ API Key 仅保存在本地，不会上传到任何服务器。
 | SVG 知识图谱 | 可交互的可视化知识网络 |
 | 多 LLM 后端 | 一键切换 AI 提供商 |
 
-**定价**：¥30 买断。首次编译自动开启 3 天 Pro 试用。
+**定价**：¥30 买断。公测阶段：首次编译成功后开启 **14 天完整 Pro 试用**。
 
 ### 目录结构
 
@@ -284,9 +304,9 @@ npm ci --legacy-peer-deps
 npm run release
 ```
 
-生成 `second-brain.zip`，包含 `main.js`、`manifest.json`、`styles.css`。解压到 `.obsidian/plugins/second-brain/` 即可。
+生成 `second-brain.zip`，包含插件三件套：`main.js`（主程序）、`manifest.json`（插件元数据）、`styles.css`（样式）。解压到 `.obsidian/plugins/second-brain/` 即可。
 
-**发版前建议**：在本仓库执行 `npm run ci`，再 `npm run release` 生成 zip，将产物上传到 **second-brain-release** 的 Releases。推送到 `main` / `master` 或提 PR 时，本仓库 GitHub Actions 会跑同一套检查；通过后可从 workflow 产物中下载三件套核对体积与内容。
+**发版前建议**：在本仓库执行 `npm run ci`，再 `npm run release` 生成 zip，将产物上传到 **second-brain-release** 的 Releases。推送到 `main` / `master` 或提 PR 时，本仓库 GitHub Actions 会跑同一套检查；通过后可从 workflow 产物中下载 **`main.js`、`manifest.json`、`styles.css`**（插件三件套）核对体积与内容。
 
 ### GitHub 与 Gitee 双托管
 

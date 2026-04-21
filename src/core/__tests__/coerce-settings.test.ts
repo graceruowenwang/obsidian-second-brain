@@ -32,4 +32,26 @@ describe("coercePluginSettings", () => {
 		coercePluginSettings(s2);
 		expect(s2.temperature).toBe(0);
 	});
+
+	it("规范化 raw/wiki 目录路径（去空格、首尾斜杠、重复斜杠）", () => {
+		const s = {
+			...DEFAULT_SETTINGS,
+			rawFolder: " /raw// ",
+			wikiFolder: "\\wiki\\notes\\",
+		};
+		coercePluginSettings(s);
+		expect(s.rawFolder).toBe("raw");
+		expect(s.wikiFolder).toBe("wiki/notes");
+	});
+
+	it("raw/wiki 为空时回落默认目录", () => {
+		const s = {
+			...DEFAULT_SETTINGS,
+			rawFolder: "   ",
+			wikiFolder: "",
+		};
+		coercePluginSettings(s);
+		expect(s.rawFolder).toBe(DEFAULT_SETTINGS.rawFolder);
+		expect(s.wikiFolder).toBe(DEFAULT_SETTINGS.wikiFolder);
+	});
 });

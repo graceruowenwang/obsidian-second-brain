@@ -3,6 +3,14 @@
 import type { Concept, Entity, Source, Synthesis } from "../types";
 import type { TemplateConfig } from "./templates";
 
+function isOriginalInsightMaterial(sourceFile: string): boolean {
+	if (!sourceFile) return false;
+	// 兼容旧路径与新中文路径（含曾用序号 09 的闪念目录）。
+	return sourceFile.includes("06-flash_notes")
+		|| sourceFile.includes("08-闪念速记")
+		|| sourceFile.includes("09-闪念速记");
+}
+
 export function today(): string {
 	return new Date().toISOString().split("T")[0];
 }
@@ -32,7 +40,7 @@ export function conceptFrontmatter(concept: Concept): string {
 	const originalFiles: string[] = [];
 	const referenceFiles: string[] = [];
 	if (concept.source_file) {
-		if (concept.source_file.includes("06-flash_notes")) {
+		if (isOriginalInsightMaterial(concept.source_file)) {
 			originalFiles.push(concept.source_file);
 		} else {
 			referenceFiles.push(concept.source_file);
@@ -139,7 +147,7 @@ ${changedMaterials}`;
 
 function getMaterialTypeHint(sourceFile: string, tpl: TemplateConfig): string {
 	if (!sourceFile) return "";
-	if (sourceFile.includes("06-flash_notes")) {
+	if (isOriginalInsightMaterial(sourceFile)) {
 		return `\nIMPORTANT: These materials are from the user's own notes (flash_notes). You MUST mark any original user insights, personal opinions, or unique observations with > ${tpl.originalPrefix} as a blockquote prefix. This is the user's own thinking - distinguish it clearly from reference material.`;
 	}
 	return "";

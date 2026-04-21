@@ -8,6 +8,18 @@ import {
 	type PluginSettings,
 } from "../types";
 
+function normalizeFolderPath(input: string, fallback: string): string {
+	const trimmed = (input || "").trim();
+	if (!trimmed) return fallback;
+	// Vault path should be relative (no leading slash), and without trailing slash.
+	const normalized = trimmed
+		.replace(/\\/g, "/")
+		.replace(/^\/+/, "")
+		.replace(/\/+/g, "/")
+		.replace(/\/+$/, "");
+	return normalized || fallback;
+}
+
 export function coercePluginSettings(settings: PluginSettings): void {
 	if (!(LLM_PROVIDER_IDS as readonly string[]).includes(settings.provider)) {
 		console.warn(`second-brain: invalid provider "${String(settings.provider)}", reset to ${DEFAULT_SETTINGS.provider}`);
@@ -32,4 +44,6 @@ export function coercePluginSettings(settings: PluginSettings): void {
 	if (typeof settings.autoCompileDelay !== "number" || !Number.isFinite(settings.autoCompileDelay) || settings.autoCompileDelay < 1) {
 		settings.autoCompileDelay = DEFAULT_SETTINGS.autoCompileDelay;
 	}
+	settings.rawFolder = normalizeFolderPath(settings.rawFolder, DEFAULT_SETTINGS.rawFolder);
+	settings.wikiFolder = normalizeFolderPath(settings.wikiFolder, DEFAULT_SETTINGS.wikiFolder);
 }

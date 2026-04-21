@@ -49,7 +49,7 @@ export const zhCN: typeof import("./en").en = {
 		"set.rawFolderDesc": "存放原始素材的文件夹",
 		"set.rawFolderPh": "raw",
 		"set.organizeRaw": "整理素材目录",
-		"set.organizeRawDesc": "把素材根目录下的散落文件移入中文子文件夹：01–06 按类型（文章、书籍、播客笔记、视频、课程、公众号）；保存的网页（html、url 等）归入 01；独立图片等进 99；08 访谈与咨询记录；09 闪念速记/收件箱。短笔记进「闪念收件箱」只看篇幅启发式，不是重要性优先级。",
+		"set.organizeRawDesc": "把素材根目录下的散落文件移入中文子文件夹：01–06 按类型（文章、书籍笔记、播客笔记、视频、课程、公众号）；保存的网页（html、url 等）归入 01；独立图片等进 99；07 访谈与咨询记录；08 闪念速记/收件箱。短笔记进「闪念收件箱」只看篇幅启发式，不是重要性优先级。",
 		"set.organizeRawBtn": "立即整理",
 		"set.wikiFolder": "Wiki 目录",
 		"set.wikiFolderDesc": "AI 编译输出的文件夹",

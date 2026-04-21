@@ -1,7 +1,7 @@
 // 编译引擎 — 从 compile-engine.js 移植
 // 文件操作改为 Vault API，LLM 调用改为 requestUrl
 
-import { App } from "obsidian";
+import { App, TFolder } from "obsidian";
 import { callLLM } from "./llm";
 import {
 	readRawFiles, readWikiFiles, writeWikiFile,
@@ -330,8 +330,12 @@ async function phaseLoad(ctx: CompileContext): Promise<void> {
 
 	// 读取素材
 	onProgress({ step: 1, stepName: "读取素材", detail: "正在扫描...", percent: 15 });
+	const rawDir = app.vault.getAbstractFileByPath(settings.rawFolder);
+	if (!(rawDir instanceof TFolder)) {
+		throw new Error("SB_RAW_MISSING");
+	}
 	const allFiles = await readRawFiles(app, settings.rawFolder);
-	if (allFiles.length === 0) throw new Error(`${settings.rawFolder}/ 目录为空`);
+	if (allFiles.length === 0) throw new Error("SB_RAW_NO_TEXT");
 	ctx.allFiles = allFiles;
 
 	// 加载并迁移缓存（分两步：同步结构迁移 + 异步 embedding 迁移）

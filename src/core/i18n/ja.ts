@@ -49,7 +49,7 @@ export const ja: typeof import("./en").en = {
 		"set.rawFolderDesc": "元の素材を保存するフォルダ",
 		"set.rawFolderPh": "raw",
 		"set.organizeRaw": "素材フォルダを整理",
-		"set.organizeRawDesc": "raw/ 直下のファイルを中国語フォルダへ整理します（01–06：記事・書籍・ポッドキャストノート・動画・講義・WeChat長文；html/url 等の保存ページは 01、単体画像は 99；08 インタビュー・カウンセリング；09 フラッシュノート/受信箱）。短文がフラッシュ受信箱へ入るのは文字量のヒューリスティックであり、重要度の優先順位ではありません。",
+		"set.organizeRawDesc": "raw/ 直下のファイルを中国語フォルダへ整理します（01–06：記事・書籍ノート・ポッドキャストノート・動画・講義・WeChat長文；html/url 等の保存ページは 01、単体画像は 99；07 インタビュー・カウンセリング；08 フラッシュノート/受信箱）。短文がフラッシュ受信箱へ入るのは文字量のヒューリスティックであり、重要度の優先順位ではありません。",
 		"set.organizeRawBtn": "今すぐ整理",
 		"set.wikiFolder": "Wiki ディレクトリ",
 		"set.wikiFolderDesc": "AI コンパイル出力のフォルダ",
