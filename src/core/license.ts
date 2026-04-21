@@ -86,6 +86,7 @@ async function onlineActivate(key: string, instanceName: string): Promise<Licens
 			instanceId: instanceName,
 			freeChatUsed: 0,
 			freeChatMonth: "",
+		trialExpiredShown: false,
 		};
 	} catch {
 		return null;
@@ -113,6 +114,7 @@ async function onlineValidate(key: string, instanceId: string | null): Promise<L
 			instanceId: instanceId,
 			freeChatUsed: 0,
 			freeChatMonth: "",
+		trialExpiredShown: false,
 		};
 	} catch {
 		return null;
@@ -168,6 +170,7 @@ export async function activateLicense(key: string, instanceName?: string): Promi
 			instanceId: instanceName || null,
 			freeChatUsed: 0,
 			freeChatMonth: "",
+		trialExpiredShown: false,
 		};
 	}
 
@@ -198,6 +201,7 @@ export async function validateLicense(key: string, instanceId?: string | null): 
 			instanceId: instanceId || null,
 			freeChatUsed: 0,
 			freeChatMonth: "",
+		trialExpiredShown: false,
 		};
 	}
 
@@ -269,6 +273,7 @@ export function getTrialLicense(): LicenseInfo {
 		instanceId: null,
 		freeChatUsed: 0,
 		freeChatMonth: "",
+		trialExpiredShown: false,
 	};
 }
 
@@ -284,6 +289,7 @@ export function getCompileTrialLicense(): LicenseInfo {
 		instanceId: null,
 		freeChatUsed: 0,
 		freeChatMonth: "",
+		trialExpiredShown: false,
 	};
 }
 

@@ -281,4 +281,5 @@ export const DEFAULT_LICENSE: LicenseInfo = {
 	instanceId: null,
 	freeChatUsed: 0,
 	freeChatMonth: "",
+	trialExpiredShown: false,
 };

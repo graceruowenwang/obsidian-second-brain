@@ -31,7 +31,7 @@ export async function findRelevantMaterials(itemName: string, itemDesc: string, 
 	return findRelevantMaterialsByKeyword(itemName, itemDesc, allFiles, maxChars);
 }
 
-function findRelevantMaterialsByKeyword(itemName: string, itemDesc: string, allFiles: Array<{ path: string; content: string }>, maxChars = 10000): string {
+export function findRelevantMaterialsByKeyword(itemName: string, itemDesc: string, allFiles: Array<{ path: string; content: string }>, maxChars = 10000): string {
 	const keywords: string[] = [];
 	const titleWords = itemName.match(/[A-Z][a-z]+/g) || [];
 	keywords.push(...titleWords);

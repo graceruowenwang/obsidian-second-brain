@@ -13,7 +13,7 @@ import { runCompile } from "./core/compile";
 import { readRawFiles, diffFingerprints, emptyCache } from "./core/file-utils";
 import { t } from "./core/i18n";
 import { SetupWizardModal } from "./ui/setup-wizard";
-import { validateLicense, isPro, needsRevalidation, enterGraceIfNeeded, checkGraceExpiry, checkTrialExpiry, getDefaultLicense, getTrialLicense, getTrialDaysLeft } from "./core/license";
+import { validateLicense, isPro, needsRevalidation, enterGraceIfNeeded, checkGraceExpiry, checkTrialExpiry, getDefaultLicense, getTrialLicense, getTrialDaysLeft, isTrialActive } from "./core/license";
 import { requirePro, showUpgradeNotice } from "./core/feature-gate";
 import { quickIngest } from "./core/quick-ingest";
 import { computeWikiHealth } from "./core/health";
@@ -110,6 +110,21 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 			this.settings.proWelcomeShown = true;
 			await this.saveSettings();
 			this.showProWelcome(lang);
+		}
+
+		// 试用到期提醒：剩余 <= 3 天时每次启动提醒，到期时明确告知
+		if (isTrialActive(this.licenseInfo)) {
+			const daysLeft = getTrialDaysLeft(this.licenseInfo);
+			if (daysLeft <= 3) {
+				new Notice(t("pro.trialExpiring", lang, { days: String(daysLeft) }), 6000);
+			}
+		} else if (this.licenseInfo.status === "trial" && this.licenseInfo.trialStart) {
+			// trial status 但已过期 -> checkTrialExpiry 会重置为 free，这是首次检测到过期
+			if (!this.licenseInfo.trialExpiredShown) {
+				this.licenseInfo.trialExpiredShown = true;
+				await this.saveLicenseInfo();
+				new Notice(t("pro.trialExpiredNotice", lang), 8000);
+			}
 		}
 
 		// 注册 View

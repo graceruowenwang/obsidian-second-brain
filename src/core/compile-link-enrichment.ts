@@ -31,7 +31,7 @@ interface PageIndex {
 	eligible: Array<{ path: string; content: string }>;
 }
 
-function buildPageIndex(wikiFiles: Array<{ path: string; content: string }>): PageIndex {
+export function buildPageIndex(wikiFiles: Array<{ path: string; content: string }>): PageIndex {
 	const graph = new Map<string, Set<string>>();
 	const fileMap: Record<string, string> = {};
 	const eligible: Array<{ path: string; content: string }> = [];
@@ -93,7 +93,7 @@ async function findMissingLinks(
 	}
 }
 
-function enrichPageWithLinks(
+export function enrichPageWithLinks(
 	content: string,
 	suggestions: LinkSuggestion[],
 	tpl: TemplateConfig,
@@ -117,7 +117,7 @@ function enrichPageWithLinks(
 	return content.trimEnd() + "\n\n## " + relatedHeader + "\n\n" + newLinks.join("\n") + "\n";
 }
 
-function escapeRegex(s: string): string {
+export function escapeRegex(s: string): string {
 	return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 

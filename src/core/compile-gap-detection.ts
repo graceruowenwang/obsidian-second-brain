@@ -24,7 +24,7 @@ export interface GapDetectionResult {
 const MAX_STUBS = 10;
 const MIN_REFERENCE_COUNT = 2;
 
-function suggestLevel(gap: KnowledgeGap): string {
+export function suggestLevel(gap: KnowledgeGap): string {
 	const hasCore = gap.referencedBy.some(p => p.includes("核心概念"));
 	const hasPractice = gap.referencedBy.some(p => p.includes("实践经验"));
 	if (hasCore) return "核心概念";
@@ -101,7 +101,7 @@ ${relatedLinks.join("\n")}
 const UNSAFE_FILENAME_RE = /[<>:"/\\|?*\x00-\x1f]/g;
 const RESERVED_WIN = /^(CON|PRN|AUX|NUL|COM[0-9]|LPT[0-9])$/i;
 
-function sanitizeFilename(name: string): string {
+export function sanitizeFilename(name: string): string {
 	let s = name.replace(UNSAFE_FILENAME_RE, "_").trim().replace(/\.+$/, "");
 	if (!s) s = "_untitled";
 	if (RESERVED_WIN.test(s)) s = `_${s}`;
