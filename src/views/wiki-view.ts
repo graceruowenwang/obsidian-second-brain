@@ -71,6 +71,14 @@ export class WikiView extends ItemView {
 		container.classList.add("second-brain-wiki");
 		const lang = this.plugin.settings.language;
 
+		// 编译完成后自动刷新 wiki 视图（缺口文件、新页面等）
+		this.registerEvent(
+			(this.app.workspace as any).on("second-brain:compile-complete", () => {
+				if (!this.wikiPages.length) return;
+				void this.loadWiki();
+			}),
+		);
+
 		for (const el of this.wikiHeaderActionEls) el.remove();
 		this.wikiHeaderActionEls = [];
 		this.wikiHeaderActionEls.push(

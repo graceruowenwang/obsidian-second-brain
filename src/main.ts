@@ -63,7 +63,9 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 	 * / quickIngest 并发时互相覆盖 cache。所有编译入口都应通过此方法。
 	 */
 	async runWithCompileLock<T>(fn: () => Promise<T>): Promise<T> {
-		return this.compileMutex.runExclusive(fn);
+		const result = await this.compileMutex.runExclusive(fn);
+		this.app.workspace.trigger("second-brain:compile-complete" as any);
+		return result;
 	}
 
 	/** 将素材目录根下散落的文件移入标准子文件夹（不调用 LLM） */
