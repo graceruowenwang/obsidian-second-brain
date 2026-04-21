@@ -125,13 +125,13 @@ async function callOpenAICompatible(
 	settings: PluginSettings
 ): Promise<string> {
 	const url = settings.baseUrl.replace(/\/+$/, "") + "/chat/completions";
+	if (options.signal?.aborted) throw new LLMError("SB_CANCELLED", 0, false);
 	let res;
 	try {
 		res = await requestUrl({
 			url,
 			method: "POST",
 			throw: false,
-			...(options.signal ? { signal: options.signal } : {}),
 			headers: {
 				"Content-Type": "application/json",
 				Authorization: `Bearer ${settings.apiKey}`,
@@ -185,13 +185,13 @@ async function callAnthropic(
 		.map((m) => ({ role: m.role, content: m.content }));
 
 	const url = settings.baseUrl.replace(/\/+$/, "") + "/messages";
+	if (options.signal?.aborted) throw new LLMError("SB_CANCELLED", 0, false);
 	let res;
 	try {
 		res = await requestUrl({
 			url,
 			method: "POST",
 			throw: false,
-			...(options.signal ? { signal: options.signal } : {}),
 			headers: {
 				"Content-Type": "application/json",
 				"x-api-key": settings.apiKey,

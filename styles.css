@@ -160,6 +160,15 @@
 .sb-log-line + .sb-log-line {
 	border-top: 1px solid var(--background-modifier-border);
 }
+.sb-log-line-clickable {
+	cursor: pointer;
+	transition: background 0.12s ease;
+}
+
+.sb-log-line-clickable:hover {
+	background: var(--background-modifier-hover);
+}
+
 
 .second-brain-compile .sb-log-line.ok {
 	color: var(--text-muted);
@@ -436,6 +445,47 @@
 	line-height: 1.5;
 	color: var(--text-muted);
 	padding: 4px 2px;
+}
+
+
+/* 编译面板：空状态引导卡片 */
+.second-brain-compile .sb-compile-guide-card {
+	padding: 12px 14px;
+	border: 1px solid color-mix(in srgb, var(--interactive-accent) 30%, var(--background-modifier-border));
+	border-radius: 10px;
+	background: color-mix(in srgb, var(--interactive-accent) 6%, var(--background-primary));
+	margin-bottom: 6px;
+}
+
+.second-brain-compile .sb-compile-guide-card strong {
+	font-size: 13px;
+	color: var(--text-normal);
+	display: block;
+	margin-bottom: 8px;
+}
+
+.second-brain-compile .sb-compile-guide-steps {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.second-brain-compile .sb-compile-guide-step {
+	font-size: 12px;
+	color: var(--text-muted);
+	line-height: 1.5;
+	padding-left: 4px;
+}
+
+.second-brain-compile .sb-compile-guide-btn {
+	font-size: 12px;
+	padding: 4px 12px;
+	border: 1px solid var(--interactive-accent);
+	border-radius: 6px;
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	cursor: pointer;
+	margin-top: 4px;
 }
 
 /* === 对话面板（主编辑区全宽） === */
@@ -960,6 +1010,82 @@ pre:hover .sb-copy-btn {
 .sb-stop-btn:hover {
 	background: var(--text-error);
 	color: var(--text-on-accent);
+}
+
+/* Chat 内联配额提示 */
+.sb-chat-quota-inline {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 10px;
+	padding: 14px 18px;
+	border-top: 1px solid var(--background-modifier-border);
+	background: color-mix(in srgb, var(--text-warning) 8%, var(--background-primary));
+}
+
+.sb-chat-quota-inline-text {
+	font-size: 13px;
+	color: var(--text-muted);
+	flex: 1 1 100%;
+	margin-bottom: 4px;
+}
+
+.sb-chat-quota-upgrade-btn {
+	font-size: 12px;
+	padding: 6px 14px;
+}
+
+.sb-chat-quota-key-btn {
+	font-size: 12px;
+	padding: 6px 14px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--button-radius, 4px);
+	background: var(--background-primary);
+	color: var(--text-muted);
+	cursor: pointer;
+}
+
+.sb-chat-quota-key-btn:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+/* Chat 输入提示 */
+.sb-chat-input-hint {
+	font-size: 11px;
+	color: var(--text-faint);
+	text-align: right;
+	padding: 4px 18px 0;
+}
+
+/* AI 消息复制按钮 */
+.sb-msg-ai {
+	position: relative;
+}
+
+.sb-msg-copy-btn {
+	position: absolute;
+	top: 8px;
+	right: 8px;
+	padding: 4px 8px;
+	font-size: 11px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: var(--background-primary);
+	color: var(--text-muted);
+	cursor: pointer;
+	opacity: 0;
+	transition: opacity 0.15s;
+	z-index: 5;
+}
+
+.sb-msg-ai:hover .sb-msg-copy-btn {
+	opacity: 1;
+}
+
+.sb-msg-copy-btn:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
 }
 
 /* ============================================
@@ -2317,6 +2443,14 @@ pre:hover .sb-copy-btn {
 	background: color-mix(in srgb, var(--background-secondary) 40%, var(--background-primary));
 }
 
+/* 搜索关键词高亮 */
+.sb-highlight {
+	background: color-mix(in srgb, var(--text-accent) 22%, transparent);
+	color: var(--text-normal);
+	border-radius: 2px;
+	padding: 0 1px;
+}
+
 /* 阅读顶栏：返回 = 图标 + 文案 */
 .second-brain-wiki .sb-wiki-back {
 	display: inline-flex;
@@ -2770,6 +2904,68 @@ pre:hover .sb-copy-btn {
 	color: var(--text-faint);
 	text-align: center;
 	padding: 4px 0;
+}
+
+
+/* 向导进度指示器 */
+.sb-wizard-progress {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 16px;
+}
+
+.sb-wizard-progress-dot {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+    border: 2px solid var(--background-modifier-border);
+    color: var(--text-faint);
+    background: var(--background-secondary);
+    transition: all 0.2s ease;
+}
+
+.sb-wizard-progress-dot.active {
+    border-color: var(--interactive-accent);
+    color: var(--text-on-accent);
+    background: var(--interactive-accent);
+}
+
+.sb-wizard-progress-dot.done {
+    border-color: color-mix(in srgb, var(--text-success) 50%, var(--background-modifier-border));
+    color: var(--text-success);
+}
+
+.sb-wizard-progress-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-left: 8px;
+}
+
+/* 向导完成引导 */
+.sb-wizard-complete-guide {
+    text-align: center;
+    padding: 16px;
+    border: 1px solid color-mix(in srgb, var(--interactive-accent) 30%, var(--background-modifier-border));
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--interactive-accent) 6%, var(--background-primary));
+    margin-bottom: 8px;
+}
+
+.sb-wizard-complete-text {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+}
+
+.sb-wizard-compile-btn {
+    margin-top: 4px;
 }
 
 /* === Pro 功能门控 === */

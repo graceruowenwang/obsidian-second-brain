@@ -5,6 +5,7 @@ import { bindHoverHint } from "../ui/hover-hint";
 import { runCompile } from "../core/compile";
 import { readRawFiles } from "../core/file-utils";
 import type { SecondBrainPlugin, ProgressEvent, CompileResult, CompileCache, CompileHistoryEntry } from "../types";
+import { openPluginSettings } from "../types";
 import { getSuccessRate, getAvgDurationSec } from "../core/usage-stats";
 import { t } from "../core/i18n";
 import { shouldStartCompileTrial, getCompileTrialLicense } from "../core/license";
@@ -84,7 +85,7 @@ export class CompileView extends ItemView {
 		const progressWrap = progressCard.createDiv({ cls: "sb-progress-wrap" });
 		bindHoverHint(progressWrap, t("compile.tooltip.progress", lang));
 		this.progressLabel = progressWrap.createDiv({ cls: "sb-progress-label" });
-		const bar = progressWrap.createDiv({ cls: "sb-progress-bar" });
+		const bar = progressWrap.createDiv({ cls: "sb-progress-bar", attr: { role: "progressbar", "aria-valuemin": "0", "aria-valuemax": "100", "aria-valuenow": "0" } });
 		this.progressFill = bar.createDiv({ cls: "sb-progress-fill" });
 
 		// 阶段指示（单色系，由 CSS 区分状态）
@@ -130,6 +131,22 @@ export class CompileView extends ItemView {
 		const lowerScroll = container.createDiv({ cls: "sb-compile-lower-scroll" });
 		this.logEl = lowerScroll.createDiv({ cls: "sb-log" });
 		this.addLog(t("compile.clickToStart", lang), "");
+
+		// 空状态引导：没有 API Key 或未编译过时显示
+		const cache = (await this.plugin.loadData()) as CompileCache | null;
+		const hasHistory = !!(cache?.compileHistory && cache.compileHistory.length > 0);
+		if (!this.plugin.settings.apiKey || !hasHistory) {
+			const guide = this.logEl.createDiv({ cls: "sb-compile-guide-card" });
+			guide.createEl("strong", { text: t("compile.guideTitle", lang) || "快速开始" });
+			const steps = guide.createDiv({ cls: "sb-compile-guide-steps" });
+			if (!this.plugin.settings.apiKey) {
+				steps.createEl("div", { text: "1. " + (t("compile.guideStep1ApiKey", lang) || "配置 API Key"), cls: "sb-compile-guide-step" });
+				const settingsBtn = steps.createEl("button", { text: t("compile.guideOpenSettings", lang) || "打开设置", cls: "sb-compile-guide-btn" });
+				settingsBtn.addEventListener("click", () => openPluginSettings(this.app));
+			}
+			steps.createEl("div", { text: (this.plugin.settings.apiKey ? "1" : "2") + ". " + (t("compile.guideStep2Raw", lang) || "在 raw/ 目录放入素材文件"), cls: "sb-compile-guide-step" });
+			steps.createEl("div", { text: (this.plugin.settings.apiKey ? "2" : "3") + ". " + (t("compile.guideStep3Compile", lang) || "点击「开始编译」按钮"), cls: "sb-compile-guide-step" });
+		}
 
 		await this.loadRawFileList();
 		await this.renderStats();
@@ -248,7 +265,7 @@ export class CompileView extends ItemView {
 		}
 		const settings = this.plugin.settings;
 		const lang = settings.language;
-		if (!settings.apiKey) {
+		if (!this.plugin.settings.apiKey) {
 			new Notice(t("notice.noApiKey", lang));
 			return;
 		}
@@ -273,6 +290,8 @@ export class CompileView extends ItemView {
 
 		const onProgress = (e: ProgressEvent) => {
 			this.progressFill.style.width = `${e.percent}%`;
+				const bar = this.containerEl.querySelector(".sb-progress-bar");
+				if (bar) bar.setAttribute("aria-valuenow", String(e.percent));
 			this.progressLabel.textContent = t("compile.progress", lang, { step: e.stepName, detail: e.detail, pct: e.percent });
 			this.latestProgressPercent = e.percent;
 
@@ -314,13 +333,59 @@ export class CompileView extends ItemView {
 				if (report.newConcepts.length > 0) {
 					this.addLog(t("compile.report.new", lang, { n: report.newConcepts.length }), "ok");
 					for (const c of report.newConcepts.slice(0, 10)) {
-						this.addLog(`  + ${c.title}${c.sourceFile ? ` (from ${c.sourceFile.split("/").pop()})` : ""}`, "");
+						this.addLogClickable(
+							`  + ${c.title}${c.sourceFile ? ` (from ${c.sourceFile.split("/").pop()})` : ""}`,
+							"",
+							() => {
+					const wf = this.plugin.settings.wikiFolder;
+					const candidates = [
+						`${wf}/concepts/核心概念/${c.title}.md`,
+						`${wf}/concepts/方法框架/${c.title}.md`,
+						`${wf}/concepts/实践经验/${c.title}.md`,
+						`${wf}/entities/${c.title}.md`,
+						`${wf}/sources/${c.title}.md`,
+						`${wf}/${c.title}.md`,
+					];
+					for (const p of candidates) {
+						const file = this.app.vault.getAbstractFileByPath(p);
+						if (file) {
+							const leaf = this.app.workspace.getLeaf(true);
+							(leaf as any).openFile(file);
+							return;
+						}
+					}
+					new Notice(t("chat.pageNotFound", lang, { name: c.title }));
+				}
+						);
 					}
 				}
 				if (report.modifiedConcepts.length > 0) {
 					this.addLog(t("compile.report.modified", lang, { n: report.modifiedConcepts.length }), "");
 					for (const c of report.modifiedConcepts.slice(0, 5)) {
-						this.addLog(`  ~ ${c.title}: ${c.changeSummary}`, "");
+						this.addLogClickable(
+							`  ~ ${c.title}: ${c.changeSummary}`,
+							"",
+							() => {
+					const wf = this.plugin.settings.wikiFolder;
+					const candidates = [
+						`${wf}/concepts/核心概念/${c.title}.md`,
+						`${wf}/concepts/方法框架/${c.title}.md`,
+						`${wf}/concepts/实践经验/${c.title}.md`,
+						`${wf}/entities/${c.title}.md`,
+						`${wf}/sources/${c.title}.md`,
+						`${wf}/${c.title}.md`,
+					];
+					for (const p of candidates) {
+						const file = this.app.vault.getAbstractFileByPath(p);
+						if (file) {
+							const leaf = this.app.workspace.getLeaf(true);
+							(leaf as any).openFile(file);
+							return;
+						}
+					}
+					new Notice(t("chat.pageNotFound", lang, { name: c.title }));
+				}
+						);
 					}
 				}
 				if (report.deletedConcepts.length > 0) {
@@ -486,10 +551,10 @@ export class CompileView extends ItemView {
 				bindHoverHint(viewBtn, t("compile.tooltip.viewWiki", lang));
 				viewBtn.addEventListener("click", () => {
 					this.plugin.activateView("second-brain-wiki");
-					const chatBtn = guideEl.createEl("button", { text: t("compile.tryChat", lang), cls: "sb-compile-guide-btn" });
-					chatBtn.addEventListener("click", () => {
-						this.plugin.activateView("second-brain-chat");
-					});
+				});
+				const chatBtn = guideEl.createEl("button", { text: t("compile.tryChat", lang), cls: "sb-compile-guide-btn" });
+				chatBtn.addEventListener("click", () => {
+					this.plugin.activateView("second-brain-chat");
 				});
 			}
 
@@ -554,6 +619,20 @@ export class CompileView extends ItemView {
 
 	addLog(text: string, cls: string) {
 		this.logEl.createDiv({ cls: `sb-log-line ${cls}`, text });
+		this.scrollLogToBottom();
+	}
+
+	/** 可点击的日志行，点击后执行 onClick 回调（用于跳转到 wiki 页面等） */
+	addLogClickable(text: string, cls: string, onClick?: () => void) {
+		const el = this.logEl.createDiv({ cls: `sb-log-line ${cls}`, text });
+		if (onClick) {
+			el.classList.add("sb-log-line-clickable");
+			el.addEventListener("click", onClick);
+		}
+		this.scrollLogToBottom();
+	}
+
+	private scrollLogToBottom() {
 		const scrollHost = this.logEl.parentElement;
 		if (scrollHost?.classList.contains("sb-compile-lower-scroll")) {
 			scrollHost.scrollTop = scrollHost.scrollHeight;

@@ -57,7 +57,30 @@ export interface WikiIndexCtx {
 	markForRegeneration(target: string): Promise<void>;
 }
 
-// ---- Pure / Standalone Functions ----
+// ---- Text Highlight Helper ----
+
+function highlightText(text: string, query: string): DocumentFragment {
+	const frag = document.createDocumentFragment();
+	if (!query) {
+		frag.textContent = text;
+		return frag;
+	}
+	const lower = text.toLowerCase();
+	const qLower = query.toLowerCase();
+	let lastIdx = 0;
+	let idx = lower.indexOf(qLower, lastIdx);
+	while (idx !== -1) {
+		if (idx > lastIdx) frag.appendChild(document.createTextNode(text.slice(lastIdx, idx)));
+		const mark = document.createElement("mark");
+		mark.className = "sb-highlight";
+		mark.textContent = text.slice(idx, idx + query.length);
+		frag.appendChild(mark);
+		lastIdx = idx + query.length;
+		idx = lower.indexOf(qLower, lastIdx);
+	}
+	if (lastIdx < text.length) frag.appendChild(document.createTextNode(text.slice(lastIdx)));
+	return frag;
+}
 
 export function parseIndex(content: string): IndexSection[] {
 	const sections: IndexSection[] = [];
@@ -130,6 +153,7 @@ export function appendWikiListRow(
 		findPage: (name: string) => WikiPage | undefined;
 		navigateTo: (name: string) => void;
 		semantic?: boolean;
+			highlightQuery?: string;
 	},
 ): void {
 	const page = opts.findPage(entry.name);
@@ -164,10 +188,14 @@ export function appendWikiListRow(
 	kindEl.setAttribute("aria-hidden", "true");
 
 	const main = row.createDiv({ cls: "sb-wiki-list-main" });
-	main.createEl("div", { text: entry.display, cls: "sb-wiki-list-title" });
+	const titleEl = main.createEl("div", { cls: "sb-wiki-list-title" });
+	titleEl.appendChild(highlightText(entry.display, opts.highlightQuery || ""));
 	const trail = [entry.section, entry.subSection].filter(Boolean).join(" > ");
 	if (trail) main.createDiv({ cls: "sb-wiki-list-path", text: trail });
-	if (entry.desc) main.createEl("div", { cls: "sb-wiki-list-desc", text: entry.desc.slice(0, 160) });
+	if (entry.desc) {
+		const descEl = main.createEl("div", { cls: "sb-wiki-list-desc" });
+		descEl.appendChild(highlightText(entry.desc.slice(0, 160), opts.highlightQuery || ""));
+	}
 	const tags = page ? extractTags(page.content) : [];
 	if (tags.length > 0) {
 		const tagRow = main.createDiv({ cls: "sb-wiki-list-tags" });
@@ -549,6 +577,7 @@ export function renderIndex(ctx: WikiIndexCtx): void {
 						findPage: ctx.findPage,
 						navigateTo: (n) => ctx.navigateTo(n),
 						semantic: true,
+						highlightQuery: query,
 					});
 				}
 			}).catch(() => {});

@@ -28,6 +28,18 @@ export class SetupWizardModal extends Modal {
 		this.container.empty();
 		const lang = this.plugin.settings.language;
 
+		// Step progress indicator (show on steps 1-4, not welcome)
+		if (this.step >= 1) {
+			const progress = this.container.createDiv({ cls: "sb-wizard-progress" });
+			const labels = ["", t("wizard.step1", lang), t("wizard.step2", lang), t("wizard.step3SamplesTitle", lang), t("wizard.step3", lang)];
+			for (let i = 1; i <= 4; i++) {
+				const dot = progress.createDiv({ cls: "sb-wizard-progress-dot" + (i === this.step ? " active" : "") + (i < this.step ? " done" : "") });
+				dot.createSpan({ text: String(i) });
+			}
+			const currentLabel = labels[this.step] || "";
+			if (currentLabel) progress.createSpan({ text: currentLabel, cls: "sb-wizard-progress-label" });
+		}
+
 		if (this.step === 0) {
 			this.renderStep0Welcome(lang);
 		} else if (this.step === 1) {
@@ -231,6 +243,15 @@ export class SetupWizardModal extends Modal {
 	private renderStep4(lang: string) {
 		this.container.createEl("h3", { text: t("wizard.step3", lang) });
 		this.container.createEl("p", { text: t("wizard.step3Desc", lang) });
+
+		// Completion guidance
+		const guide = this.container.createDiv({ cls: "sb-wizard-complete-guide" });
+		guide.createEl("p", { text: t("wizard.completeGuide", lang) || "完成后，打开编译面板开始将素材编译为知识库。", cls: "sb-wizard-complete-text" });
+		const compileBtn = guide.createEl("button", { text: t("wizard.openCompile", lang) || "打开编译面板", cls: "mod-cta sb-wizard-compile-btn" });
+		compileBtn.addEventListener("click", () => {
+			this.finish();
+			this.plugin.activateView("second-brain-compile");
+		});
 
 		const btnRow = this.container.createDiv({ cls: "sb-wizard-btn-row" });
 		const prevBtn = btnRow.createEl("button", { text: t("wizard.prev", lang) });

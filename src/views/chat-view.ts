@@ -36,6 +36,26 @@ export class ChatView extends ItemView {
 	getDisplayText() { return t("chat.title", this.plugin.settings.language); }
 	getIcon() { return "message-circle"; }
 
+	private static readonly STORAGE_KEY = "sb-chat-history";
+	private static readonly MAX_HISTORY = 50;
+
+	private saveHistory(): void {
+		try {
+			const data = this.chatHistory.slice(-ChatView.MAX_HISTORY * 2);
+			localStorage.setItem(ChatView.STORAGE_KEY, JSON.stringify(data));
+		} catch { /* quota exceeded, ignore */ }
+	}
+
+	private loadHistory(): Array<{ role: string; content: string }> {
+		try {
+			const raw = localStorage.getItem(ChatView.STORAGE_KEY);
+			if (!raw) return [];
+			const data = JSON.parse(raw);
+			if (!Array.isArray(data)) return [];
+			return data.slice(-ChatView.MAX_HISTORY * 2);
+		} catch { return []; }
+	}
+
 	async onOpen() {
 		const container = this.containerEl.children[1] as HTMLElement;
 		container.empty();
@@ -44,41 +64,7 @@ export class ChatView extends ItemView {
 
 		// Freemium Chat: Pro 无限制，Free 用户每月 3 条
 		const quota = checkFreeChatQuota(this.plugin.licenseInfo);
-		if (!requirePro(this.plugin.licenseInfo, "ai-chat") && !quota.allowed) {
-			const overlay = container.createDiv({ cls: "sb-pro-locked-overlay" });
-			overlay.createEl("h2", { text: t("license.upgradeTitle", lang) });
-			overlay.createEl("p", { text: t("license.feature.ai-chat", lang) + " -- " + t("license.upgradeDesc", lang, { feature: t("license.feature.ai-chat", lang) }) });
-
-			// Feature highlight cards
-			const highlights = overlay.createDiv({ cls: "sb-feature-highlights" });
-			const features = [
-				{ title: t("pro.compare.aiChat", lang), desc: t("pro.compare.aiChatDesc", lang) },
-				{ title: t("pro.compare.multiLlm", lang), desc: t("pro.compare.multiLlmDesc", lang) },
-				{ title: t("pro.compare.autoCompile", lang), desc: t("pro.compare.autoCompileDesc", lang) },
-			];
-			for (const f of features) {
-				const card = highlights.createDiv({ cls: "sb-feature-card" });
-				card.createEl("h4", { text: f.title });
-				card.createEl("p", { text: f.desc });
-			}
-
-			// Blurred preview hint
-			const previewHint = overlay.createDiv({ cls: "sb-chat-preview-blur" });
-			const previewMsg = previewHint.createDiv({ cls: "sb-msg sb-msg-ai", attr: { style: "filter:blur(4px);opacity:0.4" } });
-			previewMsg.createEl("div", { cls: "sb-bubble", text: "..." });
-
-			const btnRow = overlay.createDiv({ cls: "sb-pro-locked-btns" });
-			overlay.createEl("p", { text: t("chat.freeQuotaUsed", lang, { limit: quota.limit }), cls: "sb-chat-quota-msg" });
-			const upgradeBtn = btnRow.createEl("button", { text: t("license.upgradeBtn", lang), cls: "mod-cta" });
-			upgradeBtn.addEventListener("click", () => {
-				window.open(t("license.purchaseUrl", lang), "_blank", "noopener,noreferrer");
-			});
-			const keyBtn = btnRow.createEl("button", { text: t("license.enterKey", lang) });
-			keyBtn.addEventListener("click", () => {
-				openPluginSettings(this.app);
-			});
-			return;
-		}
+		const isQuotaExceeded = !requirePro(this.plugin.licenseInfo, "ai-chat") && !quota.allowed;
 
 		// 头部
 		const header = container.createDiv({ cls: "sb-chat-header" });
@@ -98,14 +84,35 @@ export class ChatView extends ItemView {
 		const clearBtn = header.createEl("button", { text: t("chat.clear", lang), cls: "sb-chat-clear-btn", attr: { type: "button" } });
 		clearBtn.addEventListener("click", () => {
 			this.chatHistory = [];
+				this.saveHistory();
 			this.messagesEl.empty();
 			this.contextIndicator.style.display = "none";
 			this.addWelcome();
 		});
 
 		// 消息区
-		this.messagesEl = container.createDiv({ cls: "sb-messages" });
+		this.messagesEl = container.createDiv({ cls: "sb-messages", attr: { role: "log", "aria-live": "polite" } });
 		this.addWelcome();
+
+		// Replay persisted history
+		const saved = this.loadHistory();
+		if (saved.length > 0) {
+			const welcome = this.messagesEl.querySelector(".sb-welcome");
+			if (welcome) welcome.remove();
+			this.chatHistory = saved;
+			for (const msg of saved) {
+				if (msg.role === "user") {
+					this.addUserMessage(msg.content);
+				} else if (msg.role === "assistant") {
+					const el = this.addAiMessagePlaceholder();
+					const typing = el.querySelector(".sb-typing");
+					if (typing) typing.remove();
+					const contentEl = el.querySelector(".sb-ai-content") as HTMLElement;
+					if (contentEl) MarkdownRenderer.render(this.app, sanitizeLLMOutput(msg.content), contentEl, "", this.component);
+					this.addMsgCopyBtn(el);
+				}
+			}
+		}
 
 		// 上下文指示器
 		this.contextIndicator = container.createDiv({ cls: "sb-context-indicator" });
@@ -114,14 +121,31 @@ export class ChatView extends ItemView {
 
 		// 输入区
 		const inputArea = container.createDiv({ cls: "sb-input-area" });
+
+		if (isQuotaExceeded) {
+			// 内联升级提示，替代全屏 overlay
+			const quotaNotice = inputArea.createDiv({ cls: "sb-chat-quota-inline" });
+			quotaNotice.createEl("span", { text: t("chat.freeQuotaUsed", lang, { limit: quota.limit }), cls: "sb-chat-quota-inline-text" });
+			const upgradeBtn = quotaNotice.createEl("button", { text: t("license.upgradeBtn", lang), cls: "mod-cta sb-chat-quota-upgrade-btn" });
+			upgradeBtn.addEventListener("click", () => {
+				window.open(t("license.purchaseUrl", lang), "_blank", "noopener,noreferrer");
+			});
+			const keyBtn = quotaNotice.createEl("button", { text: t("license.enterKey", lang), cls: "sb-chat-quota-key-btn" });
+			keyBtn.addEventListener("click", () => {
+				openPluginSettings(this.app);
+			});
+			return;
+		}
+
 		const composer = inputArea.createDiv({ cls: "sb-chat-composer" });
 		this.inputEl = composer.createEl("textarea", {
 			attr: { placeholder: t("chat.placeholder", lang), rows: "1" },
 			cls: "sb-chat-input",
 		});
 		const composerActions = composer.createDiv({ cls: "sb-chat-composer-actions" });
-		const sendBtn = composerActions.createEl("button", { text: t("chat.send", lang), cls: "sb-send-btn mod-cta", attr: { type: "button" } });
-		const stopBtn = composerActions.createEl("button", { text: t("chat.stop", lang), cls: "sb-stop-btn", attr: { type: "button" } });
+		inputArea.createDiv({ cls: "sb-chat-input-hint", text: "Shift+Enter 换行" });
+		const sendBtn = composerActions.createEl("button", { text: t("chat.send", lang), cls: "sb-send-btn mod-cta", attr: { type: "button", "aria-label": t("chat.send", lang) } });
+		const stopBtn = composerActions.createEl("button", { text: t("chat.stop", lang), cls: "sb-stop-btn", attr: { type: "button", "aria-label": t("chat.stop", lang) } });
 		stopBtn.style.display = "none";
 
 		sendBtn.addEventListener("click", () => this.send());
@@ -306,6 +330,7 @@ export class ChatView extends ItemView {
 
 			this.chatHistory.push({ role: "user", content: q });
 			this.chatHistory.push({ role: "assistant", content: fullText });
+				this.saveHistory();
 
 			// 更新上下文指示器
 			this.updateContextIndicator();
@@ -479,6 +504,22 @@ export class ChatView extends ItemView {
 			});
 			wrap.appendChild(btn);
 			wrap.appendChild(table);
+		});
+	}
+
+	private addMsgCopyBtn(msgEl: HTMLElement): void {
+		const bubble = msgEl.querySelector(".sb-bubble") as HTMLElement;
+		if (!bubble) return;
+		const copyBtn = bubble.createEl("button", { cls: "sb-msg-copy-btn", attr: { type: "button", "aria-label": "Copy" } });
+		setIcon(copyBtn, "copy");
+		copyBtn.addEventListener("click", (ev) => {
+			ev.stopPropagation();
+			const contentEl = bubble.querySelector(".sb-ai-content") as HTMLElement;
+			const text = contentEl?.textContent || "";
+			navigator.clipboard.writeText(text).then(() => {
+				copyBtn.textContent = t("chat.copied", this.plugin.settings.language);
+				setTimeout(() => setIcon(copyBtn, "copy"), 1500);
+			});
 		});
 	}
 
