@@ -289,7 +289,8 @@ export function attachPageOutline(lang: string, tocCol: HTMLElement, contentEl: 
 }
 
 export function wireInternalLinks(contentEl: HTMLElement, wikiFolder: string, ctx: WikiPageCtx): void {
-	contentEl.querySelectorAll<HTMLAnchorElement>("a.internal-link").forEach((link) => {
+	contentEl.querySelectorAll("a.internal-link").forEach((el) => {
+			const link = el as HTMLAnchorElement;
 		const href = link.getAttribute("data-href") || link.getAttribute("href") || "";
 		const targetName = href.split("/").pop()!.replace(".md", "").split("|")[0].split("#")[0];
 		const target = ctx.findPage(targetName);
