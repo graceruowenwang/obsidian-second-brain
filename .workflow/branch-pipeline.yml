@@ -1,0 +1,46 @@
+# Gitee Go 流水线 — 与 GitHub CI 等价：typecheck + test + build
+# 使用说明：在 Gitee 仓库「管理 → 流水线」中启用 Gitee Go，并关联本仓库内 YAML（或选择从仓库读取）。
+# Node 版本若不可用，可在 Gitee 可视化界面改为 18 / 20 等已安装版本。
+
+version: "1.0"
+name: second-brain-ci
+displayName: Second Brain CI（校验+构建）
+
+triggers:
+  trigger: auto
+  push:
+    branches:
+      precise:
+        - master
+        - main
+  pr:
+    branches:
+      precise:
+        - master
+        - main
+
+stages:
+  - name: verify
+    displayName: 验证
+    strategy: fast
+    trigger: auto
+    executor: []
+    steps:
+      - step: build@nodejs
+        name: node_verify
+        displayName: typecheck + test + build
+        nodeVersion: 18.20.4
+        commands:
+          - set -e
+          - npm config set registry https://registry.npmmirror.com
+          - npm ci --legacy-peer-deps
+          - npm run typecheck
+          - npm test
+          - npm run build
+          - test -f main.js && test -f manifest.json && test -f styles.css
+          - node -e "const fs=require('fs'); if(fs.statSync('main.js').size<4096) process.exit(1)"
+        caches:
+          - ~/.npm
+        notify: []
+        strategy:
+          retry: "0"

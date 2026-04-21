@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Second Brain - AI 知识编译器 for Obsidian</title>
+<meta name="description" content="把散乱的笔记丢进去，AI 自动提取概念、实体和来源，生成带双向链接的结构化 Wiki 知识库。Obsidian 插件，数据全本地。">
+<meta name="keywords" content="Obsidian, Second Brain, AI, 知识管理, Wiki, 双向链接, LLM">
+<link rel="canonical" href="https://github.com/ruowenwang/obsidian-second-brain">
+
+<!-- Open Graph -->
+<meta property="og:title" content="Second Brain - AI 知识编译器 for Obsidian">
+<meta property="og:description" content="把散乱的笔记丢进去，AI 自动提取概念、实体和来源，生成带双向链接的结构化 Wiki 知识库。">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="zh_CN">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Second Brain - AI 知识编译器 for Obsidian">
+<meta name="twitter:description" content="把散乱的笔记丢进去，AI 自动提取概念、实体和来源，生成带双向链接的结构化 Wiki 知识库。">
+
+<!-- JSON-LD -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Second Brain",
+  "applicationCategory": "Productivity",
+  "operatingSystem": "macOS, Windows, Linux",
+  "offers": [
+    { "@type": "Offer", "price": "0", "priceCurrency": "CNY", "description": "Free" },
+    { "@type": "Offer", "price": "30", "priceCurrency": "CNY", "description": "Full Version" }
+  ],
+  "description": "AI 驱动的知识编译器，把散乱笔记自动编译为结构化 Wiki 知识库。"
+}
+</script>
+
+<!-- Preconnect -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdn.tailwindcss.com">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        brand: { 50:'#f3f0ff', 100:'#e9e2ff', 200:'#d4c7ff', 300:'#b49aff', 400:'#9b6dff', 500:'#8b5cf6', 600:'#7c3aed', 700:'#6d28d9', 800:'#5b21b6', 900:'#4c1d95', 950:'#2e1065' }
+      }
+    }
+  }
+}
+</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+html { scroll-behavior: smooth; }
+.card-hover { transition: transform 0.2s, box-shadow 0.2s; }
+.card-hover:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(139,92,246,0.1); }
+:focus-visible { outline: 2px solid #8b5cf6; outline-offset: 2px; border-radius: 4px; }
+details[open] summary { color: #7c3aed; }
+.hero-bg {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(139,92,246,0.08), transparent),
+    radial-gradient(ellipse 60% 40% at 80% 0%, rgba(107,33,168,0.04), transparent);
+}
+@keyframes flow { 0%,100% { opacity: 0.5; } 50% { opacity: 1; } }
+.flow-arrow { animation: flow 2s ease-in-out infinite; }
+.skip-link {
+  position: absolute; top: -100%; left: 16px; z-index: 50;
+  padding: 8px 16px; border-radius: 8px;
+  background: #7c3aed; color: #fff; font-size: 14px;
+}
+.skip-link:focus { top: 16px; }
+</style>
+</head>
+<body class="bg-white text-gray-900 antialiased">
+<a href="#main" class="skip-link">跳转到主要内容</a>
+
+<!-- Nav -->
+<nav class="fixed top-0 inset-x-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-200" aria-label="主导航">
+  <div class="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
+    <a href="#" class="text-sm font-semibold text-gray-800 hover:text-gray-900 transition-colors">Second Brain</a>
+    <div class="flex items-center gap-6 text-sm text-gray-500">
+      <a href="#features" class="hover:text-gray-700 transition-colors">功能</a>
+      <a href="#pricing" class="hover:text-gray-700 transition-colors">价格</a>
+      <a href="#faq" class="hover:text-gray-700 transition-colors">FAQ</a>
+      <a href="#pricing" class="px-3 py-1.5 rounded-md bg-brand-600 hover:bg-brand-500 text-white text-sm transition-colors" aria-label="获取完整版">获取</a>
+    </div>
+  </div>
+</nav>
+
+<main id="main">
+
+<!-- Hero -->
+<section class="hero-bg relative overflow-hidden pt-14">
+  <div class="max-w-5xl mx-auto px-6 pt-20 pb-16 text-center">
+    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-brand-200 bg-brand-50 text-brand-700 text-sm mb-8">
+      <span class="w-1.5 h-1.5 rounded-full bg-brand-500 animate-pulse" aria-hidden="true"></span>
+      Obsidian Plugin
+    </div>
+    <h1 class="text-5xl md:text-6xl font-bold tracking-tight mb-6">
+      Second Brain
+    </h1>
+    <p class="text-xl md:text-2xl text-gray-600 max-w-2xl mx-auto mb-4">
+      AI 驱动的知识编译器
+    </p>
+    <p class="text-base text-gray-500 max-w-xl mx-auto mb-10">
+      把散乱的笔记丢进去，AI 自动提取概念、实体和来源，<br class="hidden sm:inline">生成带双向链接的结构化 Wiki 知识库。
+    </p>
+
+    <!-- Flow Diagram -->
+    <div class="flex items-center justify-center gap-3 md:gap-6 text-sm text-gray-600 mb-12" role="img" aria-label="工作流程：raw 笔记经过 AI 编译生成 Wiki 知识库">
+      <div class="px-4 py-2 rounded-lg border border-gray-200 bg-gray-50">
+        raw/ <span class="text-gray-400">你的笔记</span>
+      </div>
+      <svg class="w-5 h-5 text-brand-500 shrink-0 flow-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+      <div class="px-4 py-2 rounded-lg border border-brand-300 bg-brand-50 text-brand-700">
+        AI Compile
+      </div>
+      <svg class="w-5 h-5 text-brand-500 shrink-0 flow-arrow" style="animation-delay:.5s" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+      <div class="px-4 py-2 rounded-lg border border-gray-200 bg-gray-50">
+        wiki/ <span class="text-gray-400">知识库</span>
+      </div>
+    </div>
+
+    <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+      <a href="#pricing" class="px-8 py-3 rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-medium transition-colors">
+        获取完整版
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- Features -->
+<section class="max-w-5xl mx-auto px-6 py-20" id="features">
+  <h2 class="text-3xl font-bold text-center mb-4">三步构建你的知识体系</h2>
+  <p class="text-gray-500 text-center mb-14">不需要手动整理，AI 帮你完成从碎片到结构的全过程</p>
+
+  <div class="grid md:grid-cols-3 gap-6">
+    <div class="p-6 rounded-xl border border-gray-200 bg-white card-hover">
+      <div class="w-10 h-10 rounded-lg bg-brand-100 flex items-center justify-center text-brand-600 mb-4" aria-hidden="true">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"/></svg>
+      </div>
+      <h3 class="font-semibold text-lg mb-2">放入素材</h3>
+      <p class="text-gray-600 text-sm leading-relaxed">文章、读书笔记、播客笔记、闪念笔记，丢到 raw/ 目录即可。支持自动检测已有笔记并导入。</p>
+    </div>
+    <div class="p-6 rounded-xl border border-gray-200 bg-white card-hover">
+      <div class="w-10 h-10 rounded-lg bg-brand-100 flex items-center justify-center text-brand-600 mb-4" aria-hidden="true">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+      </div>
+      <h3 class="font-semibold text-lg mb-2">AI 编译</h3>
+      <p class="text-gray-600 text-sm leading-relaxed">LLM 自动提取概念、实体和来源，生成带双向链接的 Wiki 页面。支持增量编译，只处理变化的文件。</p>
+    </div>
+    <div class="p-6 rounded-xl border border-gray-200 bg-white card-hover">
+      <div class="w-10 h-10 rounded-lg bg-brand-100 flex items-center justify-center text-brand-600 mb-4" aria-hidden="true">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+      </div>
+      <h3 class="font-semibold text-lg mb-2">浏览与对话</h3>
+      <p class="text-gray-600 text-sm leading-relaxed">卡片式 Wiki 浏览器、语义搜索、AI&nbsp;对话（回答引用你的知识）、SVG 知识图谱。</p>
+    </div>
+  </div>
+</section>
+
+<!-- Pricing -->
+<section class="max-w-5xl mx-auto px-6 py-16" id="pricing">
+  <h2 class="text-3xl font-bold text-center mb-4">选择适合你的版本</h2>
+  <p class="text-gray-500 text-center mb-14">一次买断，永久使用，无订阅</p>
+
+  <div class="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+    <!-- Free -->
+    <div class="p-8 rounded-2xl border border-gray-200 bg-white">
+      <h3 class="text-lg font-semibold text-gray-700 mb-1">Free</h3>
+      <div class="flex items-baseline gap-1 mb-6">
+        <span class="text-4xl font-bold">$0</span>
+      </div>
+      <ul class="space-y-3 text-sm text-gray-600 mb-8" role="list">
+        <li class="flex items-start gap-2">
+          <svg class="w-4 h-4 text-gray-400 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          手动编译（全量 / 单文件）
+        </li>
+        <li class="flex items-start gap-2">
+          <svg class="w-4 h-4 text-gray-400 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          Wiki 浏览器 + 搜索
+        </li>
+        <li class="flex items-start gap-2">
+          <svg class="w-4 h-4 text-gray-400 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          多 LLM 支持（DeepSeek / OpenAI / Claude）
+        </li>
+        <li class="flex items-start gap-2">
+          <svg class="w-4 h-4 text-gray-400 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          多语言界面（中 / 英 / 日）
+        </li>
+        <li class="flex items-start gap-2">
+          <svg class="w-4 h-4 text-gray-400 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          向量语义搜索
+        </li>
+        <li class="flex items-start gap-2">
+          <svg class="w-4 h-4 text-gray-400 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          笔记库扫描 + 知识健康度
+        </li>
+      </ul>
+      <a href="#pricing"
+         class="block text-center py-2.5 rounded-lg border border-gray-300 text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors text-sm"
+         aria-label="免费下载 Free 版本">
+        免费下载
+      </a>
+    </div>
+
+    <!-- Pro -->
+    <div class="p-8 rounded-2xl border border-brand-300 bg-brand-50 relative">
+      <div class="absolute -top-3 left-6 px-3 py-0.5 rounded-full bg-brand-600 text-white text-xs font-medium">
+        一次买断
+      </div>
+      <h3 class="text-lg font-semibold text-brand-700 mb-1">Full Version</h3>
+      <div class="flex items-baseline gap-1 mb-6">
+        <span class="text-4xl font-bold text-gray-900">30</span>
+        <span class="text-gray-500 text-sm">元</span>
+      </div>
+      <ul class="space-y-3 text-sm text-gray-700 mb-8" role="list">
+        <li class="flex items-start gap-2">
+          <svg class="w-4 h-4 text-brand-600 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          包含 Free 版全部功能
+        </li>
+        <li class="flex items-start gap-2">
+          <svg class="w-4 h-4 text-brand-600 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          <strong>自动编译</strong> -- 监听 raw/ 变化，自动触发
+        </li>
+        <li class="flex items-start gap-2">
+          <svg class="w-4 h-4 text-brand-600 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          <strong>AI&nbsp;对话</strong> -- 与知识库流式对话，回答引用 [[wiki-links]]
+        </li>
+        <li class="flex items-start gap-2">
+          <svg class="w-4 h-4 text-brand-600 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          <strong>SVG 知识图谱</strong> -- 交互式可视化知识网络
+        </li>
+        <li class="flex items-start gap-2">
+          <svg class="w-4 h-4 text-brand-600 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          <strong>一键切换 LLM</strong> -- 多后端快速切换
+        </li>
+        <li class="flex items-start gap-2">
+          <svg class="w-4 h-4 text-brand-600 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          首次编译赠送 14 天试用
+        </li>
+      </ul>
+
+      <div class="text-center">
+        <p class="text-sm text-gray-600 mb-3">关注公众号，发送「购买」获取收款码</p>
+        <div class="inline-block p-3 rounded-xl bg-white border border-gray-200 mb-2">
+          <img src="weichat-qr.jpg" alt="微信公众号二维码" class="w-36 h-36 rounded-lg" loading="lazy">
+        </div>
+        <p class="text-xs text-gray-400 mb-1">付款后发截图到公众号，秒收激活码</p>
+      </div>
+      <a href="https://ifdian.net/a/ruowenwang" target="_blank" rel="noopener noreferrer"
+         class="flex items-center justify-center gap-2 py-2.5 rounded-lg border border-brand-400 text-brand-600 hover:bg-brand-100 transition-colors text-sm"
+         aria-label="通过爱发电购买完整版">
+        也可通过爱发电购买
+      </a>
+    </div>
+  </div>
+
+  <!-- Trust -->
+  <div class="flex flex-wrap items-center justify-center gap-6 mt-10 text-xs text-gray-400" role="list" aria-label="信任标识">
+    <span role="listitem">MIT License</span>
+    <span class="w-1 h-1 rounded-full bg-gray-300" aria-hidden="true"></span>
+    <span role="listitem">数据留在本地</span>
+    <span class="w-1 h-1 rounded-full bg-gray-300" aria-hidden="true"></span>
+    <span role="listitem">API Key 不上传</span>
+    <span class="w-1 h-1 rounded-full bg-gray-300" aria-hidden="true"></span>
+    <span role="listitem">仅桌面端</span>
+  </div>
+</section>
+
+<!-- How to Activate -->
+<section class="max-w-3xl mx-auto px-6 py-16">
+  <h2 class="text-2xl font-bold text-center mb-10">如何购买与激活</h2>
+  <ol class="space-y-6" aria-label="激活步骤">
+    <li class="flex gap-4">
+      <span class="flex-shrink-0 w-8 h-8 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center text-sm font-medium" aria-hidden="true">1</span>
+      <div>
+        <p class="font-medium text-gray-800">关注公众号，发送「购买」</p>
+        <p class="text-sm text-gray-500 mt-1">扫码关注公众号，发送「购买」，自动收到引导文字和收款码。</p>
+      </div>
+    </li>
+    <li class="flex gap-4">
+      <span class="flex-shrink-0 w-8 h-8 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center text-sm font-medium" aria-hidden="true">2</span>
+      <div>
+        <p class="font-medium text-gray-800">扫码付款，发送截图</p>
+        <p class="text-sm text-gray-500 mt-1">用微信或支付宝扫码完成 30 元付款，将付款截图发回公众号，系统自动生成激活码。</p>
+      </div>
+    </li>
+    <li class="flex gap-4">
+      <span class="flex-shrink-0 w-8 h-8 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center text-sm font-medium" aria-hidden="true">3</span>
+      <div>
+        <p class="font-medium text-gray-800">粘贴激活码，即刻解锁</p>
+        <p class="text-sm text-gray-500 mt-1">在 Obsidian 中打开 Second Brain 设置面板，粘贴收到的激活码，所有 Pro 功能即刻解锁。</p>
+      </div>
+    </li>
+  </ol>
+</section>
+
+<!-- FAQ -->
+<section class="max-w-3xl mx-auto px-6 py-16" id="faq">
+  <h2 class="text-2xl font-bold text-center mb-10">常见问题</h2>
+  <div class="space-y-4">
+    <details class="group rounded-lg border border-gray-200 bg-white">
+      <summary class="flex items-center justify-between cursor-pointer px-6 py-4 text-sm font-medium text-gray-700">
+        API 费用大概是多少？
+        <svg class="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform shrink-0 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+      </summary>
+      <div class="px-6 pb-4 text-sm text-gray-600">
+        推荐 DeepSeek API，约 1 元/百万 token。首次全量编译消耗最多，增量编译只处理变化的文件。日常使用（每月几十条笔记），充值 10 元可用几个月。你的 API Key 仅保存在本地。
+      </div>
+    </details>
+    <details class="group rounded-lg border border-gray-200 bg-white">
+      <summary class="flex items-center justify-between cursor-pointer px-6 py-4 text-sm font-medium text-gray-700">
+        支持哪些 LLM？
+        <svg class="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform shrink-0 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+      </summary>
+      <div class="px-6 pb-4 text-sm text-gray-600">
+        DeepSeek、OpenAI、Claude、OpenRouter，以及任何 OpenAI 兼容 API。可以在设置中自由切换。
+      </div>
+    </details>
+    <details class="group rounded-lg border border-gray-200 bg-white">
+      <summary class="flex items-center justify-between cursor-pointer px-6 py-4 text-sm font-medium text-gray-700">
+        我的数据安全吗？
+        <svg class="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform shrink-0 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+      </summary>
+      <div class="px-6 pb-4 text-sm text-gray-600">
+        完全安全。所有笔记数据都在你的 Obsidian Vault 本地。API Key 仅保存在本地配置中，不会上传到任何服务器。唯一的外部通信是调用你选择的 LLM API 进行编译和对话。
+      </div>
+    </details>
+    <details class="group rounded-lg border border-gray-200 bg-white">
+      <summary class="flex items-center justify-between cursor-pointer px-6 py-4 text-sm font-medium text-gray-700">
+        License 是永久的吗？
+        <svg class="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform shrink-0 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+      </summary>
+      <div class="px-6 pb-4 text-sm text-gray-600">
+        是的，30 元一次买断，永久使用。不订阅，不续费。绑定单台设备，如需更换设备可在设置中先停用再重新激活。
+      </div>
+    </details>
+  </div>
+</section>
+
+</main>
+
+<!-- Footer -->
+<footer class="border-t border-gray-200 mt-10">
+  <div class="max-w-5xl mx-auto px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-gray-400">
+    <span>Second Brain for Obsidian</span>
+    <div class="flex items-center gap-4">
+      <a href="https://ifdian.net/a/ruowenwang" target="_blank" rel="noopener noreferrer" class="hover:text-gray-600 transition-colors">爱发电</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

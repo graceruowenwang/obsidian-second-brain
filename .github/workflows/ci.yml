@@ -1,0 +1,49 @@
+# 发布前门禁：类型检查 + 单测 + 生产构建，避免坏包进 main / PR
+
+name: CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      # vitest / vite 与 @types/node@16 存在 peer 声明冲突，与本地一致使用 legacy 安装
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+
+      - name: Verify plugin artifacts
+        run: |
+          test -f main.js
+          test -f manifest.json
+          test -f styles.css
+          node -e "const fs=require('fs'); if(fs.statSync('main.js').size<4096) process.exit(1)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plugin-dist
+          path: |
+            main.js
+            manifest.json
+            styles.css

@@ -1,0 +1,44 @@
+# 可选：CI 通过后把 push 到 main/master 的提交同步到 Gitee（双托管，触发 Gitee Go）
+#
+# GitHub → Settings → Secrets and variables → Actions：
+#   GITEE_REPO      例如 your-name/obsidian-second-brain（不含 https 与 .git）
+#   GITEE_TOKEN     Gitee 私人令牌（需具备该仓库 push 权限）
+#   GITEE_USERNAME  Gitee 用户名
+#
+# 未配置上述 secret 时，推送步骤会跳过（exit 0），不导致 workflow 失败。
+# 仅当触发 CI 的事件为 push 且 CI 成功时才同步，避免把 PR 试跑结果推到 Gitee。
+
+name: Sync to Gitee
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && (github.event.workflow_run.head_branch == 'main' || github.event.workflow_run.head_branch == 'master')) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || github.event.workflow_run.head_sha }}
+
+      - name: Push mirror to Gitee
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          GITEE_USERNAME: ${{ secrets.GITEE_USERNAME }}
+          GITEE_REPO: ${{ secrets.GITEE_REPO }}
+          BRANCH: ${{ github.event_name == 'workflow_dispatch' && github.ref_name || github.event.workflow_run.head_branch }}
+        run: |
+          if [ -z "${GITEE_TOKEN}" ] || [ -z "${GITEE_REPO}" ] || [ -z "${GITEE_USERNAME}" ]; then
+            echo "Gitee secrets 未配置，跳过同步（见本文件头部注释）"
+            exit 0
+          fi
+          REMOTE="https://${GITEE_USERNAME}:${GITEE_TOKEN}@gitee.com/${GITEE_REPO}.git"
+          git remote add gitee "$REMOTE" 2>/dev/null || git remote set-url gitee "$REMOTE"
+          git push gitee "${BRANCH}:${BRANCH}" --force
