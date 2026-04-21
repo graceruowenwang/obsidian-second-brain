@@ -221,26 +221,6 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 			createProBadge(tplSetting.nameEl, lang);
 		}
 
-		const genTplSetting = new Setting(uiContent)
-			.setName(t("set.genTpl", lang))
-			.setDesc(t("set.genTplDesc", lang))
-			.addButton((btn) => btn.setButtonText(t("set.gen", lang)).onClick(async () => {
-				if (!requirePro(this.plugin.licenseInfo, "advanced-templates")) {
-					showUpgradeNotice(this.app, "advanced-templates", lang);
-					return;
-				}
-				try {
-					const { generateTemplateFile } = await import("../core/templates");
-					await generateTemplateFile(this.app, this.plugin.settings.templateFile, this.plugin.settings.language);
-					new Notice(t("notice.tplGenerated", lang, { path: this.plugin.settings.templateFile }));
-				} catch (e: unknown) {
-					new Notice(t("notice.tplFail", lang, { msg: (e instanceof Error ? e.message : String(e)) }));
-				}
-			}));
-		if (!requirePro(this.plugin.licenseInfo, "advanced-templates")) {
-			createProBadge(genTplSetting.nameEl, lang);
-		}
-
 // --- 编译与智能增强 ---
 		const compileDetails = containerEl.createEl("details", { cls: "sb-settings-section" });
 		compileDetails.createEl("summary", { text: t("set.sectionCompile", lang) });
