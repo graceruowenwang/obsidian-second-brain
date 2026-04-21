@@ -31,6 +31,7 @@ export class CompileView extends ItemView {
 	private dataHistoryMount!: HTMLElement;
 	private statsSectionEl!: HTMLElement;
 	private histSectionEl!: HTMLElement;
+	private dataPanelHeadEl!: HTMLElement;
 	private rawRefreshTimer: number | null = null;
 	private estimateTimer: number | null = null;
 	private latestProgressPercent = 0;
@@ -106,9 +107,9 @@ export class CompileView extends ItemView {
 
 		// 数据面板：分三块白话说明（素材 / 累计统计 / 最近记录）
 		const dataPanel = container.createDiv({ cls: "sb-compile-data-panel" });
-		const panelHead = dataPanel.createDiv({ cls: "sb-compile-data-panel-header" });
-		panelHead.createEl("span", { cls: "sb-compile-data-panel-title", text: t("compile.dataPanelTitle", lang) });
-		panelHead.createEl("p", { cls: "sb-compile-data-panel-intro", text: t("compile.dataPanelIntro", lang) });
+		this.dataPanelHeadEl = dataPanel.createDiv({ cls: "sb-compile-data-panel-header" });
+		this.dataPanelHeadEl.createEl("span", { cls: "sb-compile-data-panel-title", text: t("compile.dataPanelTitle", lang) });
+		this.dataPanelHeadEl.createEl("p", { cls: "sb-compile-data-panel-intro", text: t("compile.dataPanelIntro", lang) });
 
 		this.dataVaultMount = dataPanel.createDiv({ cls: "sb-compile-data-section sb-compile-data-section--raw" });
 
@@ -509,9 +510,14 @@ export class CompileView extends ItemView {
 
 		if (history.length === 0) {
 			if (this.histSectionEl) this.histSectionEl.style.display = "none";
+			if (this.dataPanelHeadEl && this.statsSectionEl) {
+				const statsHidden = this.statsSectionEl.style.display === "none";
+				if (statsHidden) this.dataPanelHeadEl.style.display = "none";
+			}
 			return;
 		}
 		if (this.histSectionEl) this.histSectionEl.style.display = "";
+		if (this.dataPanelHeadEl) this.dataPanelHeadEl.style.display = "";
 
 		const listWrap = this.dataHistoryMount.createDiv({ cls: "sb-compile-history-cards" });
 		for (const entry of history.slice(0, 10)) {
@@ -553,9 +559,14 @@ export class CompileView extends ItemView {
 		const hasRealData = !!(raw && raw.totalCompiles > 0);
 		if (!hasRealData || !raw) {
 			if (this.statsSectionEl) this.statsSectionEl.style.display = "none";
+			if (this.dataPanelHeadEl && this.histSectionEl) {
+				const histHidden = this.histSectionEl.style.display === "none";
+				if (histHidden) this.dataPanelHeadEl.style.display = "none";
+			}
 			return;
 		}
 		if (this.statsSectionEl) this.statsSectionEl.style.display = "";
+		if (this.dataPanelHeadEl) this.dataPanelHeadEl.style.display = "";
 		const stats = raw;
 		const dl = this.dataStatsMount.createEl("dl", { cls: "sb-compile-stat-dl" });
 		const rows: Array<{ dt: string; dd: string }> = [

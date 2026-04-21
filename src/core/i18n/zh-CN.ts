@@ -120,7 +120,7 @@ export const zhCN: typeof import("./en").en = {
 		"compile.start": "开始编译",
 		"compile.force": "强制重编",
 		"compile.organizeRaw": "整理素材",
-		"compile.clickToStart": "点击「开始编译」运行 AI 编译流程。",
+		"compile.clickToStart": "点击上方「开始编译」，AI 将读取素材并生成 Wiki 页面。",
 		"compile.filesFound": "{folder}/ 下有 {n} 个素材文件",
 		"compile.folderEmpty": "{folder}/ 目录为空，请先放入素材",
 		"compile.folderMissing": "未找到 {folder}/ 目录，请先检查设置中的素材目录名称",
