@@ -206,6 +206,7 @@ export const zhCN: typeof import("./en").en = {
 		"compile.historyTapExpand": "展开看页面名",
 		"compile.historyNamesTitle": "受影响的页面",
 		"compile.historyDuration": "{t}s",
+		"compile.tryChat": "试试 AI 对话",
 		"compile.viewWiki": "查看你的知识库",
 		"compile.tooltip.start": "读取素材目录中的笔记，增量生成或更新 Wiki 里的概念、实体与来源页。未改动的素材会跳过，以节省 API 调用。",
 		"compile.tooltip.compilingPrimary": "编译进行中。再次点击此按钮可中断（效果与「取消编译」相同）。",

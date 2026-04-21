@@ -203,6 +203,7 @@ export const ja: typeof import("./en").en = {
 		"compile.historyTapExpand": "開いてページ名",
 		"compile.historyNamesTitle": "対象ページ",
 		"compile.historyDuration": "{t}s",
+		"compile.tryChat": "AIチャットを試す",
 		"compile.viewWiki": "Wikiを見る",
 		"compile.tooltip.start": "raw のノートを読み取り、Wiki の概念・実体・ソースページを増分生成・更新します。変更のない素材はスキップされ、API 消費を抑えます。",
 		"compile.tooltip.compilingPrimary": "コンパイル実行中です。もう一度このボタンを押すと中断します（「キャンセル」と同じ）。",

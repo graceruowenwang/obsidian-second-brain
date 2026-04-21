@@ -203,6 +203,7 @@ export const en = {
 		"compile.historyTapExpand": "expand for titles",
 		"compile.historyNamesTitle": "Affected pages",
 		"compile.historyDuration": "{t}s",
+		"compile.tryChat": "Try AI Chat",
 		"compile.viewWiki": "View Your Wiki",
 		"compile.tooltip.start": "Reads your raw notes and incrementally generates or updates concept, entity, and source pages in the wiki. Unchanged materials are skipped to save API usage.",
 		"compile.tooltip.compilingPrimary": "Compile in progress. Click this button again to stop (same as Cancel).",

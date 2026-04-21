@@ -2596,11 +2596,13 @@ pre:hover .sb-copy-btn {
 }
 
 .sb-compile-guide {
+	display: flex;
+	gap: 6px;
 	margin-top: 2px;
 }
 
-.sb-compile-guide-btn.mod-cta {
-	width: 100%;
+.sb-compile-guide-btn {
+	flex: 1;
 	margin-top: 2px;
 }
 

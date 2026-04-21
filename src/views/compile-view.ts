@@ -478,6 +478,10 @@ export class CompileView extends ItemView {
 				bindHoverHint(viewBtn, t("compile.tooltip.viewWiki", lang));
 				viewBtn.addEventListener("click", () => {
 					this.plugin.activateView("second-brain-wiki");
+					const chatBtn = guideEl.createEl("button", { text: t("compile.tryChat", lang), cls: "sb-compile-guide-btn" });
+					chatBtn.addEventListener("click", () => {
+						this.plugin.activateView("second-brain-chat");
+					});
 				});
 			}
 
