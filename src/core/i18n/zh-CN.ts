@@ -118,7 +118,7 @@ export const zhCN: typeof import("./en").en = {
 
 		// Compile view
 		"compile.start": "开始编译",
-		"compile.force": "忽略缓存重编",
+		"compile.force": "强制重编",
 		"compile.organizeRaw": "整理素材",
 		"compile.clickToStart": "点击「开始编译」运行 AI 编译流程。",
 		"compile.filesFound": "{folder}/ 下有 {n} 个素材文件",
@@ -133,7 +133,7 @@ export const zhCN: typeof import("./en").en = {
 		"compile.errorDetail": "{name}: {error}",
 		"compile.complete": "编译完成",
 		"compile.fail": "编译失败: {msg}",
-		"compile.cancel": "取消编译",
+		"compile.cancel": "取消",
 		"compile.estimate": "已用 {elapsed}s，预计还需 {remain}s",
 		"compile.retryFailed": "重试失败项",
 		"compile.summaryTitle": "编译摘要",

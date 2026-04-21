@@ -115,7 +115,7 @@ export const en = {
 		"notice.badAnalysis": "Incremental analysis returned invalid format, using cached analysis",
 
 		"compile.start": "Start Compile",
-		"compile.force": "Force Recompile",
+		"compile.force": "Force Rebuild",
 		"compile.organizeRaw": "Organize files",
 		"compile.clickToStart": "Click \"Start Compile\" to run the AI compilation pipeline.",
 		"compile.filesFound": "{n} material files in {folder}/",

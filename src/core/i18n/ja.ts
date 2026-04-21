@@ -115,7 +115,7 @@ export const ja: typeof import("./en").en = {
 		"notice.badAnalysis": "増分分析の形式が不正、キャッシュされた分析を使用",
 
 		"compile.start": "コンパイル開始",
-		"compile.force": "キャッシュを無視して再コンパイル",
+		"compile.force": "強制再ビルド",
 		"compile.organizeRaw": "raw を整理",
 		"compile.clickToStart": "「コンパイル開始」をクリックして AI コンパイルを実行。",
 		"compile.filesFound": "{folder}/ に {n} 件の素材ファイル",

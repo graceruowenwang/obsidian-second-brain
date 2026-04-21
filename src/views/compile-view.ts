@@ -29,6 +29,8 @@ export class CompileView extends ItemView {
 	private dataVaultMount!: HTMLElement;
 	private dataStatsMount!: HTMLElement;
 	private dataHistoryMount!: HTMLElement;
+	private statsSectionEl!: HTMLElement;
+	private histSectionEl!: HTMLElement;
 	private rawRefreshTimer: number | null = null;
 	private estimateTimer: number | null = null;
 	private latestProgressPercent = 0;
@@ -110,18 +112,18 @@ export class CompileView extends ItemView {
 
 		this.dataVaultMount = dataPanel.createDiv({ cls: "sb-compile-data-section sb-compile-data-section--raw" });
 
-		const statsSection = dataPanel.createDiv({ cls: "sb-compile-data-section sb-compile-data-section--stats" });
-		statsSection.createEl("h3", { cls: "sb-compile-data-section-title", text: t("compile.dataSection2Title", lang) });
-		statsSection.createEl("p", { cls: "sb-compile-data-section-lead", text: t("compile.dataSection2Lead", lang) });
-		const statsHeading = statsSection.querySelector(".sb-compile-data-section-title") as HTMLElement;
+		this.statsSectionEl = dataPanel.createDiv({ cls: "sb-compile-data-section sb-compile-data-section--stats" });
+		this.statsSectionEl.createEl("h3", { cls: "sb-compile-data-section-title", text: t("compile.dataSection2Title", lang) });
+		this.statsSectionEl.createEl("p", { cls: "sb-compile-data-section-lead", text: t("compile.dataSection2Lead", lang) });
+		const statsHeading = this.statsSectionEl.querySelector(".sb-compile-data-section-title") as HTMLElement;
 		bindHoverHint(statsHeading, t("compile.tooltip.usageStats", lang));
-		this.dataStatsMount = statsSection.createDiv({ cls: "sb-compile-data-section-body" });
+		this.dataStatsMount = this.statsSectionEl.createDiv({ cls: "sb-compile-data-section-body" });
 
-		const histDetails = dataPanel.createEl("details", { cls: "sb-compile-data-section sb-compile-data-section--history" });
-		const histSummary = histDetails.createEl("summary", { cls: "sb-compile-data-section-summary" });
+		this.histSectionEl = dataPanel.createEl("details", { cls: "sb-compile-data-section sb-compile-data-section--history" });
+		const histSummary = this.histSectionEl.createEl("summary", { cls: "sb-compile-data-section-summary" });
 		histSummary.createEl("span", { text: t("compile.dataSection3Title", lang), cls: "sb-compile-data-section-title" });
 		histSummary.createEl("span", { text: t("compile.dataSection3Lead", lang), cls: "sb-compile-data-section-lead-inline" });
-		this.dataHistoryMount = histDetails.createDiv({ cls: "sb-compile-data-section-body" });
+		this.dataHistoryMount = this.histSectionEl.createDiv({ cls: "sb-compile-data-section-body" });
 
 		// 编译摘要 + 日志：同一滚动区，避免摘要被 flex 挤出可视区或裁切
 		const lowerScroll = container.createDiv({ cls: "sb-compile-lower-scroll" });
@@ -506,9 +508,10 @@ export class CompileView extends ItemView {
 		const history = cache?.compileHistory ?? [];
 
 		if (history.length === 0) {
-			this.dataHistoryMount.createEl("p", { cls: "sb-compile-history-empty", text: t("compile.historyNoRecords", lang) });
+			if (this.histSectionEl) this.histSectionEl.style.display = "none";
 			return;
 		}
+		if (this.histSectionEl) this.histSectionEl.style.display = "";
 
 		const listWrap = this.dataHistoryMount.createDiv({ cls: "sb-compile-history-cards" });
 		for (const entry of history.slice(0, 10)) {
@@ -549,9 +552,10 @@ export class CompileView extends ItemView {
 		const raw = cache?.usageStats;
 		const hasRealData = !!(raw && raw.totalCompiles > 0);
 		if (!hasRealData || !raw) {
-			this.dataStatsMount.createEl("p", { cls: "sb-compile-stats-empty", text: t("compile.statsNoDataYet", lang) });
+			if (this.statsSectionEl) this.statsSectionEl.style.display = "none";
 			return;
 		}
+		if (this.statsSectionEl) this.statsSectionEl.style.display = "";
 		const stats = raw;
 		const dl = this.dataStatsMount.createEl("dl", { cls: "sb-compile-stat-dl" });
 		const rows: Array<{ dt: string; dd: string }> = [
