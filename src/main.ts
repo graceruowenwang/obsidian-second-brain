@@ -63,23 +63,9 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 	 * / quickIngest 并发时互相覆盖 cache。所有编译入口都应通过此方法。
 	 */
 	async runWithCompileLock<T>(fn: () => Promise<T>): Promise<T> {
-		this.setWikiCompiling(true);
-		try {
-			const result = await this.compileMutex.runExclusive(fn);
-			return result;
-		} finally {
-			this.setWikiCompiling(false);
-		}
-	}
-
-	private setWikiCompiling(compiling: boolean) {
-		for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_WIKI)) {
-			if (leaf.view instanceof WikiView) {
-				if (compiling) leaf.view.showCompileOverlay();
-				else leaf.view.hideCompileOverlay();
-			}
-		}
+		const result = await this.compileMutex.runExclusive(fn);
 		this.app.workspace.trigger("second-brain:compile-complete" as any);
+		return result;
 	}
 
 	/** 将素材目录根下散落的文件移入标准子文件夹（不调用 LLM） */

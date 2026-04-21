@@ -54,7 +54,6 @@ export class WikiView extends ItemView {
 	private indexRenderGeneration = 0;
 	/** Scroll position when leaving a wiki page (restore on return / back) */
 	private pageScrollTop = new Map<string, number>();
-	private compileOverlay: HTMLElement | null = null;
 
 	constructor(leaf: WorkspaceLeaf, plugin: SecondBrainPlugin) {
 		super(leaf);
@@ -75,7 +74,6 @@ export class WikiView extends ItemView {
 		// 编译完成后自动刷新 wiki 视图（缺口文件、新页面等）
 		this.registerEvent(
 			(this.app.workspace as any).on("second-brain:compile-complete", () => {
-				this.hideCompileOverlay();
 				if (!this.wikiPages.length) return;
 				void this.loadWiki();
 			}),
@@ -180,21 +178,6 @@ export class WikiView extends ItemView {
 		menu.showAtMouseEvent(evt);
 	}
 
-	showCompileOverlay() {
-		if (this.compileOverlay) return;
-		const container = this.containerEl.children[1] as HTMLElement;
-		container.classList.add("sb-wiki-compiling");
-		const msg = this.bodyEl.createDiv({ cls: "sb-wiki-compiling-msg", text: t("sb.compiling", this.plugin.settings.language) });
-		this.compileOverlay = msg;
-	}
-
-	hideCompileOverlay() {
-		if (!this.compileOverlay) return;
-		const container = this.containerEl.children[1] as HTMLElement;
-		container.classList.remove("sb-wiki-compiling");
-		this.compileOverlay.remove();
-		this.compileOverlay = null;
-	}
 
 	private ctx(): WikiViewCtx {
 		return {
