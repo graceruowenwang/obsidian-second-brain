@@ -212,15 +212,6 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.language)
 				.onChange(async (v) => { this.plugin.settings.language = v as UILanguageId; await this.plugin.saveSettings(); this.display(); }));
 
-		// 模板配置（Pro）
-		const tplSetting = new Setting(uiContent)
-			.setName(t("set.tplFile", lang))
-			.setDesc(t("set.tplFileDesc", lang))
-			.addText((t2) => t2.setPlaceholder(t("set.tplFilePh", lang)).setValue(this.plugin.settings.templateFile).onChange(async (v) => { this.plugin.settings.templateFile = v; await this.plugin.saveSettings(); }));
-		if (!requirePro(this.plugin.licenseInfo, "advanced-templates")) {
-			createProBadge(tplSetting.nameEl, lang);
-		}
-
 // --- 编译与智能增强 ---
 		const compileDetails = containerEl.createEl("details", { cls: "sb-settings-section" });
 		compileDetails.createEl("summary", { text: t("set.sectionCompile", lang) });
