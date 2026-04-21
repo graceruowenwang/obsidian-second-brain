@@ -90,7 +90,7 @@ async function generateMocWithAI(ctx: WikiViewCtx): Promise<void> {
 		});
 
 	if (pageSummaries.length === 0) {
-		throw new Error("Wiki 中没有页面，无法生成 MOC");
+		throw new Error(t("wiki.mocNoPages", ctx.plugin.settings.language));
 	}
 
 	const today = new Date().toISOString().split("T")[0];

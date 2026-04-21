@@ -321,6 +321,7 @@ export const ja: typeof import("./en").en = {
 		"wiki.mocGenerating": "生成中...",
 		"wiki.mocGenerated": "MOC 生成完了",
 		"wiki.mocGenerateFail": "生成に失敗しました",
+		"wiki.mocNoPages": "Wikiページがありません。先に素材をコンパイルしてください。",
 		"wiki.mocEmptyHint": "MOC ページがありません。「AI で MOC 生成」をクリックするか、手動で作成してください。",
 		"wiki.mocTitle": "MOC — Map of Content",
 		"wiki.mocDesc": "MOC はテーマナビゲーションページで、コンパイル時に上書きされません。手動で編集してナレッジを整理できます。",

@@ -321,6 +321,7 @@ export const en = {
 		"wiki.mocGenerating": "Generating...",
 		"wiki.mocGenerated": "MOC generated",
 		"wiki.mocGenerateFail": "Generation failed",
+		"wiki.mocNoPages": "No wiki pages found. Please compile your materials first.",
 		"wiki.mocEmptyHint": "No MOC pages yet. Click \"AI Generate MOC\" or create one manually.",
 		"wiki.mocTitle": "MOC — Map of Content",
 		"wiki.mocDesc": "MOC pages are navigational hubs that won't be overwritten during compilation. Edit them to organize your knowledge.",

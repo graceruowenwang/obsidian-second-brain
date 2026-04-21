@@ -333,6 +333,7 @@ export const zhCN: typeof import("./en").en = {
 		"wiki.mocGenerating": "生成中...",
 		"wiki.mocGenerated": "MOC 已生成",
 		"wiki.mocGenerateFail": "生成失败",
+		"wiki.mocNoPages": "Wiki 中没有页面，无法生成 MOC。请先编译素材。",
 		"wiki.mocEmptyHint": "还没有 MOC 页面。点击「AI 生成 MOC」自动创建，或手动新建。",
 		"wiki.mocTitle": "MOC — Map of Content",
 		"wiki.mocDesc": "MOC 是主题导航页，编译时不会被覆盖。你可以手动编辑它们来组织知识结构。",
