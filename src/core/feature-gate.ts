@@ -54,7 +54,7 @@ export class UpgradeModal extends Modal {
 		});
 
 		const priceEl = contentEl.createDiv({ cls: "sb-upgrade-pricing" });
-		priceEl.createEl("span", { text: "30 CNY / $5 USD one-time", cls: "sb-upgrade-price" });
+		priceEl.createEl("span", { text: t("license.price", this.lang), cls: "sb-upgrade-price" });
 
 		const btnRow = contentEl.createDiv({ cls: "sb-upgrade-btns" });
 
