@@ -1,7 +1,7 @@
 // 对话面板 -- 主编辑区 View，全宽聊天界面 + Markdown 渲染
 
 import { ItemView, WorkspaceLeaf, Notice, MarkdownRenderer, Component, TFile, setIcon } from "obsidian";
-import { callLLMStream } from "../core/llm";
+import { callLLMStreamWithFallback } from "../core/llm";
 import { describeLLMFailure } from "../core/llm-user-message";
 import { sanitizeLLMOutput } from "../core/sanitize";
 import { readWikiFiles, filesToMap, vectorSearch, buildEmbeddingCache } from "../core/file-utils";
@@ -280,7 +280,7 @@ export class ChatView extends ItemView {
 			let fullText = "";
 			const msgContentEl = aiMsgEl.querySelector(".sb-ai-content") as HTMLElement;
 
-			await callLLMStream(messages, settings, (chunk) => {
+			await callLLMStreamWithFallback(messages, settings, (chunk) => {
 				fullText += chunk;
 				// 收到第一个 chunk 时移除 typing 指示器
 				const typing = aiMsgEl.querySelector(".sb-typing");

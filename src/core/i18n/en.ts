@@ -22,6 +22,8 @@ export const en = {
 		"set.enableGapDetectionDesc": "Scan broken links after compilation and generate stub pages for missing concepts",
 		"set.enableLinkEnrichment": "Smart Auto-Linking",
 		"set.enableLinkEnrichmentDesc": "Discover and add cross-page semantic links after compilation (requires Embedding API)",
+		"set.useStreaming": "Streaming Output",
+		"set.useStreamingDesc": "Use SSE streaming for the chat panel. Disable to use standard requests for better compatibility in restricted networks",
 		"set.embedSection": "Vector Search (Embedding)",
 		"set.embedModel": "Embedding Model",
 		"set.embedModelDesc": "Embedding model for semantic search",

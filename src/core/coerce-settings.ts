@@ -44,6 +44,9 @@ export function coercePluginSettings(settings: PluginSettings): void {
 	if (typeof settings.autoCompileDelay !== "number" || !Number.isFinite(settings.autoCompileDelay) || settings.autoCompileDelay < 1) {
 		settings.autoCompileDelay = DEFAULT_SETTINGS.autoCompileDelay;
 	}
+	if (typeof settings.useStreaming !== "boolean") {
+		settings.useStreaming = DEFAULT_SETTINGS.useStreaming;
+	}
 	settings.rawFolder = normalizeFolderPath(settings.rawFolder, DEFAULT_SETTINGS.rawFolder);
 	settings.wikiFolder = normalizeFolderPath(settings.wikiFolder, DEFAULT_SETTINGS.wikiFolder);
 }

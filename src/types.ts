@@ -35,6 +35,7 @@ export interface PluginSettings {
 	proWelcomeShown: boolean;
 	enableGapDetection: boolean;
 	enableLinkEnrichment: boolean;
+	useStreaming: boolean;
 }
 
 export const DEFAULT_SETTINGS: PluginSettings = {
@@ -59,6 +60,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	proWelcomeShown: false,
 	enableGapDetection: true,
 	enableLinkEnrichment: true,
+	useStreaming: true,
 };
 
 export interface RawFile {

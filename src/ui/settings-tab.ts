@@ -342,6 +342,16 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
+		new Setting(recContent)
+			.setName(t("set.useStreaming", lang))
+			.setDesc(t("set.useStreamingDesc", lang))
+			.addToggle((toggle) => toggle
+				.setValue(this.plugin.settings.useStreaming)
+				.onChange(async (v) => {
+					this.plugin.settings.useStreaming = v;
+					await this.plugin.saveSettings();
+				}));
+
 		// --- 高级设置 ---
 		const advDetails = containerEl.createEl("details", { cls: "sb-settings-section" });
 		advDetails.createEl("summary", { text: t("set.sectionAdvanced", lang) });

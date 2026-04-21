@@ -22,6 +22,8 @@ export const zhCN: typeof import("./en").en = {
 		"set.enableGapDetectionDesc": "编译后自动扫描断裂链接，为缺失概念生成待补充页面",
 		"set.enableLinkEnrichment": "智能补链",
 		"set.enableLinkEnrichmentDesc": "编译后基于语义相似度自动发现并补充跨页面关联链接（需要 Embedding API）",
+		"set.useStreaming": "流式输出",
+		"set.useStreamingDesc": "对话面板使用流式输出（SSE）。关闭后改用标准请求，兼容性更好，适合网络受限环境",
 		"set.embedSection": "向量检索 (Embedding)",
 		"set.embedModel": "Embedding 模型",
 		"set.embedModelDesc": "用于语义检索的 embedding 模型",
