@@ -63,6 +63,7 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 	 * / quickIngest 并发时互相覆盖 cache。所有编译入口都应通过此方法。
 	 */
 	async runWithCompileLock<T>(fn: () => Promise<T>): Promise<T> {
+		this.app.workspace.trigger("second-brain:compile-start" as any);
 		const result = await this.compileMutex.runExclusive(fn);
 		this.app.workspace.trigger("second-brain:compile-complete" as any);
 		return result;
