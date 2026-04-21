@@ -19,3 +19,6 @@ worker/local/
 .env
 .env.*
 .DS_Store
+
+# Obsidian workspace
+.obsidian/
