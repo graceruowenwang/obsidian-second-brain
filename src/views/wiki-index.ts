@@ -46,6 +46,7 @@ export interface WikiIndexCtx {
 	statusSelect: HTMLSelectElement;
 	indexRenderGeneration: number;
 	pageLimit: number;
+	setPageLimit: (v: number) => void;
 	selectedPages: Set<string>;
 	batchBar: HTMLElement | null;
 	vectorSearchAbort: AbortController | null;
@@ -626,7 +627,7 @@ export function renderIndex(ctx: WikiIndexCtx): void {
 				cls: "sb-wiki-load-more",
 			});
 			loadMoreBtn.addEventListener("click", () => {
-				ctx.pageLimit += 50;
+				ctx.setPageLimit(ctx.pageLimit + 50);
 				ctx.renderIndex();
 			});
 		}

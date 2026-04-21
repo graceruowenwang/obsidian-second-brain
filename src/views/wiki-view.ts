@@ -215,6 +215,7 @@ export class WikiView extends ItemView {
 			statusSelect: this.statusSelect,
 			indexRenderGeneration: this.indexRenderGeneration,
 			pageLimit: this.pageLimit,
+			setPageLimit: (v: number) => { this.pageLimit = v; },
 			selectedPages: this.selectedPages,
 			batchBar: this.batchBar,
 			vectorSearchAbort: null,
