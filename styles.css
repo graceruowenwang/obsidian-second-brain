@@ -1,3 +1,20 @@
+
+/* === Wiki compile overlay === */
+.sb-wiki-compile-overlay {
+	position: absolute;
+	inset: 0;
+	background: var(--background-primary);
+	opacity: 0.85;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 100;
+	pointer-events: all;
+}
+.sb-wiki-compile-overlay-text {
+	color: var(--text-muted);
+	font-size: 1.1em;
+}
 /* 第二大脑 Obsidian 插件 — 样式 */
 
 /* === 编译面板（右侧栏） === */
@@ -1093,6 +1110,7 @@ pre:hover .sb-copy-btn {
    ============================================ */
 
 .second-brain-wiki {
+	position: relative;
 	--sb-wiki-radius: 12px;
 	--sb-wiki-radius-sm: 8px;
 	--sb-wiki-border: var(--background-modifier-border);
