@@ -96,28 +96,36 @@ export async function readWikiPage(app: App, wikiFolder: string, relPath: string
 }
 
 // 写入 wiki 文件（确保目录存在）
-export async function writeWikiFile(app: App, wikiFolder: string, filePath: string, content: string): Promise<void> {
-	const fullPath = `${wikiFolder}/${filePath}`;
-	const existing = app.vault.getAbstractFileByPath(fullPath);
-	if (existing instanceof TFile) {
-		await app.vault.modify(existing, content);
-	} else {
-		const folderPath = fullPath.substring(0, fullPath.lastIndexOf("/"));
-		if (folderPath) {
-			await ensureFolder(app, folderPath);
-		}
-			try {
-				await app.vault.create(fullPath, content);
-			} catch (e) {
-				const file = app.vault.getAbstractFileByPath(fullPath);
-				if (file instanceof TFile) {
-					await app.vault.modify(file, content);
-				} else {
-					throw e;
-				}
-			}
+	export async function writeWikiFile(app: App, wikiFolder: string, filePath: string, content: string): Promise<void> {
+		const fullPath = `${wikiFolder}/${filePath}`;
+		await safeVaultWrite(app, fullPath, content);
 	}
-}
+
+	// 安全写入文件：存在则 modify，不存在则 create，跳过缓存不一致问题
+	async function safeVaultWrite(app: App, fullPath: string, content: string): Promise<void> {
+		const folderPath = fullPath.substring(0, fullPath.lastIndexOf("/"));
+		if (folderPath) await ensureFolder(app, folderPath);
+		const existing = app.vault.getAbstractFileByPath(fullPath);
+		if (existing instanceof TFile) {
+			await app.vault.modify(existing, content);
+			return;
+		}
+		const exists = await app.vault.adapter.exists(fullPath);
+		if (exists) {
+			const file = app.vault.getAbstractFileByPath(fullPath);
+			if (file instanceof TFile) {
+				await app.vault.modify(file, content);
+				return;
+			}
+			await app.vault.adapter.write(fullPath, content);
+			return;
+		}
+		try {
+			await app.vault.create(fullPath, content);
+		} catch {
+			await app.vault.adapter.write(fullPath, content);
+		}
+	}
 
 // 删除 wiki 文件
 export async function deleteWikiFile(app: App, wikiFolder: string, filePath: string): Promise<void> {
