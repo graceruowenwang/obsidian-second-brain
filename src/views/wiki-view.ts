@@ -80,11 +80,7 @@ export class WikiView extends ItemView {
 				void this.loadWiki();
 			}),
 		);
-		this.registerEvent(
-			(this.app.workspace as any).on("second-brain:compile-start", () => {
-				this.showCompileOverlay();
-			}),
-		);
+
 
 		for (const el of this.wikiHeaderActionEls) el.remove();
 		this.wikiHeaderActionEls = [];
@@ -184,7 +180,7 @@ export class WikiView extends ItemView {
 		menu.showAtMouseEvent(evt);
 	}
 
-	private showCompileOverlay() {
+	showCompileOverlay() {
 		if (this.compileOverlay) return;
 		const container = this.containerEl.children[1] as HTMLElement;
 		container.classList.add("sb-wiki-compiling");
@@ -192,7 +188,7 @@ export class WikiView extends ItemView {
 		this.compileOverlay = msg;
 	}
 
-	private hideCompileOverlay() {
+	hideCompileOverlay() {
 		if (!this.compileOverlay) return;
 		const container = this.containerEl.children[1] as HTMLElement;
 		container.classList.remove("sb-wiki-compiling");
