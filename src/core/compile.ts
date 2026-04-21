@@ -406,7 +406,7 @@ async function phaseEnrich(ctx: CompileContext): Promise<void> {
 	if (!signal?.aborted && settings.enableGapDetection) {
 		onProgress({ step: 3, stepName: "缺口检测", detail: "扫描知识缺口...", percent: 85 });
 		const wikiFilesForGap = await readWikiFiles(ctx.app, settings.wikiFolder);
-		const gapResult = await runGapDetection(wikiFilesForGap, newAnalysis!, ctx.tpl, ctx.app, settings.wikiFolder, cache, signal);
+		const gapResult = await runGapDetection(wikiFilesForGap, newAnalysis!, ctx.tpl, ctx.app, settings.wikiFolder, cache, settings, signal);
 		ctx.gapDetected = gapResult.gaps.length;
 		ctx.stubsGenerated = gapResult.stubsGenerated;
 		ctx.logBuilder.setGapDetected(ctx.gapDetected, ctx.stubsGenerated);

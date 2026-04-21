@@ -4,7 +4,8 @@ import { App } from "obsidian";
 import { writeWikiFile, deleteWikiFile } from "./file-utils";
 import { frontmatter, today } from "./wiki-schema";
 import { checkAborted, WIKILINK_RE, extractPageName, isSkippableWikiFile } from "./compile-analysis";
-import type { Analysis, CompileCache } from "../types";
+import { callLLM } from "./llm";
+import type { Analysis, CompileCache, PluginSettings } from "../types";
 import type { TemplateConfig } from "./templates";
 
 export interface KnowledgeGap {
@@ -116,6 +117,7 @@ export async function runGapDetection(
 	app: App,
 	wikiFolder: string,
 	cache: CompileCache,
+	settings: PluginSettings,
 	signal?: AbortSignal,
 ): Promise<GapDetectionResult> {
 	checkAborted(signal);
@@ -173,9 +175,19 @@ export async function runGapDetection(
 
 		if (wikiFiles.some(f => f.path === pagePath)) continue;
 
-		const content = generateStubPage(gap, gap.suggestedLevel, tpl);
+		// 先写 stub，再尝试用 LLM 填充真实内容
+		let content = generateStubPage(gap, gap.suggestedLevel, tpl);
 		await writeWikiFile(app, wikiFolder, pagePath, content);
 		stubsGenerated.push(pagePath);
+
+		if (settings.apiKey) {
+			try {
+				content = await fillGapWithLLM(gap, levelDir, tpl, settings);
+				await writeWikiFile(app, wikiFolder, pagePath, content);
+			} catch (e) {
+				console.warn(`gap-detection: LLM fill failed for "${gap.name}", keeping stub:`, e);
+			}
+		}
 
 		if (!cache.indexEntries) cache.indexEntries = {};
 		cache.indexEntries[gap.name] = {
@@ -196,4 +208,52 @@ export async function runGapDetection(
 	}
 
 	return { gaps, stubsGenerated: stubsGenerated.length, stubPaths: stubsGenerated };
+}
+
+async function fillGapWithLLM(
+	gap: KnowledgeGap,
+	level: string,
+	tpl: TemplateConfig,
+	settings: PluginSettings,
+): Promise<string> {
+	const relatedLinks = gap.referencedBy.map(p => `- [[${extractPageName(p)}]]`);
+	const relatedHeader = tpl.relatedLinksHeader || "关联连接";
+	const contextSnippets = gap.context.slice(0, 5).join("\n");
+
+	const prompt = `你是一个知识库编辑。以下概念 "${gap.name}" 在知识库中被多次引用但尚无独立页面。
+请根据引用上下文，生成一个完整的概念页面（正文部分，不需要 frontmatter）。
+
+要求：
+- 用 Markdown 格式
+- 包含概念定义、关键要点、使用场景
+- 在 ## ${relatedHeader} 区域列出引用来源的双链
+- 语言与上下文一致
+
+引用上下文：
+${contextSnippets}
+
+引用来源页面：
+${relatedLinks.join("\n")}`;
+
+	const body = await callLLM(
+		[
+			{ role: "system", content: "你是一个严谨的知识库编辑，擅长从碎片引用中提炼完整概念。" },
+			{ role: "user", content: prompt },
+		],
+		settings,
+		{ maxTokens: 2000, temperature: 0.3 },
+	);
+
+	const fm = frontmatter({
+		title: gap.name,
+		type: "concept",
+		level,
+		status: "pending",
+		tags: [gap.name],
+		last_updated: today(),
+		original: [],
+		reference: gap.referencedBy,
+	});
+
+	return `${fm}\n${body.trim()}\n`;
 }
