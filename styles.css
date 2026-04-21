@@ -3101,17 +3101,75 @@ pre:hover .sb-copy-btn {
 .sb-batch-bar {
 	position: sticky;
 	bottom: 0;
-	background: var(--background-primary);
+	background: color-mix(in srgb, var(--background-primary) 96%, var(--background-secondary));
+	backdrop-filter: blur(8px);
 	border-top: 1px solid var(--background-modifier-border);
-	padding: 8px 12px;
+	padding: 8px 16px;
 	display: flex;
 	align-items: center;
-	gap: 12px;
+	gap: 8px;
 	z-index: 10;
+	font-size: 12px;
+}
+.sb-batch-bar .sb-batch-select-all {
+	accent-color: var(--interactive-accent);
+	margin: 0;
+}
+.sb-batch-bar .sb-batch-count {
+	color: var(--text-muted);
+	font-variant-numeric: tabular-nums;
+	font-weight: 600;
+	min-width: 16px;
+	text-align: center;
+}
+.sb-batch-bar .mod-cta {
+	font-size: 11px;
+	font-weight: 600;
+	padding: 4px 12px;
+	border-radius: 4px;
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border: none;
+	cursor: pointer;
+}
+.sb-batch-bar .mod-cta:disabled {
+	opacity: .4;
+	cursor: not-allowed;
+}
+.sb-batch-bar .sb-batch-apply-btn:not(.mod-cta) {
+	font-size: 11px;
+	font-weight: 500;
+	padding: 4px 12px;
+	border-radius: 4px;
+	border: 1px solid var(--background-modifier-border);
+	background: transparent;
+	color: var(--text-muted);
+	cursor: pointer;
+}
+.sb-batch-bar .sb-batch-apply-btn:not(.mod-cta):disabled {
+	opacity: .4;
+	cursor: not-allowed;
+}
+.sb-batch-bar .sb-batch-apply-btn:not(.mod-cta):hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+.sb-batch-bar .sb-batch-cancel-btn {
+	font-size: 11px;
+	padding: 4px 10px;
+	border-radius: 4px;
+	border: none;
+	background: transparent;
+	color: var(--text-faint);
+	cursor: pointer;
+	margin-left: auto;
+}
+.sb-batch-bar .sb-batch-cancel-btn:hover {
+	color: var(--text-muted);
 }
 .sb-batch-checkbox {
-	margin-right: 6px;
 	accent-color: var(--interactive-accent);
+	flex-shrink: 0;
 }
 
 /* === Async Button Spinner === */
@@ -3846,4 +3904,214 @@ pre:hover .sb-copy-btn {
 	margin: 4px 0 0;
 	width: fit-content;
 	max-width: 100%;
+}
+
+/* ===== Wiki Action Cards (issue + solution) ===== */
+
+.second-brain-wiki .sb-qa-overview {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	padding: 8px 0 12px;
+	border-bottom: 1px solid var(--background-modifier-border);
+	margin-bottom: 4px;
+}
+
+.second-brain-wiki .sb-qa-stats {
+	display: flex;
+	align-items: baseline;
+	gap: 6px;
+}
+
+.second-brain-wiki .sb-qa-stat-num {
+	font-size: 20px;
+	font-weight: 700;
+	color: var(--text-normal);
+	font-variant-numeric: tabular-nums;
+}
+
+.second-brain-wiki .sb-qa-stat-label {
+	font-size: 12px;
+	color: var(--text-muted);
+}
+
+.second-brain-wiki .sb-qa-stat-breakdown {
+	font-size: 12px;
+	color: var(--text-faint);
+	margin-left: 2px;
+}
+
+.second-brain-wiki .sb-qa-prog {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-left: auto;
+}
+
+.second-brain-wiki .sb-qa-prog-label {
+	font-size: 11px;
+	color: var(--text-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.second-brain-wiki .sb-qa-prog-bar {
+	width: 64px;
+	height: 4px;
+	border-radius: 2px;
+	background: var(--background-modifier-hover);
+	overflow: hidden;
+}
+
+.second-brain-wiki .sb-qa-prog-fill {
+	height: 100%;
+	border-radius: 2px;
+	background: var(--interactive-accent);
+	transition: width .3s ease;
+}
+
+.second-brain-wiki .sb-qa-prog-pct {
+	font-size: 11px;
+	font-weight: 600;
+	color: var(--text-muted);
+	font-variant-numeric: tabular-nums;
+	min-width: 28px;
+	text-align: right;
+}
+
+.second-brain-wiki .sb-qa-section-label {
+	font-size: 11px;
+	font-weight: 600;
+	color: var(--text-faint);
+	text-transform: uppercase;
+	letter-spacing: .04em;
+	margin: 8px 0 2px;
+}
+
+.second-brain-wiki .sb-qa-list {
+	display: flex;
+	flex-direction: column;
+	margin-bottom: 8px;
+}
+
+.second-brain-wiki .sb-qa-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 4px;
+	border-radius: 4px;
+	cursor: default;
+}
+
+.second-brain-wiki .sb-qa-row:hover {
+	background: var(--background-modifier-hover);
+}
+
+.second-brain-wiki .sb-qa-dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+
+.second-brain-wiki .sb-qa-dot-err { background: #ef4444; }
+.second-brain-wiki .sb-qa-dot-warn { background: #f59e0b; }
+.second-brain-wiki .sb-qa-dot-info { background: var(--text-faint); }
+
+.second-brain-wiki .sb-qa-row-title {
+	font-size: 13px;
+	font-weight: 500;
+	color: var(--text-normal);
+	flex: 1;
+	min-width: 0;
+}
+
+.second-brain-wiki .sb-qa-row-sub {
+	font-size: 11px;
+	color: var(--text-faint);
+	padding: 0 0 2px 14px;
+	line-height: 1.4;
+}
+
+.second-brain-wiki .sb-qa-row-btn {
+	font-size: 11px;
+	font-weight: 500;
+	padding: 3px 10px;
+	border-radius: 4px;
+	border: none;
+	background: var(--background-modifier-hover);
+	color: var(--text-muted);
+	cursor: pointer;
+	white-space: nowrap;
+	transition: background .12s, color .12s;
+	flex-shrink: 0;
+}
+
+.second-brain-wiki .sb-qa-row-btn:hover {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.second-brain-wiki .sb-qa-row-btn[disabled] {
+	opacity: .5;
+	cursor: not-allowed;
+}
+
+.second-brain-wiki .sb-qa-stale-sub {
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+	padding: 2px 0 4px 14px;
+}
+
+.second-brain-wiki .sb-qa-stale-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 3px 4px;
+	border-radius: 3px;
+}
+
+.second-brain-wiki .sb-qa-stale-row:hover {
+	background: color-mix(in srgb, var(--background-modifier-hover) 60%, transparent);
+}
+
+.second-brain-wiki .sb-qa-stale-name {
+	font-size: 12px;
+	color: var(--interactive-accent);
+	text-decoration: none;
+	cursor: pointer;
+}
+
+.second-brain-wiki .sb-qa-stale-name:hover {
+	text-decoration: underline;
+}
+
+.second-brain-wiki .sb-qa-stale-days {
+	font-size: 10px;
+	color: var(--text-faint);
+	font-variant-numeric: tabular-nums;
+}
+
+.second-brain-wiki .sb-qa-stale-regen {
+	font-size: 10px;
+	padding: 1px 6px;
+	border-radius: 3px;
+	border: none;
+	background: transparent;
+	color: var(--text-faint);
+	cursor: pointer;
+	margin-left: auto;
+	transition: background .12s, color .12s;
+}
+
+.second-brain-wiki .sb-qa-stale-regen:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+.second-brain-wiki .sb-qa-all-clear {
+	padding: 20px 0;
+	text-align: center;
+	font-size: 13px;
+	color: var(--text-faint);
 }

@@ -19,6 +19,107 @@ export interface IndexSection {
 	subs: Array<{ title: string; items: IndexItem[] }>;
 }
 
+/**
+ * 解析 index.md 中的一条无序列表行（不要求 Obsidian 式 [[wikilink]]）。
+ * 支持：`- [[name|display]]` / `- [[name]]`；`- [label](relative/path.md)`；`- 标题 — 描述`（分隔符为 —、-- 或 –）。
+ */
+export function parseWikiIndexListItem(line: string): IndexItem | null {
+	const trimmed = line.trimEnd();
+	const w = trimmed.match(/^-\s+\[\[([^\]|]+)(?:\|([^\]]+))?\]\]\s*(?:[-\u2013\u2014]\s*)?(.*)$/);
+	if (w) {
+		const name = w[1].trim();
+		const display = (w[2] || w[1]).trim();
+		return { name, display, desc: (w[3] || "").trim() };
+	}
+	const md = trimmed.match(/^-\s+\[([^\]]*)\]\(([^)]+)\)\s*(?:[-\u2013\u2014]\s*)?(.*)$/);
+	if (md) {
+		const path = md[2].trim().replace(/\\/g, "/");
+		const seg = path.split("/").pop() || "";
+		const base = seg.replace(/\.md$/i, "").trim();
+		const label = md[1].trim();
+		const name = base || label;
+		if (!name) return null;
+		return { name, display: label || name, desc: (md[3] || "").trim() };
+	}
+	const plain = trimmed.match(/^-\s+((?!\[).+?)\s+(?:\u2014|--|–)\s+(.+)$/);
+	if (plain) {
+		const title = plain[1].replace(/\*\*/g, "").trim();
+		if (!title) return null;
+		return { name: title, display: title, desc: plain[2].trim() };
+	}
+	return null;
+}
+
+/** 去 # 锚点、统一为 /、去掉可选 .md，与 Obsidian 链名对齐 */
+export function normalizeWikiPageKey(raw: string): string {
+	let s = raw.trim().replace(/\\/g, "/");
+	const h = s.indexOf("#");
+	if (h >= 0) s = s.slice(0, h).trimEnd();
+	if (s.toLowerCase().endsWith(".md")) s = s.slice(0, -3);
+	return s.trim();
+}
+
+function wikiFileBase(rel: string): string {
+	return rel.replace(/\\/g, "/").split("/").pop()!.replace(/\.md$/i, "");
+}
+
+/**
+ * 将索引 / 内链里的名字解析到 wiki 文件列表。
+ * 兼容：`[[Foo.md]]`、`[[Foo#heading]]`、路径链、与文件名大小写不一致等。
+ */
+export function resolveWikiPageByName(name: string, pages: WikiPage[]): WikiPage | undefined {
+	const raw = name.trim().replace(/\\/g, "/");
+	if (!raw) return undefined;
+	const key = normalizeWikiPageKey(raw);
+	for (const f of pages) {
+		const rel = f.path.replace(/\\/g, "/");
+		const base = wikiFileBase(rel);
+		if (base === key) return f;
+		if (rel === key || rel === `${key}.md`) return f;
+	}
+	const kl = key.toLowerCase();
+	for (const f of pages) {
+		const rel = f.path.replace(/\\/g, "/");
+		const rlo = rel.toLowerCase();
+		if (!key.includes("/")) {
+			if (wikiFileBase(rel).toLowerCase() === kl) return f;
+		} else if (rlo === `${kl}.md` || rlo === kl) {
+			return f;
+		}
+	}
+	return undefined;
+}
+
+/** 优先精确 path（含 concepts/x.md），再按链名解析；用于批量审核与导航 */
+export function resolveWikiPageTarget(target: string, pages: WikiPage[]): WikiPage | undefined {
+	const t = target.trim().replace(/\\/g, "/");
+	if (!t) return undefined;
+	const hitExact = pages.find(f => f.path.replace(/\\/g, "/") === t);
+	if (hitExact) return hitExact;
+	const noExt = t.replace(/\.md$/i, "");
+	const hitNoExt = pages.find(f => f.path.replace(/\\/g, "/").replace(/\.md$/i, "") === noExt);
+	if (hitNoExt) return hitNoExt;
+	return resolveWikiPageByName(t, pages);
+}
+
+/** index.md 里有多少条不重复的链名在当前 wiki 文件列表中解析不到 */
+export function countIndexUnresolvedLinks(indexData: IndexSection[], pages: WikiPage[]): number {
+	const seen = new Set<string>();
+	let missing = 0;
+	for (const sec of indexData) {
+		for (const sub of sec.subs) {
+			for (const item of sub.items) {
+				const nm = item.name.trim();
+				if (!nm) continue;
+				if (seen.has(nm)) continue;
+				seen.add(nm);
+				if (!resolveWikiPageTarget(nm, pages)) missing++;
+			}
+		}
+	}
+	return missing;
+}
+
 export interface WikiViewCtx {
 	app: App;
 	plugin: SecondBrainPlugin;
@@ -89,13 +190,18 @@ export function extractStatus(content: string): string {
 	return extractFmField(content, "status");
 }
 
+/** 用于比较：trim + 小写，避免 `Draft`、显式 `pending` 与列表/筛选不一致 */
+export function wikiStatusNorm(content: string): string {
+	return extractStatus(content).trim().toLowerCase();
+}
+
 /** 审核筛选用：待审队列（draft 或无 status）/ 已审 / 其余（gap、outdated 等） */
 export type WikiReviewBucket = "pending" | "reviewed" | "other";
 
 export function wikiReviewBucket(content: string): WikiReviewBucket {
-	const s = extractStatus(content);
+	const s = wikiStatusNorm(content);
 	if (s === "reviewed") return "reviewed";
-	if (s === "draft" || s === "") return "pending";
+	if (s === "draft" || s === "" || s === "pending") return "pending";
 	return "other";
 }
 

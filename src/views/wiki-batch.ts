@@ -22,6 +22,14 @@ export function toggleBatchReview(
 	selectedPages.clear();
 	cleanupCheckboxes(ctx.bodyEl);
 
+	// 先检查有没有可选的行（只选待审核页面）
+	const allRows = ctx.bodyEl.querySelectorAll<HTMLElement>(".sb-wiki-list-row[data-name]");
+	const rows = Array.from(allRows).filter(r => r.getAttribute("data-bucket") === "pending");
+	if (rows.length === 0) {
+		new Notice(t("wiki.batchNoRows", lang));
+		return { batchMode: false, batchBar: null };
+	}
+
 	// 进入批量模式
 	if (btn) btn.textContent = t("wiki.batchReview", lang) + " *";
 
@@ -44,13 +52,6 @@ export function toggleBatchReview(
 
 	// 取消按钮
 	const cancelBtn = newBar.createEl("button", { text: t("set.cancel", lang), cls: "sb-batch-cancel-btn" });
-
-	const rows = ctx.bodyEl.querySelectorAll<HTMLElement>(".sb-wiki-list-row[data-name]");
-	if (rows.length === 0) {
-		new Notice(t("wiki.batchNoRows", lang));
-		if (btn) btn.textContent = t("wiki.batchReview", lang);
-		return { batchMode: false, batchBar: null };
-	}
 
 	const rowCheckboxes: HTMLInputElement[] = [];
 
