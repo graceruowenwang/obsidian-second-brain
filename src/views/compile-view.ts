@@ -119,8 +119,9 @@ export class CompileView extends ItemView {
 		histSection.createEl("p", { cls: "sb-compile-data-section-lead", text: t("compile.dataSection3Lead", lang) });
 		this.dataHistoryMount = histSection.createDiv({ cls: "sb-compile-data-section-body" });
 
-		// 日志
-		this.logEl = container.createDiv({ cls: "sb-log" });
+		// 编译摘要 + 日志：同一滚动区，避免摘要被 flex 挤出可视区或裁切
+		const lowerScroll = container.createDiv({ cls: "sb-compile-lower-scroll" });
+		this.logEl = lowerScroll.createDiv({ cls: "sb-log" });
 		this.addLog(t("compile.clickToStart", lang), "");
 
 		await this.loadRawFileList();
@@ -464,7 +465,12 @@ export class CompileView extends ItemView {
 
 	addLog(text: string, cls: string) {
 		this.logEl.createDiv({ cls: `sb-log-line ${cls}`, text });
-		this.logEl.scrollTop = this.logEl.scrollHeight;
+		const scrollHost = this.logEl.parentElement;
+		if (scrollHost?.classList.contains("sb-compile-lower-scroll")) {
+			scrollHost.scrollTop = scrollHost.scrollHeight;
+		} else {
+			this.logEl.scrollTop = this.logEl.scrollHeight;
+		}
 	}
 
 	private async renderStats() {

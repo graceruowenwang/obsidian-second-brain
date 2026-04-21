@@ -64,14 +64,16 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 		// --- License & Pro 区域（最顶部） ---
 		renderLicenseSettings(containerEl, this.plugin);
 
-		// --- Imp 2: 配置健康检查（Pro） ---
+		// --- 配置状态（Pro：健康检查） ---
 		if (requirePro(this.plugin.licenseInfo, "health-check")) {
-			this.renderHealthBar(containerEl, lang);
+			const statusDetails = containerEl.createEl("details", { cls: "sb-settings-section", attr: { open: "" } });
+			statusDetails.createEl("summary", { text: t("set.sectionStatus", lang) });
+			this.renderHealthBar(statusDetails.createDiv(), lang);
 		}
 
-		// --- Imp 8: LLM 配置（必填） ---
+		// --- LLM 连接 ---
 		const reqDetails = containerEl.createEl("details", { cls: "sb-settings-section", attr: { open: "" } });
-		reqDetails.createEl("summary", { text: t("set.sectionRequired", lang) });
+		reqDetails.createEl("summary", { text: t("set.sectionConnection", lang) });
 		const reqContent = reqDetails.createDiv();
 
 		// Imp 9: 快速配置
@@ -175,10 +177,74 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 				}
 			}));
 
-		// --- Imp 8: 推荐设置 ---
-		const recDetails = containerEl.createEl("details", { cls: "sb-settings-section" });
-		recDetails.createEl("summary", { text: t("set.sectionRecommended", lang) });
-		const recContent = recDetails.createDiv();
+		// --- 工作区（素材 / Wiki 目录） ---
+		const wsDetails = containerEl.createEl("details", { cls: "sb-settings-section", attr: { open: "" } });
+		wsDetails.createEl("summary", { text: t("set.sectionWorkspace", lang) });
+		const wsContent = wsDetails.createDiv();
+
+		new Setting(wsContent)
+			.setName(t("set.rawFolder", lang))
+			.setDesc(t("set.rawFolderDesc", lang))
+			.addText((t2) => t2.setPlaceholder(t("set.rawFolderPh", lang)).setValue(this.plugin.settings.rawFolder).onChange(async (v) => { this.plugin.settings.rawFolder = v; await this.plugin.saveSettings(); }));
+
+		new Setting(wsContent)
+			.setName(t("set.wikiFolder", lang))
+			.setDesc(t("set.wikiFolderDesc", lang))
+			.addText((t2) => t2.setPlaceholder(t("set.wikiFolderPh", lang)).setValue(this.plugin.settings.wikiFolder).onChange(async (v) => { this.plugin.settings.wikiFolder = v; await this.plugin.saveSettings(); }));
+
+		new Setting(wsContent)
+			.setName(t("set.organizeRaw", lang))
+			.setDesc(t("set.organizeRawDesc", lang))
+			.addButton((btn) => btn.setButtonText(t("set.organizeRawBtn", lang)).onClick(async () => {
+				await this.plugin.organizeRawMaterials();
+			}));
+
+		// --- 界面与模板 ---
+		const uiDetails = containerEl.createEl("details", { cls: "sb-settings-section", attr: { open: "" } });
+		uiDetails.createEl("summary", { text: t("set.sectionUi", lang) });
+		const uiContent = uiDetails.createDiv();
+
+		new Setting(uiContent)
+			.setName(t("set.language", lang))
+			.setDesc(t("set.languageDesc", lang))
+			.addDropdown((dd) => dd
+				.addOptions({ "zh-CN": "简体中文", "en": "English", "ja": "日本語" })
+				.setValue(this.plugin.settings.language)
+				.onChange(async (v) => { this.plugin.settings.language = v as UILanguageId; await this.plugin.saveSettings(); this.display(); }));
+
+		// 模板配置（Pro）
+		const tplSetting = new Setting(uiContent)
+			.setName(t("set.tplFile", lang))
+			.setDesc(t("set.tplFileDesc", lang))
+			.addText((t2) => t2.setPlaceholder(t("set.tplFilePh", lang)).setValue(this.plugin.settings.templateFile).onChange(async (v) => { this.plugin.settings.templateFile = v; await this.plugin.saveSettings(); }));
+		if (!requirePro(this.plugin.licenseInfo, "advanced-templates")) {
+			createProBadge(tplSetting.nameEl, lang);
+		}
+
+		const genTplSetting = new Setting(uiContent)
+			.setName(t("set.genTpl", lang))
+			.setDesc(t("set.genTplDesc", lang))
+			.addButton((btn) => btn.setButtonText(t("set.gen", lang)).onClick(async () => {
+				if (!requirePro(this.plugin.licenseInfo, "advanced-templates")) {
+					showUpgradeNotice(this.app, "advanced-templates", lang);
+					return;
+				}
+				try {
+					const { generateTemplateFile } = await import("../core/templates");
+					await generateTemplateFile(this.app, this.plugin.settings.templateFile, this.plugin.settings.language);
+					new Notice(t("notice.tplGenerated", lang, { path: this.plugin.settings.templateFile }));
+				} catch (e: unknown) {
+					new Notice(t("notice.tplFail", lang, { msg: (e instanceof Error ? e.message : String(e)) }));
+				}
+			}));
+		if (!requirePro(this.plugin.licenseInfo, "advanced-templates")) {
+			createProBadge(genTplSetting.nameEl, lang);
+		}
+
+		// --- 编译与智能增强 ---
+		const compileDetails = containerEl.createEl("details", { cls: "sb-settings-section" });
+		compileDetails.createEl("summary", { text: t("set.sectionCompile", lang) });
+		const recContent = compileDetails.createDiv();
 
 		// 自动编译（Pro）— 带 PRO badge
 		const autoCompileSetting = new Setting(recContent)
@@ -200,6 +266,15 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 			}));
 
 		new Setting(recContent)
+			.setName(t("set.delay", lang))
+			.setDesc(t("set.delayDesc", lang))
+			.addSlider((slider) => slider
+				.setLimits(10, 120, 5)
+				.setValue(this.plugin.settings.autoCompileDelay)
+				.setDynamicTooltip()
+				.onChange(async (v) => { this.plugin.settings.autoCompileDelay = v; await this.plugin.saveSettings(); }));
+
+		new Setting(recContent)
 			.setName(t("set.enableGapDetection", lang))
 			.setDesc(t("set.enableGapDetectionDesc", lang))
 			.addToggle((toggle) => toggle
@@ -219,53 +294,7 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
-		new Setting(recContent)
-			.setName(t("set.delay", lang))
-			.setDesc(t("set.delayDesc", lang))
-			.addSlider((slider) => slider
-				.setLimits(10, 120, 5)
-				.setValue(this.plugin.settings.autoCompileDelay)
-				.setDynamicTooltip()
-				.onChange(async (v) => { this.plugin.settings.autoCompileDelay = v; await this.plugin.saveSettings(); }));
-
-		new Setting(recContent)
-			.setName(t("set.language", lang))
-			.setDesc(t("set.languageDesc", lang))
-			.addDropdown((dd) => dd
-				.addOptions({ "zh-CN": "简体中文", "en": "English", "ja": "日本語" })
-				.setValue(this.plugin.settings.language)
-				.onChange(async (v) => { this.plugin.settings.language = v as UILanguageId; await this.plugin.saveSettings(); this.display(); }));
-
-		// 模板配置（Pro）
-		const tplSetting = new Setting(recContent)
-			.setName(t("set.tplFile", lang))
-			.setDesc(t("set.tplFileDesc", lang))
-			.addText((t2) => t2.setPlaceholder(t("set.tplFilePh", lang)).setValue(this.plugin.settings.templateFile).onChange(async (v) => { this.plugin.settings.templateFile = v; await this.plugin.saveSettings(); }));
-		if (!requirePro(this.plugin.licenseInfo, "advanced-templates")) {
-			createProBadge(tplSetting.nameEl, lang);
-		}
-
-		const genTplSetting = new Setting(recContent)
-			.setName(t("set.genTpl", lang))
-			.setDesc(t("set.genTplDesc", lang))
-			.addButton((btn) => btn.setButtonText(t("set.gen", lang)).onClick(async () => {
-				if (!requirePro(this.plugin.licenseInfo, "advanced-templates")) {
-					showUpgradeNotice(this.app, "advanced-templates", lang);
-					return;
-				}
-				try {
-					const { generateTemplateFile } = await import("../core/templates");
-					await generateTemplateFile(this.app, this.plugin.settings.templateFile, this.plugin.settings.language);
-					new Notice(t("notice.tplGenerated", lang, { path: this.plugin.settings.templateFile }));
-				} catch (e: unknown) {
-					new Notice(t("notice.tplFail", lang, { msg: (e instanceof Error ? e.message : String(e)) }));
-				}
-			}));
-		if (!requirePro(this.plugin.licenseInfo, "advanced-templates")) {
-			createProBadge(genTplSetting.nameEl, lang);
-		}
-
-		// --- Imp 8: 高级设置 ---
+		// --- 高级设置 ---
 		const advDetails = containerEl.createEl("details", { cls: "sb-settings-section" });
 		advDetails.createEl("summary", { text: t("set.sectionAdvanced", lang) });
 		const advContent = advDetails.createDiv();
@@ -314,25 +343,6 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 				});
 				t2.inputEl.type = "password";
 			});
-
-		advContent.createEl("h4", { text: t("set.folderSection", lang) });
-
-		new Setting(advContent)
-			.setName(t("set.rawFolder", lang))
-			.setDesc(t("set.rawFolderDesc", lang))
-			.addText((t2) => t2.setPlaceholder(t("set.rawFolderPh", lang)).setValue(this.plugin.settings.rawFolder).onChange(async (v) => { this.plugin.settings.rawFolder = v; await this.plugin.saveSettings(); }));
-
-		new Setting(advContent)
-			.setName(t("set.organizeRaw", lang))
-			.setDesc(t("set.organizeRawDesc", lang))
-			.addButton((btn) => btn.setButtonText(t("set.organizeRawBtn", lang)).onClick(async () => {
-				await this.plugin.organizeRawMaterials();
-			}));
-
-		new Setting(advContent)
-			.setName(t("set.wikiFolder", lang))
-			.setDesc(t("set.wikiFolderDesc", lang))
-			.addText((t2) => t2.setPlaceholder(t("set.wikiFolderPh", lang)).setValue(this.plugin.settings.wikiFolder).onChange(async (v) => { this.plugin.settings.wikiFolder = v; await this.plugin.saveSettings(); }));
 
 		advContent.createEl("h4", { text: t("set.dataSection", lang) });
 

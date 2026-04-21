@@ -6,13 +6,20 @@ import { DEFAULT_LICENSE, type LicenseInfo } from "../types";
 import { t } from "../core/i18n";
 import { validateLicense, activateLicense, deactivateLicense, isPro, getTrialDaysLeft, isTrialActive, BETA_MODE } from "../core/license";
 
+/**
+ * 与实现一致：FREE_FEATURES 为免费版可用；其余行为 Pro 专属（见 feature-gate PRO_FEATURES）。
+ * 不含未落地的「思维导图」等条目。
+ */
 const COMPARE_FEATURES = [
 	"manualCompile", "wikiBrowse", "deepseek",
-	"autoCompile", "aiChat", "mindMap", "multiLlm",
-	"templates", "embedding", "healthCheck",
+	"gapDetection", "smartLinking", "templates", "embedding",
+	"autoCompile", "multiLlm", "aiChat", "healthCheck",
 ] as const;
 
-const FREE_FEATURES = new Set(["manualCompile", "wikiBrowse", "deepseek"]);
+const FREE_FEATURES = new Set<string>([
+	"manualCompile", "wikiBrowse", "deepseek",
+	"gapDetection", "smartLinking", "templates", "embedding",
+]);
 
 export function renderLicenseSettings(containerEl: HTMLElement, plugin: SecondBrain): void {
 	const lang = plugin.settings.language;

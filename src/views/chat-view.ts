@@ -51,7 +51,7 @@ export class ChatView extends ItemView {
 			const highlights = overlay.createDiv({ cls: "sb-feature-highlights" });
 			const features = [
 				{ title: t("pro.compare.aiChat", lang), desc: t("pro.compare.aiChatDesc", lang) },
-				{ title: t("pro.compare.mindMap", lang), desc: t("pro.compare.mindMapDesc", lang) },
+				{ title: t("pro.compare.multiLlm", lang), desc: t("pro.compare.multiLlmDesc", lang) },
 				{ title: t("pro.compare.autoCompile", lang), desc: t("pro.compare.autoCompileDesc", lang) },
 			];
 			for (const f of features) {
