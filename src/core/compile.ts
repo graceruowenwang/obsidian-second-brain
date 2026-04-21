@@ -1,7 +1,7 @@
 // 编译引擎 — 从 compile-engine.js 移植
 // 文件操作改为 Vault API，LLM 调用改为 requestUrl
 
-import { App, TFolder } from "obsidian";
+import { App, TFolder, Notice } from "obsidian";
 import { callLLM } from "./llm";
 import {
 	readRawFiles, readWikiFiles, writeWikiFile,
@@ -62,6 +62,7 @@ async function migrateEmbeddingsIfNeeded(
 		} catch (e) {
 			// 迁移失败：保留原字段，版本号不升级，下次 runCompile 再试
 			console.warn("compile: embedding migration failed, will retry next run:", e);
+				new Notice("Embedding 缓存迁移失败，向量搜索可能暂时不可用，下次编译将自动重试。");
 			return;
 		}
 	}
@@ -124,7 +125,7 @@ async function runAnalysis(
 	);
 	const parsed = parseAnalysisJSON(result);
 	if (parsed.concepts.length === 0 && parsed.entities.length === 0 && parsed.sources.length === 0) {
-		throw new Error("AI 分析返回格式异常，请重试");
+		throw new Error("SB_ANALYSIS_FORMAT");
 	}
 	const { valid, issues } = validateAnalysis(parsed, rawFilePaths, tpl);
 	return { analysis: valid, validationIssues: issues };

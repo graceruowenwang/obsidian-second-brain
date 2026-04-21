@@ -23,6 +23,8 @@ export class ChatView extends ItemView {
 	private abortController: AbortController | null = null;
 	private component: Component;
 	private contextIndicator: HTMLElement;
+	private streamRenderPending = false;
+	private streamRenderRaf = 0;
 
 	constructor(leaf: WorkspaceLeaf, plugin: SecondBrainPlugin) {
 		super(leaf);
@@ -290,10 +292,16 @@ export class ChatView extends ItemView {
 				// 收到第一个 chunk 时移除 typing 指示器
 				const typing = aiMsgEl.querySelector(".sb-typing");
 				if (typing) typing.remove();
-				// 实时渲染 markdown
-				msgContentEl.empty();
-				MarkdownRenderer.render(this.app, fullText, msgContentEl, "", this.component);
-				this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
+				// 用 rAF 合并渲染，避免每个 chunk 都触发 DOM 重排
+				if (!this.streamRenderPending) {
+					this.streamRenderPending = true;
+					this.streamRenderRaf = requestAnimationFrame(() => {
+						this.streamRenderPending = false;
+						msgContentEl.empty();
+						MarkdownRenderer.render(this.app, fullText, msgContentEl, "", this.component);
+						this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
+					});
+				}
 			}, { signal: this.abortController?.signal });
 
 			this.chatHistory.push({ role: "user", content: q });
@@ -341,6 +349,8 @@ export class ChatView extends ItemView {
 				msgContentEl.createEl("p", { text: t("chat.error", lang, { msg: describeLLMFailure(lang, e) }), cls: "sb-error" });
 				}
 		} finally {
+			if (this.streamRenderRaf) cancelAnimationFrame(this.streamRenderRaf);
+			this.streamRenderPending = false;
 			this.sending = false;
 			this.abortController = null;
 			this.toggleButtons(false);
@@ -490,6 +500,8 @@ export class ChatView extends ItemView {
 
 	async onClose() {
 		this.abortController?.abort();
+		if (this.streamRenderRaf) cancelAnimationFrame(this.streamRenderRaf);
+		this.streamRenderPending = false;
 		this.component.unload();
 	}
 }

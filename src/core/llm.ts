@@ -272,7 +272,7 @@ export async function callLLM(
 			// 429 用较长 backoff，其它可重试错误用标准 backoff
 			const base = err instanceof LLMError && err.status === 429 ? 5000 : 1000;
 			const maxDelay = err instanceof LLMError && err.status === 429 ? 60000 : 30000;
-			const delay = Math.min(base * Math.pow(2, attempt), maxDelay);
+			const delay = Math.min(base * Math.pow(2, attempt) + Math.random() * base * 0.5, maxDelay);
 			if (options.signal?.aborted) throw err;
 			await new Promise(r => setTimeout(r, delay));
 		}

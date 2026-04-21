@@ -392,6 +392,14 @@ export class CompileView extends ItemView {
 				const msg = t("compile.error.rawNoCompilable", lang, { folder: this.plugin.settings.rawFolder });
 				this.addLog(t("compile.fail", lang, { msg }), "err");
 				new Notice(t("compile.fail", lang, { msg }));
+			} else if (errMsg === "SB_NO_JSON" || errMsg === "SB_EMPTY_ANALYSIS" || errMsg === "SB_ANALYSIS_FORMAT" || errMsg === "SB_JSON_PARSE") {
+				const key = errMsg === "SB_NO_JSON" ? "compile.noValidJSON"
+					: errMsg === "SB_EMPTY_ANALYSIS" ? "compile.emptyAnalysis"
+					: errMsg === "SB_JSON_PARSE" ? "compile.jsonParseError"
+					: "compile.analysisFormatError";
+				const msg = t(key, lang);
+				this.addLog(t("compile.fail", lang, { msg }), "err");
+				new Notice(t("compile.fail", lang, { msg }));
 			} else {
 				const friendlyMsg = describeLLMFailure(lang, e);
 				this.addLog(t("compile.fail", lang, { msg: friendlyMsg }), "err");
@@ -593,5 +601,7 @@ export class CompileView extends ItemView {
 			window.clearTimeout(this.rawRefreshTimer);
 			this.rawRefreshTimer = null;
 		}
+		this.stopEstimateTimer();
+		this.abortController = null;
 	}
 }

@@ -10,6 +10,20 @@ import type {
 
 export type StorageLike = { loadData: () => Promise<any>; saveData: (data: any) => Promise<void> };
 
+/** 控制异步任务并发数，避免大目录同时打开过多文件 */
+async function parallelWithLimit<T>(tasks: Array<() => Promise<T>>, limit: number): Promise<T[]> {
+	const results: T[] = new Array(tasks.length);
+	let next = 0;
+	async function run() {
+		while (next < tasks.length) {
+			const i = next++;
+			results[i] = await tasks[i]();
+		}
+	}
+	await Promise.all(Array.from({ length: Math.min(limit, tasks.length) }, () => run()));
+	return results;
+}
+
 export function getStorage(_app: App, plugin?: StorageLike): StorageLike {
 	if (plugin && typeof plugin.loadData === "function") return plugin;
 	throw new Error("Plugin instance required for data storage");
@@ -38,23 +52,23 @@ export function getAllMdFiles(folder: TFolder): TFile[] {
 	return files;
 }
 
-// 读取 raw/ 目录下所有文件（并行读取）
+// 读取 raw/ 目录下所有文件（并发读取，限制同时 20 个）
 export async function readRawFiles(app: App, rawFolder: string): Promise<Array<{ path: string; content: string }>> {
 	const normalized = normalizeVaultFolderPath(rawFolder);
 	const folder = app.vault.getAbstractFileByPath(normalized) ?? app.vault.getAbstractFileByPath(rawFolder);
 	if (!folder || !(folder instanceof TFolder)) return [];
 	const tfiles = getAllMdFiles(folder);
-	const contents = await Promise.all(tfiles.map(f => app.vault.cachedRead(f)));
+	const contents = await parallelWithLimit(tfiles.map(f => () => app.vault.cachedRead(f)), 20);
 	return tfiles.map((f, i) => ({ path: f.path, content: contents[i] }));
 }
 
-// 读取 wiki/ 目录下所有文件（并行读取）
+// 读取 wiki/ 目录下所有文件（并发读取，限制同时 20 个）
 export async function readWikiFiles(app: App, wikiFolder: string): Promise<Array<{ path: string; content: string }>> {
 	const normalized = normalizeVaultFolderPath(wikiFolder);
 	const folder = app.vault.getAbstractFileByPath(normalized) ?? app.vault.getAbstractFileByPath(wikiFolder);
 	if (!folder || !(folder instanceof TFolder)) return [];
 	const tfiles = getAllMdFiles(folder);
-	const contents = await Promise.all(tfiles.map(f => app.vault.cachedRead(f)));
+	const contents = await parallelWithLimit(tfiles.map(f => () => app.vault.cachedRead(f)), 20);
 	const prefix = normalized + "/";
 	return tfiles.map((f, i) => ({ path: f.path.startsWith(prefix) ? f.path.slice(prefix.length) : f.path, content: contents[i] }));
 }
@@ -309,11 +323,11 @@ export function parseEmbeddingResponseBody(body: unknown): number[] {
 		const preview = typeof body === "object" && body !== null
 			? JSON.stringify(body).slice(0, 280)
 			: String(body).slice(0, 280);
-		throw new Error(`Embedding 响应结构异常（无 data[]）: ${preview}`);
+		throw new Error(`SB_EMBED_NO_DATA:${preview}`);
 	}
 	const emb = (data[0] as { embedding?: unknown })?.embedding;
 	if (!Array.isArray(emb) || emb.length === 0 || !emb.every(x => typeof x === "number" && Number.isFinite(x))) {
-		throw new Error("Embedding 响应结构异常（无有效 embedding 向量）");
+		throw new Error("SB_EMBED_INVALID");
 	}
 	return emb as number[];
 }

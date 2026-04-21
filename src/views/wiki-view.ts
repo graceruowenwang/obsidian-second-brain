@@ -359,6 +359,7 @@ export class WikiView extends ItemView {
 			clearTimeout(this.searchTimer);
 			this.searchTimer = null;
 		}
+		this.pageScrollTop.clear();
 		for (const el of this.wikiHeaderActionEls) el.remove();
 		this.wikiHeaderActionEls = [];
 	}
