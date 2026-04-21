@@ -513,7 +513,7 @@ export const ja: typeof import("./en").en = {
 		"pro.trialDaysLeft": "残り {days} 日",
 		"pro.trialExpired": "トライアル終了",
 		"pro.trialExpiring": "Proトライアルは残り{days}日です。終了後、AIチャット・自動コンパイル・マインドマップなどのPro機能は使用できなくなります。",
-		"pro.trialExpiredNotice": "Proトライアルが終了しました。現在はフリープランです。AIチャット・自動コンパイルなどを引き続きご利用いただくには、アップグレードしてください。"
+		"pro.trialExpiredNotice": "Proトライアルが終了しました。現在はフリープランです。AIチャット・自動コンパイルなどを引き続きご利用いただくには、アップグレードしてください。",
 
 		"sb.ready": "Second Brain: 準備完了",
 		"sb.compiling": "Second Brain: コンパイル中...",

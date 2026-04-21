@@ -530,7 +530,7 @@ export const zhCN: typeof import("./en").en = {
 		"pro.trialDaysLeft": "剩余 {days} 天",
 		"pro.trialExpired": "试用期已结束",
 		"pro.trialExpiring": "Pro 试用还有 {days} 天到期。到期后自动恢复为基础版，Pro 功能（AI 对话、自动编译、知识图谱等）将不可用。",
-		"pro.trialExpiredNotice": "Pro 试用期已结束，已恢复为基础版。如需继续使用 AI 对话、自动编译等功能，请购买完整版。"
+		"pro.trialExpiredNotice": "Pro 试用期已结束，已恢复为基础版。如需继续使用 AI 对话、自动编译等功能，请购买完整版。",
 
 		// Status bar
 		"sb.ready": "Second Brain: 就绪",

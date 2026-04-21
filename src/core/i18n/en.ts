@@ -514,7 +514,7 @@ export const en = {
 		"pro.trialDaysLeft": "{days} days remaining",
 		"pro.trialExpired": "Trial expired",
 		"pro.trialExpiring": "Pro trial expires in {days} day(s). After that, Pro features (AI chat, auto-compile, mind map, etc.) will be unavailable.",
-		"pro.trialExpiredNotice": "Pro trial has ended. You are now on the Free plan. To keep using AI chat, auto-compile and more, please upgrade."
+		"pro.trialExpiredNotice": "Pro trial has ended. You are now on the Free plan. To keep using AI chat, auto-compile and more, please upgrade.",
 
 		"sb.ready": "Second Brain: Ready",
 		"sb.compiling": "Second Brain: Compiling...",
