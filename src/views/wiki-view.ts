@@ -366,11 +366,13 @@ export class WikiView extends ItemView {
 	}
 
 	private async markAsReviewed(target: string): Promise<void> {
+		if ((this.plugin as any).compileMutex?.locked) return;
 		const { markAsReviewed: markFn } = await import("./wiki-page");
 		await markFn(target, this.pageCtx());
 	}
 
 	private async markForRegeneration(target: string): Promise<void> {
+		if ((this.plugin as any).compileMutex?.locked) return;
 		const { markForRegeneration: markFn } = await import("./wiki-page");
 		await markFn(target, this.pageCtx());
 	}
