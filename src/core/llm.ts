@@ -378,125 +378,27 @@ export async function callLLMStream(
 /** 连续 SSE JSON 解析失败上限，避免半包/乱流时界面无限转圈 */
 const STREAM_SSE_MAX_PARSE_FAILURES = 15;
 
-async function callOpenAIStream(
-	messages: Array<{ role: string; content: string }>,
-	settings: PluginSettings,
-	onChunk: (text: string) => void,
-	options: LLMOptions = {}
-): Promise<string> {
-	const url = settings.baseUrl.replace(/\/+$/, "") + "/chat/completions";
-	let res: Response;
-	try {
-		res = await fetch(url, {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-				Authorization: `Bearer ${settings.apiKey}`,
-			},
-			body: JSON.stringify({
-				model: settings.model,
-				messages,
-				temperature: options.temperature ?? 0.5,
-				max_tokens: options.maxTokens ?? 3000,
-				stream: true,
-			}),
-			signal: options.signal,
-		});
-	} catch (e) {
-		throw new LLMError(`流式请求失败: ${(e as Error).message}`, 0, true);
-	}
+// --- 共享 SSE 流读取器 ---
 
-	if (!res.ok) {
-		const err = await res.text();
-		throw new LLMError(
-			`API 错误 (${res.status}): ${err.slice(0, 500)}`,
-			res.status,
-			isRetryableStatus(res.status),
-			err,
-		);
-	}
-
-	if (!res.body) {
-		throw new LLMError("API 返回了空响应体", res.status || 0, false, undefined, "invalid_response");
-	}
-
-	const reader = res.body.getReader();
-	const decoder = new TextDecoder();
-	let fullText = "";
-	let buffer = "";
-	let sseParseFailures = 0;
-
-	try {
-		while (true) {
-			const { done, value } = await reader.read();
-			if (done) break;
-			buffer += decoder.decode(value, { stream: true });
-			const lines = buffer.split("\n");
-			buffer = lines.pop() || "";
-			for (const line of lines) {
-				if (!line.startsWith("data: ") || line === "data: [DONE]") continue;
-				try {
-					const d = JSON.parse(line.slice(6)) as { choices?: Array<{ delta?: { content?: string } }> };
-					sseParseFailures = 0;
-					const text = d.choices?.[0]?.delta?.content || "";
-					if (text) {
-						fullText += text;
-						onChunk(text);
-					}
-				} catch (e) {
-					sseParseFailures++;
-					if (sseParseFailures >= STREAM_SSE_MAX_PARSE_FAILURES) {
-						throw new LLMError(
-							`流式响应解析连续失败（${STREAM_SSE_MAX_PARSE_FAILURES} 次），请重试`,
-							0,
-							false,
-							line.slice(0, 200),
-							"invalid_response",
-						);
-					}
-					console.warn("llm: OpenAI SSE parse", e);
-				}
-			}
-		}
-		return fullText;
-	} finally {
-		try {
-			await reader.cancel();
-		} catch {
-			/* ignore */
-		}
-	}
+interface StreamConfig {
+	url: string;
+	headers: Record<string, string>;
+	body: string;
+	signal?: AbortSignal;
+	/** 从 SSE data 行解析出文本片段，返回 undefined 表示忽略该行 */
+	extractText: (parsed: unknown) => string | undefined;
+	/** 是否跳过 "data: [DONE]" 终止行 */
+	skipDoneLine?: boolean;
 }
 
-async function callAnthropicStream(
-	messages: Array<{ role: string; content: string }>,
-	settings: PluginSettings,
-	onChunk: (text: string) => void,
-	options: LLMOptions = {}
-): Promise<string> {
-	const systemMsg = messages.find((m) => m.role === "system");
-	const chatMsgs = messages
-		.filter((m) => m.role !== "system")
-		.map((m) => ({ role: m.role, content: m.content }));
-
-	const url = settings.baseUrl.replace(/\/+$/, "") + "/messages";
+async function readSSEStream(config: StreamConfig, onChunk: (text: string) => void): Promise<string> {
 	let res: Response;
 	try {
-		res = await fetch(url, {
+		res = await fetch(config.url, {
 			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-				"x-api-key": settings.apiKey,
-				"anthropic-version": "2023-06-01",
-			},
-			body: JSON.stringify({
-				model: settings.model,
-				max_tokens: options.maxTokens ?? 3000,
-				...(systemMsg ? { system: systemMsg.content } : {}),
-				messages: chatMsgs,
-				stream: true,
-			}),
-			signal: options.signal,
+			headers: config.headers,
+			body: config.body,
+			signal: config.signal,
 		});
 	} catch (e) {
 		throw new LLMError(`流式请求失败: ${(e as Error).message}`, 0, true);
@@ -531,12 +433,14 @@ async function callAnthropicStream(
 			buffer = lines.pop() || "";
 			for (const line of lines) {
 				if (!line.startsWith("data: ")) continue;
+				if (config.skipDoneLine && line === "data: [DONE]") continue;
 				try {
-					const d = JSON.parse(line.slice(6)) as { type?: string; delta?: { text?: string } };
+					const d = JSON.parse(line.slice(6));
 					sseParseFailures = 0;
-					if (d.type === "content_block_delta" && d.delta?.text) {
-						fullText += d.delta.text;
-						onChunk(d.delta.text);
+					const text = config.extractText(d);
+					if (text) {
+						fullText += text;
+						onChunk(text);
 					}
 				} catch (e) {
 					sseParseFailures++;
@@ -549,18 +453,72 @@ async function callAnthropicStream(
 							"invalid_response",
 						);
 					}
-					console.warn("llm: Anthropic SSE parse", e);
+					console.warn("llm: SSE parse", e);
 				}
 			}
 		}
 		return fullText;
 	} finally {
-		try {
-			await reader.cancel();
-		} catch {
-			/* ignore */
-		}
+		try { await reader.cancel(); } catch { /* ignore */ }
 	}
+}
+
+// --- 提供商特定的流式构建 ---
+
+async function callOpenAIStream(
+	messages: Array<{ role: string; content: string }>,
+	settings: PluginSettings,
+	onChunk: (text: string) => void,
+	options: LLMOptions = {}
+): Promise<string> {
+	return readSSEStream({
+		url: settings.baseUrl.replace(/\/+$/, "") + "/chat/completions",
+		headers: {
+			"Content-Type": "application/json",
+			Authorization: `Bearer ${settings.apiKey}`,
+		},
+		body: JSON.stringify({
+			model: settings.model,
+			messages,
+			temperature: options.temperature ?? 0.5,
+			max_tokens: options.maxTokens ?? 3000,
+			stream: true,
+		}),
+		signal: options.signal,
+		skipDoneLine: true,
+		extractText: (d: any) => d.choices?.[0]?.delta?.content || undefined,
+	}, onChunk);
+}
+
+async function callAnthropicStream(
+	messages: Array<{ role: string; content: string }>,
+	settings: PluginSettings,
+	onChunk: (text: string) => void,
+	options: LLMOptions = {}
+): Promise<string> {
+	const systemMsg = messages.find((m) => m.role === "system");
+	const chatMsgs = messages
+		.filter((m) => m.role !== "system")
+		.map((m) => ({ role: m.role, content: m.content }));
+
+	return readSSEStream({
+		url: settings.baseUrl.replace(/\/+$/, "") + "/messages",
+		headers: {
+			"Content-Type": "application/json",
+			"x-api-key": settings.apiKey,
+			"anthropic-version": "2023-06-01",
+		},
+		body: JSON.stringify({
+			model: settings.model,
+			max_tokens: options.maxTokens ?? 3000,
+			...(systemMsg ? { system: systemMsg.content } : {}),
+			messages: chatMsgs,
+			stream: true,
+		}),
+		signal: options.signal,
+		extractText: (d: any) =>
+			d.type === "content_block_delta" && d.delta?.text ? d.delta.text : undefined,
+	}, onChunk);
 }
 
 /** 判断错误是否为 fetch 不可用 / 网络不通 */

@@ -594,4 +594,11 @@ export const en = {
 		"wiki.statusPendingKeyword": "Pending (status: pending)",
 "notice.stalePages": "{n} knowledge pages haven't been updated in 30+ days. Consider reviewing them.",
 
+		// Compile errors
+		"compile.analysisFormatError": "AI analysis returned unexpected format. Please retry.",
+		"compile.noValidJSON": "No valid JSON found in LLM response.",
+		"compile.emptyAnalysis": "Analysis result is empty: no concepts, entities, or sources extracted.",
+		"compile.jsonParseError": "JSON parsing failed. Please retry.",
+		"compile.embedNoData": "Embedding response error, fell back to keyword search",
+
 };

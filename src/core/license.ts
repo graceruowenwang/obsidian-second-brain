@@ -146,7 +146,7 @@ async function offlineVerify(key: string): Promise<boolean> {
 
 export async function activateLicense(key: string, instanceName?: string): Promise<LicenseInfo> {
 	if (!checkRateLimit()) {
-		throw new Error("Rate limit exceeded. Please try again later.");
+		throw new Error("SB_RATE_LIMIT");
 	}
 
 	const trimmed = key.trim().toUpperCase();
@@ -179,7 +179,7 @@ export async function activateLicense(key: string, instanceName?: string): Promi
 
 export async function validateLicense(key: string, instanceId?: string | null): Promise<LicenseInfo> {
 	if (!checkRateLimit()) {
-		throw new Error("Rate limit exceeded. Please try again later.");
+		throw new Error("SB_RATE_LIMIT");
 	}
 
 	const trimmed = key.trim().toUpperCase();

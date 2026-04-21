@@ -605,4 +605,11 @@ export const zhCN: typeof import("./en").en = {
 		// Stale notification
 		"notice.stalePages": "{n} 个知识页面超过 30 天未更新，建议复习",
 
+		// Compile errors
+		"compile.analysisFormatError": "AI 分析返回格式异常，请重试",
+		"compile.noValidJSON": "LLM 返回内容中未找到有效 JSON",
+		"compile.emptyAnalysis": "分析结果为空：未提取到任何概念、实体或来源",
+		"compile.jsonParseError": "JSON 解析失败，请重试",
+		"compile.embedNoData": "Embedding 响应异常，已降级为关键词搜索",
+
 };

@@ -108,7 +108,7 @@ export function renderLicenseSettings(containerEl: HTMLElement, plugin: SecondBr
 			new Notice(t("license.activationSuccess", lang));
 			plugin.refreshSettingsTab();
 		} catch (e: unknown) {
-			if ((e instanceof Error ? e.message : String(e))?.includes("Rate limit")) {
+			if ((e instanceof Error ? e.message : String(e)) === "SB_RATE_LIMIT") {
 				new Notice(t("license.rateLimit", lang));
 			} else {
 				new Notice(t("license.activationFail", lang));

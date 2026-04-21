@@ -594,4 +594,11 @@ export const ja: typeof import("./en").en = {
 		"wiki.dataIndexMissingNote": "index.md に、一覧行のうち {n} 件が Wiki 内のどのファイルにも解決しません。改名・削除後の索引未更新が一般的な原因です。",
 "notice.stalePages": "{n} ページが30日以上更新されていません。レビューをお勧めします。",
 
+		// Compile errors
+		"compile.analysisFormatError": "AI 分析の返却形式が異常です。再試行してください。",
+		"compile.noValidJSON": "LLM の応答に有効な JSON が見つかりません。",
+		"compile.emptyAnalysis": "分析結果が空です：概念・エンティティ・ソースのいずれも抽出されませんでした。",
+		"compile.jsonParseError": "JSON の解析に失敗しました。再試行してください。",
+		"compile.embedNoData": "Embedding 応答エラー、キーワード検索にフォールバック",
+
 };

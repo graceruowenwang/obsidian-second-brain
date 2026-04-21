@@ -35,13 +35,13 @@ export function parseAnalysisJSON(raw: string): Analysis {
 	const cleaned = raw.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
 	const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
 	if (!jsonMatch) {
-		throw new Error("LLM 返回内容中未找到有效 JSON");
+		throw new Error("SB_NO_JSON");
 	}
 	let parsed: unknown;
 	try {
 		parsed = JSON.parse(jsonMatch[0]);
 	} catch (e) {
-		throw new Error(`JSON 解析失败: ${(e as Error).message}`);
+		throw new Error("SB_JSON_PARSE");
 	}
 
 	// 先尝试整体 strict parse
@@ -58,7 +58,7 @@ export function parseAnalysisJSON(raw: string): Analysis {
 	const hasContent = partial.concepts.length || partial.entities.length
 		|| partial.sources.length || partial.syntheses.length;
 	if (!hasContent) {
-		throw new Error("分析结果为空：未提取到任何概念、实体或来源");
+		throw new Error("SB_EMPTY_ANALYSIS");
 	}
 
 	if (partial.issues.length > 0) {

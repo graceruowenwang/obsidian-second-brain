@@ -30,10 +30,10 @@ describe("parseEmbeddingResponseBody", () => {
 	});
 
 	it("throws on missing data", () => {
-		expect(() => parseEmbeddingResponseBody({})).toThrow(/无 data/);
+		expect(() => parseEmbeddingResponseBody({})).toThrow(/SB_EMBED_NO_DATA/);
 	});
 
 	it("throws on invalid embedding", () => {
-		expect(() => parseEmbeddingResponseBody({ data: [{ embedding: "x" }] })).toThrow(/无有效 embedding/);
+		expect(() => parseEmbeddingResponseBody({ data: [{ embedding: "x" }] })).toThrow(/SB_EMBED_INVALID/);
 	});
 });
