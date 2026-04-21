@@ -74,6 +74,7 @@ export interface LicenseInfo {
 	instanceId: string | null;
 	freeChatUsed: number;
 	freeChatMonth: string;
+	trialExpiredShown: boolean;
 }
 
 export const DEFAULT_LICENSE: LicenseInfo = {
@@ -87,6 +88,7 @@ export const DEFAULT_LICENSE: LicenseInfo = {
 	instanceId: null,
 	freeChatUsed: 0,
 	freeChatMonth: "",
+	trialExpiredShown: false,
 };
 
 // Plugin 类型带 settings（供 View 使用）

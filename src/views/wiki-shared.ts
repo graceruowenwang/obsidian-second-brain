@@ -1,6 +1,7 @@
 // Wiki 视图共享类型和工具函数 -- 从 wiki-view.ts 拆分
 
 import type { App } from "obsidian";
+import { Modal, TFile } from "obsidian";
 import type { SecondBrainPlugin } from "../types";
 
 export interface WikiPage {
@@ -279,4 +280,54 @@ export function extractFmArray(content: string, field: string): string[] {
 		}
 	}
 	return items;
+}
+
+// ---- Shared Navigation & Dialog Helpers ----
+
+/** 在 wiki 目录下按候选路径查找指定标题对应的文件 */
+export function findWikiFile(app: App, wikiFolder: string, title: string): TFile | null {
+	const candidates = [
+		`${wikiFolder}/concepts/核心概念/${title}.md`,
+		`${wikiFolder}/concepts/方法框架/${title}.md`,
+		`${wikiFolder}/concepts/实践经验/${title}.md`,
+		`${wikiFolder}/entities/${title}.md`,
+		`${wikiFolder}/sources/${title}.md`,
+		`${wikiFolder}/syntheses/${title}.md`,
+		`${wikiFolder}/${title}.md`,
+	];
+	for (const p of candidates) {
+		const file = app.vault.getAbstractFileByPath(p);
+		if (file instanceof TFile) return file;
+	}
+	return null;
+}
+
+/** 通用确认对话框，返回 Promise<boolean> */
+export function confirmDialog(
+	app: App,
+	opts: {
+		title?: string;
+		message: string;
+		confirmText?: string;
+		cancelText?: string;
+		confirmClass?: string;
+	},
+): Promise<boolean> {
+	return new Promise((resolve) => {
+		const modal = new Modal(app);
+		if (opts.title) modal.titleEl.setText(opts.title);
+		modal.contentEl.createEl("p", { text: opts.message });
+		const btnRow = modal.contentEl.createDiv();
+		btnRow.style.display = "flex";
+		btnRow.style.gap = "8px";
+		btnRow.style.justifyContent = "flex-end";
+		btnRow.createEl("button", {
+			text: opts.cancelText || "Cancel",
+		}).addEventListener("click", () => { modal.close(); resolve(false); });
+		btnRow.createEl("button", {
+			text: opts.confirmText || "Confirm",
+			cls: opts.confirmClass || "mod-cta",
+		}).addEventListener("click", () => { modal.close(); resolve(true); });
+		modal.open();
+	});
 }

@@ -28,14 +28,17 @@ function removeDangerousTagBlocks(content: string): string {
 	let safe = content;
 	for (const tag of DANGEROUS_TAGS) {
 		const t = escapeRegExp(tag);
+		const re = new RegExp(
+			`<${t}(?:\\s[^>]*)?>[\\s\\S]*?<\\/${t}\\s*>`  // paired block
+			+ `|<${t}(?:\\s[^>]*)?/\\s*>`                   // self-closing
+			+ `|<${t}(?:\\s[^>]*)?>`                        // open
+			+ `|<\\/\\s*${t}\\s*>`,                         // close
+			"gi",
+		);
 		let prev: string;
 		do {
 			prev = safe;
-			const paired = new RegExp(`<${t}(?:\\s[^>]*)?>\\s*[\\s\\S]*?<\\/${t}\\s*>`, "gi");
-			safe = safe.replace(paired, "");
-			safe = safe.replace(new RegExp(`<${t}(?:\\s[^>]*)?/\\s*>`, "gi"), "");
-			safe = safe.replace(new RegExp(`<${t}(?:\\s[^>]*)?>`, "gi"), "");
-			safe = safe.replace(new RegExp(`<\\/\\s*${t}\\s*>`, "gi"), "");
+			safe = safe.replace(re, "");
 		} while (safe !== prev);
 	}
 	return safe;
@@ -46,23 +49,13 @@ function stripEventHandlers(content: string): string {
 }
 
 function neutralizeDangerousUrls(content: string): string {
-	let safe = content;
-	safe = safe.replace(/(href|src)\s*=\s*"([^"]*)"/gi, (m, attr: string, val: string) => {
-		const v = val.trim().toLowerCase();
-		return /^(javascript|data|vbscript):/.test(v) ? `${attr}="#"` : m;
-	});
-	safe = safe.replace(/(href|src)\s*=\s*'([^']*)'/gi, (m, attr: string, val: string) => {
-		const v = val.trim().toLowerCase();
-		return /^(javascript|data|vbscript):/.test(v) ? `${attr}='#'` : m;
-	});
-	safe = safe.replace(
-		/(href|src)\s*=\s*([^\s"'=<>`]+)/gi,
-		(m, attr: string, val: string) => {
-			const v = val.trim().toLowerCase();
-			return /^(javascript|data|vbscript):/.test(v) ? `${attr}="#"` : m;
+	return content.replace(
+		/(href|src)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/gi,
+		(m, attr: string, dq?: string, sq?: string, bare?: string) => {
+			const val = (dq ?? sq ?? bare ?? "").trim().toLowerCase();
+			return /^(javascript|data|vbscript):/.test(val) ? `${attr}="#"` : m;
 		},
 	);
-	return safe;
 }
 
 /**

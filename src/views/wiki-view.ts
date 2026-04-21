@@ -216,6 +216,7 @@ export class WikiView extends ItemView {
 			pageLimit: this.pageLimit,
 			selectedPages: this.selectedPages,
 			batchBar: this.batchBar,
+			vectorSearchAbort: null,
 			findPage: (name) => this.findPage(name),
 			navigateTo: (name) => this.navigateTo(name),
 			applyWikiStatusFilter: (f, opts) => this.applyWikiStatusFilter(f, opts),

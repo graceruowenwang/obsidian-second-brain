@@ -1,11 +1,12 @@
 // Wiki 页面渲染与导航 -- 从 wiki-view.ts 拆分
 
-import { MarkdownRenderer, Component, Notice, TFile, Modal, setIcon } from "obsidian";
+import { MarkdownRenderer, Component, Notice, TFile, setIcon } from "obsidian";
 import type { SecondBrainPlugin } from "../types";
-import { writeLogEntry, readWikiPage } from "../core/file-utils";
+import { writeLogEntry } from "../core/file-utils";
 import { t } from "../core/i18n";
 import { setAsyncButton } from "../ui/async-button";
 import type { WikiPage } from "./wiki-shared";
+import { confirmDialog } from "./wiki-shared";
 import {
 	extractFmField,
 	stripFrontmatter,
@@ -125,18 +126,11 @@ export async function renderPage(
 
 	const expressBtn = breadcrumb.createEl("button", { text: t("wiki.generateArticle", lang), cls: "sb-wiki-generate-btn" });
 	expressBtn.addEventListener("click", async () => {
-		// Issue #2: confirmation modal before generating
-		const confirmed = await new Promise<boolean>((resolve) => {
-			const modal = new Modal(ctx.app);
-			modal.titleEl.setText(t("wiki.generateArticle", lang));
-			modal.contentEl.createEl("p", { text: t("wiki.generateArticleConfirm", lang) });
-			const btnRow = modal.contentEl.createDiv();
-			btnRow.style.display = "flex";
-			btnRow.style.gap = "8px";
-			btnRow.style.justifyContent = "flex-end";
-			btnRow.createEl("button", { text: t("set.cancel", lang) }).addEventListener("click", () => { modal.close(); resolve(false); });
-			btnRow.createEl("button", { text: t("wiki.generateArticle", lang), cls: "mod-cta" }).addEventListener("click", () => { modal.close(); resolve(true); });
-			modal.open();
+		const confirmed = await confirmDialog(ctx.app, {
+			title: t("wiki.generateArticle", lang),
+			message: t("wiki.generateArticleConfirm", lang),
+			confirmText: t("wiki.generateArticle", lang),
+			cancelText: t("set.cancel", lang),
 		});
 		if (!confirmed) return;
 
@@ -295,7 +289,7 @@ export function attachPageOutline(lang: string, tocCol: HTMLElement, contentEl: 
 }
 
 export function wireInternalLinks(contentEl: HTMLElement, wikiFolder: string, ctx: WikiPageCtx): void {
-	contentEl.querySelectorAll("a.internal-link").forEach((link: HTMLAnchorElement) => {
+	contentEl.querySelectorAll<HTMLAnchorElement>("a.internal-link").forEach((link) => {
 		const href = link.getAttribute("data-href") || link.getAttribute("href") || "";
 		const targetName = href.split("/").pop()!.replace(".md", "").split("|")[0].split("#")[0];
 		const target = ctx.findPage(targetName);

@@ -48,6 +48,7 @@ export interface WikiIndexCtx {
 	pageLimit: number;
 	selectedPages: Set<string>;
 	batchBar: HTMLElement | null;
+	vectorSearchAbort: AbortController | null;
 	findPage(name: string): WikiPage | undefined;
 	navigateTo(name: string): Promise<void>;
 	applyWikiStatusFilter(f: WikiStatusFilter, opts?: { resetQuery?: boolean; forceIndex?: boolean }): void;
@@ -555,7 +556,10 @@ export function renderIndex(ctx: WikiIndexCtx): void {
 			// 后台语义搜索，有结果时追加渲染
 			const filesMap: Record<string, string> = {};
 			for (const p of ctx.wikiPages) filesMap[p.path] = p.content;
-			vectorSearch(query, filesMap, ctx.plugin.settings, 10).then(results => {
+			if (ctx.vectorSearchAbort) ctx.vectorSearchAbort.abort();
+				const searchAbort = new AbortController();
+				ctx.vectorSearchAbort = searchAbort;
+				vectorSearch(query, filesMap, ctx.plugin.settings, 10, searchAbort.signal).then(results => {
 				if (indexGen !== ctx.indexRenderGeneration) return;
 				const currentView = (ctx as any).currentView;
 				if (currentView !== undefined && currentView !== "index") return;

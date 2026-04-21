@@ -10,14 +10,23 @@
 		"ci": "npm run typecheck && npm test && npm run build",
 		"release": "npm run build && rm -f second-brain.zip && BUILD_DIR=$(pwd) && cd /tmp && rm -rf second-brain second-brain.zip && mkdir -p second-brain/.obsidian/plugins/second-brain && cp \"$BUILD_DIR\"/main.js \"$BUILD_DIR\"/manifest.json \"$BUILD_DIR\"/styles.css second-brain/.obsidian/plugins/second-brain/ && cp -r \"$BUILD_DIR\"/raw-sample second-brain/raw && cd second-brain && zip -r \"$BUILD_DIR\"/second-brain.zip . && cd /tmp && rm -rf second-brain && echo \"Done: $BUILD_DIR/second-brain.zip\"",
 		"test": "vitest run",
-		"test:watch": "vitest"
+		"test:watch": "vitest",
+		"lint": "eslint src/",
+		"lint:fix": "eslint src/ --fix",
+		"format": "prettier --write \"src/**/*.ts\"",
+		"format:check": "prettier --check \"src/**/*.ts\""
 	},
 	"devDependencies": {
+		"@eslint/js": "^10.0.1",
 		"@types/node": "^16.11.6",
 		"esbuild": "^0.25.0",
+		"eslint": "^10.2.1",
+		"eslint-config-prettier": "^10.1.8",
 		"obsidian": "^1.5.0",
+		"prettier": "^3.8.3",
 		"tslib": "^2.4.0",
 		"typescript": "^5.8.0",
+		"typescript-eslint": "^8.59.0",
 		"vitest": "^2.1.9"
 	},
 	"dependencies": {

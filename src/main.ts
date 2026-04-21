@@ -1,7 +1,7 @@
 // 第二大脑 — Obsidian 插件入口
 
 import {
-	Editor, MarkdownView, Modal, Notice, Plugin,
+	Editor, MarkdownFileInfo, MarkdownView, Modal, Notice, Plugin,
 	TFile, TFolder,
 } from "obsidian";
 import { coercePluginSettings } from "./core/coerce-settings";
@@ -161,7 +161,7 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 			id: "compile-current",
 			name: t("cmd.compileCurrent", lang),
 			hotkeys: [{ modifiers: ["Mod", "Shift"], key: "x" }],
-			editorCallback: (_editor: Editor, view: MarkdownView) => this.compileCurrentFile(view),
+			editorCallback: (_editor: Editor, view: MarkdownView | MarkdownFileInfo) => this.compileCurrentFile(view as MarkdownView),
 		});
 
 		// 命令：打开对话（Pro）
@@ -198,8 +198,8 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 			id: "capture-to-inbox",
 			name: t("cmd.captureToInbox", lang),
 			hotkeys: [{ modifiers: ["Mod", "Shift"], key: "i" }],
-			editorCallback: async (editor: Editor, view: MarkdownView) => {
-				const file = view.file;
+			editorCallback: async (editor: Editor, view: MarkdownView | MarkdownFileInfo) => {
+				const file = (view as MarkdownView).file;
 				if (!file) return;
 				const content = editor.getValue();
 				if (!content.trim()) { new Notice(t("notice.emptyNote", lang)); return; }

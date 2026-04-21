@@ -14,6 +14,7 @@ function make(overrides: Partial<LicenseInfo> = {}): LicenseInfo {
 		instanceId: null,
 		freeChatUsed: 0,
 		freeChatMonth: "",
+		trialExpiredShown: false,
 		...overrides,
 	};
 }

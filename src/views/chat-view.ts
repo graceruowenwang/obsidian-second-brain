@@ -10,6 +10,7 @@ import { openPluginSettings } from "../types";
 import { t, LANG_INSTRUCTION } from "../core/i18n";
 import { requirePro } from "../core/feature-gate";
 import { isPro, checkFreeChatQuota } from "../core/license";
+import { findWikiFile } from "./wiki-shared";
 
 export const VIEW_TYPE_CHAT = "second-brain-chat";
 
@@ -173,22 +174,11 @@ export class ChatView extends ItemView {
 
 			e.preventDefault();
 			const wikiFolder = this.plugin.settings.wikiFolder;
-			const candidates = [
-				`${wikiFolder}/${href}.md`,
-				`${wikiFolder}/${href}`,
-				`${wikiFolder}/concepts/核心概念/${href}.md`,
-				`${wikiFolder}/concepts/方法框架/${href}.md`,
-				`${wikiFolder}/concepts/实践经验/${href}.md`,
-				`${wikiFolder}/entities/${href}.md`,
-				`${wikiFolder}/sources/${href}.md`,
-			];
-			for (const p of candidates) {
-				const file = this.app.vault.getAbstractFileByPath(p);
-				if (file instanceof TFile) {
-					const leaf = this.app.workspace.getLeaf(true);
-					leaf.openFile(file);
-					return;
-				}
+			const file = findWikiFile(this.app, wikiFolder, href);
+			if (file) {
+				const leaf = this.app.workspace.getLeaf(true);
+				leaf.openFile(file);
+				return;
 			}
 			new Notice(t("chat.pageNotFound", this.plugin.settings.language, { name: href }));
 		});
