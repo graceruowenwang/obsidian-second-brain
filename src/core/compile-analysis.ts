@@ -27,7 +27,7 @@ export function getPagePath(item: AnalysisItem): string {
 }
 
 export function checkAborted(signal?: AbortSignal) {
-	if (signal?.aborted) throw new Error("编译已取消");
+	if (signal?.aborted) throw new Error("SB_CANCELLED");
 }
 
 // 健壮解析 LLM 返回的 JSON 分析结果（Zod 校验 + 部分恢复）

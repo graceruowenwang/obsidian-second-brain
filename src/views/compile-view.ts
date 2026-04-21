@@ -346,11 +346,11 @@ export class CompileView extends ItemView {
 
 			// P2: 缺口检测报告
 			if (result.stubsGenerated && result.stubsGenerated > 0) {
-				this.addLog(`缺口检测: 发现 ${result.gapDetected} 个知识缺口，生成 ${result.stubsGenerated} 个待补充页面`, "ok");
+				this.addLog(t("compile.report.gapDetection", lang, { detected: String(result.gapDetected), stubs: String(result.stubsGenerated) }), "ok");
 			}
 			// P1: 智能补链报告
 			if (result.linksAdded && result.linksAdded > 0) {
-				this.addLog(`智能补链: 新增 ${result.linksAdded} 条语义关联链接`, "ok");
+				this.addLog(t("compile.report.linkEnrichment", lang, { links: String(result.linksAdded) }), "ok");
 			}
 
 			if (result.errors.length > 0) {
@@ -382,8 +382,8 @@ export class CompileView extends ItemView {
 			new Notice(t("compile.complete", lang));
 		} catch (e: unknown) {
 			const errMsg = e instanceof Error ? e.message : String(e);
-			if (errMsg === "编译已取消") {
-				this.addLog(t("compile.compiling", lang) + " -- 已取消", "");
+			if (errMsg === "SB_CANCELLED") {
+				this.addLog(t("compile.cancelled", lang), "");
 			} else if (errMsg === "SB_RAW_MISSING") {
 				const msg = t("compile.error.rawMissing", lang, { folder: this.plugin.settings.rawFolder });
 				this.addLog(t("compile.fail", lang, { msg }), "err");

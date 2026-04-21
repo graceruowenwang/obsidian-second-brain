@@ -131,6 +131,7 @@ export const en = {
 		"compile.complete": "Compile complete",
 		"compile.fail": "Compile failed: {msg}",
 		"compile.cancel": "Cancel",
+		"compile.cancelled": "Compile cancelled",
 		"compile.estimate": "{elapsed}s elapsed, ~{remain}s remaining",
 		"compile.retryFailed": "Retry Failed",
 		"compile.summaryTitle": "Compile Summary",

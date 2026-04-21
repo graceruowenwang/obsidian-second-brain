@@ -315,7 +315,7 @@ export async function callLLMBatch(
 	for (let i = 0; i < tasks.length; i += concurrency) {
 		if (batchOpts.signal?.aborted) {
 			for (let j = i; j < tasks.length; j++) {
-				results[j] = { index: j, status: "rejected", reason: "编译已取消" };
+				results[j] = { index: j, status: "rejected", reason: "SB_CANCELLED" };
 			}
 			break;
 		}
@@ -561,4 +561,75 @@ async function callAnthropicStream(
 			/* ignore */
 		}
 	}
+}
+
+/** 判断错误是否为 fetch 不可用 / 网络不通 */
+function isFetchNetworkError(e: unknown): boolean {
+	if (e instanceof LLMError && e.code === "network") return true;
+	const msg = e instanceof Error ? e.message : String(e);
+	const lower = msg.toLowerCase();
+	return lower.includes("failed to fetch")
+		|| lower.includes("networkerror")
+		|| lower.includes("fetch is not defined")
+		|| lower.includes("network request failed");
+}
+
+/**
+ * 带自动降级的流式调用。
+ * - useStreaming=false 时直接走非流式 requestUrl
+ * - 流式失败（fetch 不可用 / 网络错误）时自动降级为非流式 + 模拟分块
+ */
+export async function callLLMStreamWithFallback(
+	messages: Array<{ role: string; content: string }>,
+	settings: PluginSettings,
+	onChunk: (text: string) => void,
+	options: LLMOptions = {}
+): Promise<string> {
+	// 设置关闭流式 → 直接走非流式
+	if (!settings.useStreaming) {
+		return nonStreamingFallback(messages, settings, onChunk, options);
+	}
+
+	try {
+		return await callLLMStream(messages, settings, onChunk, options);
+	} catch (e) {
+		// 仅对 fetch 网络错误降级，其它错误照常抛出
+		if (isFetchNetworkError(e)) {
+			console.warn("llm: streaming failed, falling back to requestUrl", e instanceof Error ? e.message : e);
+			return nonStreamingFallback(messages, settings, onChunk, options);
+		}
+		throw e;
+	}
+}
+
+/** 非流式降级：用 requestUrl 获取完整响应，再按段落模拟分块回传 */
+async function nonStreamingFallback(
+	messages: Array<{ role: string; content: string }>,
+	settings: PluginSettings,
+	onChunk: (text: string) => void,
+	options: LLMOptions = {}
+): Promise<string> {
+	const fullText = await callLLM(messages, settings, options);
+	// 按段落/换行拆分，模拟流式体验
+	const chunks = splitIntoChunks(fullText, 80);
+	for (const chunk of chunks) {
+		onChunk(chunk);
+	}
+	return fullText;
+}
+
+function splitIntoChunks(text: string, maxLen: number): string[] {
+	const parts: string[] = [];
+	let i = 0;
+	while (i < text.length) {
+		// 优先在换行处切割
+		let end = Math.min(i + maxLen, text.length);
+		if (end < text.length) {
+			const nl = text.lastIndexOf("\n", end);
+			if (nl > i) end = nl + 1;
+		}
+		parts.push(text.slice(i, end));
+		i = end;
+	}
+	return parts;
 }

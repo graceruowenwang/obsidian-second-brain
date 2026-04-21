@@ -131,6 +131,7 @@ export const ja: typeof import("./en").en = {
 		"compile.complete": "コンパイル完了",
 		"compile.fail": "コンパイル失敗: {msg}",
 		"compile.cancel": "キャンセル",
+		"compile.cancelled": "コンパイルがキャンセルされました",
 		"compile.estimate": "{elapsed}秒経過、残り約{remain}秒",
 		"compile.retryFailed": "失敗を再試行",
 		"compile.summaryTitle": "コンパイル概要",
