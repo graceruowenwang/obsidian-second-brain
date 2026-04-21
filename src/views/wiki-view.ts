@@ -187,13 +187,15 @@ export class WikiView extends ItemView {
 	private showCompileOverlay() {
 		if (this.compileOverlay) return;
 		const container = this.containerEl.children[1] as HTMLElement;
-		const overlay = container.createDiv({ cls: "sb-wiki-compile-overlay" });
-		overlay.createEl("div", { cls: "sb-wiki-compile-overlay-text", text: t("sb.compiling", this.plugin.settings.language) });
-		this.compileOverlay = overlay;
+		container.classList.add("sb-wiki-compiling");
+		const msg = this.bodyEl.createDiv({ cls: "sb-wiki-compiling-msg", text: t("sb.compiling", this.plugin.settings.language) });
+		this.compileOverlay = msg;
 	}
 
 	private hideCompileOverlay() {
 		if (!this.compileOverlay) return;
+		const container = this.containerEl.children[1] as HTMLElement;
+		container.classList.remove("sb-wiki-compiling");
 		this.compileOverlay.remove();
 		this.compileOverlay = null;
 	}

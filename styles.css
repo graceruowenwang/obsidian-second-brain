@@ -1,3 +1,19 @@
+/* === Wiki compile overlay === */
+.second-brain-wiki.sb-wiki-compiling .sb-wiki-body {
+	opacity: 0.4;
+	pointer-events: none;
+}
+.second-brain-wiki.sb-wiki-compiling .sb-wiki-toolbar {
+	opacity: 0.4;
+	pointer-events: none;
+}
+.sb-wiki-compiling-msg {
+	text-align: center;
+	color: var(--text-muted);
+	padding: 32px 0;
+	font-size: 1.1em;
+}
+
 
 /* === Wiki compile overlay === */
 .sb-wiki-compile-overlay {
