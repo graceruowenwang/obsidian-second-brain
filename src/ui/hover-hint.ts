@@ -1,4 +1,4 @@
-// 侧栏等场景下仅 setTooltip 可能不明显：叠加原生 title 保证桌面端可见
+// 统一使用 Obsidian setTooltip 提供 hover 提示，aria-label 保证无障碍访问
 
 import { setTooltip, type TooltipPlacement } from "obsidian";
 
@@ -10,5 +10,4 @@ export function bindHoverHint(
 	const placement: TooltipPlacement = options?.placement ?? "bottom";
 	el.setAttribute("aria-label", text);
 	setTooltip(el, text, { delay: 0, placement });
-	el.title = text;
 }

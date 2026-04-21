@@ -19,7 +19,7 @@ export async function findRelevantMaterials(itemName: string, itemDesc: string, 
 					if (result.length >= maxChars) break;
 					const path = r.filePath;
 					const content = r.content || filesMap[path] || "";
-					result += `--- 文件: ${path} ---\n${content.slice(0, 3000)}\n\n`;
+					result += `--- File: ${path} ---\n${content.slice(0, 3000)}\n\n`;
 				}
 				if (result) return result.slice(0, maxChars);
 			}
@@ -65,11 +65,11 @@ export function findRelevantMaterialsByKeyword(itemName: string, itemDesc: strin
 	for (const { file, score } of relevant) {
 		if (result.length >= maxChars) break;
 		const sliceLen = score > 5 ? 3000 : 1500;
-		result += `--- 文件: ${file.path} ---\n${file.content.slice(0, sliceLen)}\n\n`;
+		result += `--- File: ${file.path} ---\n${file.content.slice(0, sliceLen)}\n\n`;
 	}
 	if (!result && allFiles.length > 0) {
 		for (const f of allFiles.slice(0, 2)) {
-			result += `--- 文件: ${f.path} ---\n${f.content.slice(0, 2000)}\n\n`;
+			result += `--- File: ${f.path} ---\n${f.content.slice(0, 2000)}\n\n`;
 		}
 	}
 	return result.slice(0, maxChars);

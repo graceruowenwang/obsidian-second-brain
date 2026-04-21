@@ -83,7 +83,7 @@ export function inferLLMErrorCode(status: number, body?: string, message?: strin
 		return "network";
 	}
 	if (status === 200 || status === 201) {
-		if (blob.includes("响应结构") || blob.includes("choices[0]") || blob.includes("content[0].text")) return "invalid_response";
+		if (blob.includes("sb_llm_no_content") || blob.includes("choices[0]") || blob.includes("content[0].text")) return "invalid_response";
 		return "unknown";
 	}
 	if (blob.includes("context_length") || blob.includes("maximum context")) return "context_length";
@@ -146,7 +146,7 @@ async function callOpenAICompatible(
 		});
 	} catch (e) {
 		// 网络/DNS/超时 → 可重试
-		throw new LLMError(`网络请求失败: ${(e as Error).message}`, 0, true);
+		throw new LLMError(`SB_LLM_NETWORK: ${(e as Error).message}`, 0, true);
 	}
 
 	if (res.status < 200 || res.status >= 300) {
@@ -163,7 +163,7 @@ async function callOpenAICompatible(
 	if (typeof content !== "string") {
 		const bodySnippet = tryStringify(res.json).slice(0, 300);
 		throw new LLMError(
-			`响应结构异常（无 choices[0].message.content）: ${bodySnippet}`,
+			`SB_LLM_NO_CONTENT(openai): ${bodySnippet}`,
 			200,
 			false,
 			bodySnippet,
@@ -206,7 +206,7 @@ async function callAnthropic(
 			}),
 		});
 	} catch (e) {
-		throw new LLMError(`网络请求失败: ${(e as Error).message}`, 0, true);
+		throw new LLMError(`SB_LLM_NETWORK: ${(e as Error).message}`, 0, true);
 	}
 
 	if (res.status < 200 || res.status >= 300) {
@@ -223,7 +223,7 @@ async function callAnthropic(
 	if (typeof text !== "string") {
 		const detail = tryStringify(res.json).slice(0, 300);
 		throw new LLMError(
-			`响应结构异常（无 content[0].text）: ${detail}`,
+			`SB_LLM_NO_CONTENT(anthropic): ${detail}`,
 			200,
 			false,
 			detail,
@@ -345,7 +345,7 @@ export async function callLLMBatch(
 				results[r.value.index] = r.value;
 			} else {
 				const idx = i + j;
-				results[idx] = { index: idx, status: "rejected", reason: String((r as PromiseRejectedResult).reason || "未知错误") };
+				results[idx] = { index: idx, status: "rejected", reason: String((r as PromiseRejectedResult).reason || "SB_UNKNOWN") };
 			}
 		}
 
@@ -401,13 +401,13 @@ async function readSSEStream(config: StreamConfig, onChunk: (text: string) => vo
 			signal: config.signal,
 		});
 	} catch (e) {
-		throw new LLMError(`流式请求失败: ${(e as Error).message}`, 0, true);
+		throw new LLMError(`SB_LLM_STREAM_NETWORK: ${(e as Error).message}`, 0, true);
 	}
 
 	if (!res.ok) {
 		const err = await res.text();
 		throw new LLMError(
-			`API 错误 (${res.status}): ${err.slice(0, 500)}`,
+			`API error (${res.status}): ${err.slice(0, 500)}`,
 			res.status,
 			isRetryableStatus(res.status),
 			err,
@@ -415,7 +415,7 @@ async function readSSEStream(config: StreamConfig, onChunk: (text: string) => vo
 	}
 
 	if (!res.body) {
-		throw new LLMError("API 返回了空响应体", res.status || 0, false, undefined, "invalid_response");
+		throw new LLMError("SB_LLM_EMPTY_BODY", res.status || 0, false, undefined, "invalid_response");
 	}
 
 	const reader = res.body.getReader();
@@ -446,7 +446,7 @@ async function readSSEStream(config: StreamConfig, onChunk: (text: string) => vo
 					sseParseFailures++;
 					if (sseParseFailures >= STREAM_SSE_MAX_PARSE_FAILURES) {
 						throw new LLMError(
-							`流式响应解析连续失败（${STREAM_SSE_MAX_PARSE_FAILURES} 次），请重试`,
+							`SSE parse failed consecutively (${STREAM_SSE_MAX_PARSE_FAILURES} times), please retry`,
 							0,
 							false,
 							line.slice(0, 200),

@@ -39,13 +39,13 @@ function inferFromErrorString(error: string): LLMErrorCode | undefined {
 	if (s.includes("timeout") || s.includes("etimedout")) return "timeout";
 	if (s.includes("network") || s.includes("econnrefused") || s.includes("fetch")) return "network";
 	if (s.includes("context_length") || s.includes("maximum context") || s.includes("token")) return "context_length";
-	if (s.includes("json") || s.includes("parse") || s.includes("响应结构") || s.includes("choices[0]")) return "invalid_response";
+	if (s.includes("json") || s.includes("parse") || s.includes("sb_llm_no_content") || s.includes("choices[0]")) return "invalid_response";
 	return undefined;
 }
 
 /** 单条编译失败详情（带可选 LLM 错误码） */
 export function friendlyCompilePageError(lang: string, error: string, code?: LLMErrorCode): string {
-	if (error.includes("empty") || error.includes("为空")) {
+	if (error.includes("empty") || error.includes("SB_EMPTY")) {
 		return t("compile.error.rawEmpty", lang);
 	}
 	const effective = code != null && code !== "unknown" ? code : inferFromErrorString(error);

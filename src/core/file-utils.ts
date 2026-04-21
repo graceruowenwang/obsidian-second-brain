@@ -584,7 +584,7 @@ async function getEmbedding(text: string, settings: PluginSettings, signal?: Abo
 			}),
 		});
 	} catch (e) {
-		throw new Error(`Embedding 网络请求失败: ${(e as Error).message}`);
+		throw new Error(`SB_EMBED_NETWORK: ${(e as Error).message}`);
 	}
 
 	if (res.status < 200 || res.status >= 300) {
