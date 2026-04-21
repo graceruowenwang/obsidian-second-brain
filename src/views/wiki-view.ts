@@ -3,7 +3,7 @@
 
 import { ItemView, WorkspaceLeaf, Component, Menu } from "obsidian";
 import type { SecondBrainPlugin } from "../types";
-import { readWikiFiles } from "../core/file-utils";
+import { scanWikiFiles, readWikiPage } from "../core/file-utils";
 import { t } from "../core/i18n";
 
 import { showMoc } from "./wiki-moc";
@@ -100,7 +100,8 @@ export class WikiView extends ItemView {
 			cls: "sb-wiki-search",
 		});
 
-		this.sortSelect = row1.createEl("select", { cls: "sb-wiki-sort sb-wiki-toolbar-select", attr: { title: t("wiki.sortLabel", lang) } });
+		const row2 = toolbar.createDiv({ cls: "sb-wiki-toolbar-row2" });
+		this.sortSelect = row2.createEl("select", { cls: "sb-wiki-sort sb-wiki-toolbar-select", attr: { title: t("wiki.sortLabel", lang) } });
 		const sortOptions: Array<{ value: string; key: string }> = [
 			{ value: "name-asc", key: "wiki.sortNameAsc" },
 			{ value: "name-desc", key: "wiki.sortNameDesc" },
@@ -116,7 +117,7 @@ export class WikiView extends ItemView {
 			this.sortMode = this.sortSelect.value as typeof this.sortMode;
 			this.renderIndex();
 		});
-		this.statusSelect = row1.createEl("select", { cls: "sb-wiki-sort sb-wiki-toolbar-select", attr: { title: t("wiki.statusLabel", lang) } });
+		this.statusSelect = row2.createEl("select", { cls: "sb-wiki-sort sb-wiki-toolbar-select", attr: { title: t("wiki.statusLabel", lang) } });
 		const statusOptions: Array<{ value: string; key: string }> = [
 			{ value: "all", key: "wiki.filterAll" },
 			{ value: "pending", key: "wiki.filterPending" },
@@ -131,16 +132,7 @@ export class WikiView extends ItemView {
 			this.statusFilter = this.statusSelect.value as typeof this.statusFilter;
 			this.renderIndex();
 		});
-
-		const quickBar = row1.createDiv({ cls: "sb-wiki-toolbar-quick" });
-		const pendingQuick = quickBar.createEl("button", {
-			type: "button",
-			cls: "sb-wiki-filter-chip",
-			text: t("wiki.toolbarFilterPending", lang),
-			attr: { title: t("wiki.toolbarFilterPendingTitle", lang) },
-		});
-		pendingQuick.addEventListener("click", () => this.applyWikiStatusFilter("pending", { resetQuery: true, forceIndex: true }));
-		const batchQuick = quickBar.createEl("button", {
+		const batchQuick = row2.createEl("button", {
 			type: "button",
 			cls: "sb-wiki-filter-chip sb-wiki-filter-chip-secondary",
 			text: t("wiki.batchReview", lang),
@@ -247,14 +239,22 @@ export class WikiView extends ItemView {
 			showIndex: () => this.showIndex(),
 			loadWiki: () => this.loadWiki(),
 			navigateTo: (name) => this.navigateTo(name),
+			loadPageContent: (page) => this.loadPageContent(page),
 		};
+	}
+
+	/** 按需加载页面完整内容并更新 wikiPages 中的条目 */
+	private async loadPageContent(page: WikiPage): Promise<void> {
+		if (page.content.length >= 600) return; // 已有完整内容
+		const fullContent = await readWikiPage(this.app, this.plugin.settings.wikiFolder, page.path);
+		if (fullContent) page.content = fullContent;
 	}
 
 	// ---- Lifecycle ----
 
 	async loadWiki() {
 		const wf = this.plugin.settings.wikiFolder;
-		this.wikiPages = await readWikiFiles(this.app, wf);
+		this.wikiPages = await scanWikiFiles(this.app, wf);
 
 		const idx = this.wikiPages.find(f => f.path === "index.md" || f.path.endsWith("/index.md"));
 		this.indexData = parseIndexFn(idx ? idx.content : "");

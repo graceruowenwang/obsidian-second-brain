@@ -2,7 +2,7 @@
 
 import { MarkdownRenderer, Component, Notice, TFile, Modal, setIcon } from "obsidian";
 import type { SecondBrainPlugin } from "../types";
-import { writeLogEntry } from "../core/file-utils";
+import { writeLogEntry, readWikiPage } from "../core/file-utils";
 import { t } from "../core/i18n";
 import { setAsyncButton } from "../ui/async-button";
 import type { WikiPage } from "./wiki-shared";
@@ -37,6 +37,8 @@ export interface WikiPageCtx {
 	showIndex(): void;
 	loadWiki(): Promise<void>;
 	navigateTo(name: string): Promise<void>;
+	/** 按需加载页面完整内容（替换 frontmatter 摘要） */
+	loadPageContent(page: WikiPage): Promise<void>;
 }
 
 // ---- Helper ----
@@ -103,6 +105,9 @@ export async function renderPage(
 		ctx.bodyEl.createDiv({ cls: "sb-wiki-empty", text: t("wiki.pageNotFound", lang, { name }) });
 		return;
 	}
+
+	// 按需加载完整内容（初始扫描只含 frontmatter 摘要）
+	await ctx.loadPageContent(page);
 
 	const breadcrumb = ctx.bodyEl.createDiv({ cls: "sb-wiki-breadcrumb" });
 	const backBtn = breadcrumb.createEl("button", { cls: "sb-wiki-back", attr: { "aria-label": t("wiki.backNav", lang) } });

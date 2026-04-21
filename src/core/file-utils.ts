@@ -73,6 +73,28 @@ export async function readWikiFiles(app: App, wikiFolder: string): Promise<Array
 	return tfiles.map((f, i) => ({ path: f.path.startsWith(prefix) ? f.path.slice(prefix.length) : f.path, content: contents[i] }));
 }
 
+/** 轻量扫描：只读文件列表 + frontmatter 摘要（前 600 字符），用于 wiki 列表视图 */
+export async function scanWikiFiles(app: App, wikiFolder: string): Promise<Array<{ path: string; content: string }>> {
+	const normalized = normalizeVaultFolderPath(wikiFolder);
+	const folder = app.vault.getAbstractFileByPath(normalized) ?? app.vault.getAbstractFileByPath(wikiFolder);
+	if (!folder || !(folder instanceof TFolder)) return [];
+	const tfiles = getAllMdFiles(folder);
+	const contents = await parallelWithLimit(
+		tfiles.map(f => () => app.vault.cachedRead(f).then(c => c.slice(0, 600))),
+		20,
+	);
+	const prefix = normalized + "/";
+	return tfiles.map((f, i) => ({ path: f.path.startsWith(prefix) ? f.path.slice(prefix.length) : f.path, content: contents[i] }));
+}
+
+/** 按需读取单个 wiki 文件的完整内容 */
+export async function readWikiPage(app: App, wikiFolder: string, relPath: string): Promise<string> {
+	const fullPath = `${wikiFolder}/${relPath}`;
+	const file = app.vault.getAbstractFileByPath(fullPath);
+	if (file instanceof TFile) return app.vault.cachedRead(file);
+	return "";
+}
+
 // 写入 wiki 文件（确保目录存在）
 export async function writeWikiFile(app: App, wikiFolder: string, filePath: string, content: string): Promise<void> {
 	const fullPath = `${wikiFolder}/${filePath}`;
