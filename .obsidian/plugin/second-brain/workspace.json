@@ -1,0 +1,213 @@
+{
+  "main": {
+    "id": "4826d8b456d90126",
+    "type": "split",
+    "children": [
+      {
+        "id": "61328a224aea9434",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "fe6480b7c3504e28",
+            "type": "leaf",
+            "state": {
+              "type": "empty",
+              "state": {},
+              "icon": "lucide-file",
+              "title": "New tab"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "a8c006c9135d2c87",
+    "type": "split",
+    "children": [
+      {
+        "id": "c375b05a467d8669",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "509e6d9e7831b05f",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "4bd045b5dd21ae0b",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "4a0f82482b35d2dd",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "4cf35c1e70c55f72",
+    "type": "split",
+    "children": [
+      {
+        "id": "d3802ada68cc2e4f",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "e389f08b6861e1bd",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks"
+            }
+          },
+          {
+            "id": "d957b3eaa801af06",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links"
+            }
+          },
+          {
+            "id": "36964354ca180b3c",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "cb8865f6212da3ec",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "All properties"
+            }
+          },
+          {
+            "id": "86c346cb74573bb9",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "bases:Create new base": false
+    }
+  },
+  "active": "509e6d9e7831b05f",
+  "lastOpenFiles": [
+    "raw/06-flash_notes/inbox/_usage.md",
+    "raw/06-flash_notes/inbox/2026-04-17-知识管理的方法论融合.md",
+    "raw/06-flash_notes/inbox",
+    "raw/06-flash_notes/_usage.md",
+    "raw/01-articles/常青笔记与知识工作.md",
+    "raw/01-articles/如何构建第二大脑.md",
+    "raw/01-articles/_usage.md",
+    "raw/01-articles/Zettelkasten卡片盒笔记法.md",
+    "raw/01-articles/Vibe-Coding全景.md",
+    "raw/01-articles/PKM工具对比2025.md",
+    "raw/01-articles/LYT方法论与MOC.md",
+    "raw/01-articles/CODE方法论与PARA系统.md",
+    "raw/01-articles/AI编程最佳实践-Addy-Osmani.md",
+    "raw/01-articles/AI编程工具对比2026.md",
+    "raw/01-articles/AI编程工作流与反模式.md",
+    "raw/01-articles/AI时代的知识管理.md",
+    "raw/05-tweets/知识管理的核心原则.md",
+    "raw/05-tweets/_usage.md",
+    "raw/05-tweets/Karpathy论Vibe-Coding.md",
+    "raw/02-books/_usage.md",
+    "raw/02-books/How-to-Take-Smart-Notes.md",
+    "raw/04-videos/_usage.md",
+    "raw/03-podcasts/_usage.md",
+    "raw/02-books/Building-a-Second-Brain.md",
+    "raw/06-flash_notes",
+    "raw/05-tweets",
+    "raw/04-videos",
+    "raw/02-books",
+    "raw/03-podcasts",
+    "raw/01-articles",
+    "raw"
+  ]
+}
