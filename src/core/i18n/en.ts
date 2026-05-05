@@ -258,6 +258,12 @@ export const en = {
 	"chat.freeQuota": "Free messages {n}/3",
 	"chat.freeQuotaUsed": "Monthly free messages exhausted. Upgrade to Pro for unlimited chat",
 	"chat.freeQuotaRemaining": "{n}/3 remaining",
+	"chat.saveAsNote": "Save as Note",
+	"chat.noteSaved": "Saved to {path}",
+	"chat.noteCompiling": "Compiling note...",
+	"chat.noteCompileDone": "Note compiled: {n} pages generated",
+	"chat.noteCompileFail": "Compile failed: {msg}",
+	"chat.noteEmpty": "Please enter content to save",
 
 		"wiki.tabIndex": "Index",
 		"wiki.mocShort": "MOC",

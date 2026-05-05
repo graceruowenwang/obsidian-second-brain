@@ -4,13 +4,15 @@ import { ItemView, WorkspaceLeaf, Notice, MarkdownRenderer, Component, TFile, se
 import { callLLMStreamWithFallback } from "../core/llm";
 import { describeLLMFailure } from "../core/llm-user-message";
 import { sanitizeLLMOutput } from "../core/sanitize";
-import { readWikiFiles, filesToMap, vectorSearch, buildEmbeddingCache } from "../core/file-utils";
+import { readWikiFiles, filesToMap, vectorSearch, buildEmbeddingCache, ensureFolder } from "../core/file-utils";
 import type { SecondBrainPlugin } from "../types";
 import { openPluginSettings } from "../types";
 import { t, LANG_INSTRUCTION } from "../core/i18n";
 import { requirePro } from "../core/feature-gate";
 import { isPro, checkFreeChatQuota } from "../core/license";
 import { findWikiFile } from "./wiki-shared";
+import { quickIngest } from "../core/quick-ingest";
+import { RAW_FLASH_INBOX } from "../core/raw-organize";
 
 export const VIEW_TYPE_CHAT = "second-brain-chat";
 
@@ -21,6 +23,7 @@ export class ChatView extends ItemView {
 	private chatHistory: Array<{ role: string; content: string }> = [];
 	private wikiMap: Record<string, string> = {};
 	private sending = false;
+	private saving = false;
 	private abortController: AbortController | null = null;
 	private component: Component;
 	private contextIndicator: HTMLElement;
@@ -148,9 +151,13 @@ export class ChatView extends ItemView {
 		const sendBtn = composerActions.createEl("button", { text: t("chat.send", lang), cls: "sb-send-btn mod-cta", attr: { type: "button", "aria-label": t("chat.send", lang) } });
 		const stopBtn = composerActions.createEl("button", { text: t("chat.stop", lang), cls: "sb-stop-btn", attr: { type: "button", "aria-label": t("chat.stop", lang) } });
 		stopBtn.style.display = "none";
+		const saveNoteBtn = composerActions.createEl("button", { cls: "sb-save-note-btn", attr: { type: "button", "aria-label": t("chat.saveAsNote", lang) } });
+		setIcon(saveNoteBtn, "save");
+		saveNoteBtn.title = t("chat.saveAsNote", lang);
 
 		sendBtn.addEventListener("click", () => this.send());
 		stopBtn.addEventListener("click", () => this.stop());
+		saveNoteBtn.addEventListener("click", () => this.saveAsNote());
 		this.inputEl.addEventListener("keydown", (e) => {
 			if (e.key === "Enter" && !e.shiftKey) {
 				e.preventDefault();
@@ -516,8 +523,58 @@ export class ChatView extends ItemView {
 	private toggleButtons(generating: boolean) {
 		const sendBtn = this.containerEl.querySelector(".sb-send-btn") as HTMLElement;
 		const stopBtn = this.containerEl.querySelector(".sb-stop-btn") as HTMLElement;
+		const saveNoteBtn = this.containerEl.querySelector(".sb-save-note-btn") as HTMLElement;
 		if (sendBtn) sendBtn.style.display = generating ? "none" : "";
 		if (stopBtn) stopBtn.style.display = generating ? "" : "none";
+		if (saveNoteBtn) saveNoteBtn.disabled = generating || this.saving;
+	}
+
+	private async saveAsNote() {
+		if (this.saving || this.sending) return;
+		const content = this.inputEl.value.trim();
+		const lang = this.plugin.settings.language;
+		if (!content) {
+			new Notice(t("chat.noteEmpty", lang));
+			return;
+		}
+		if (!this.plugin.settings.apiKey) {
+			new Notice(t("chat.noApiKey", lang));
+			return;
+		}
+
+		this.inputEl.value = "";
+		this.inputEl.style.height = "auto";
+		this.saving = true;
+		this.toggleButtons(false);
+
+		const now = new Date();
+		const date = now.toISOString().split("T")[0];
+		const time = now.toTimeString().slice(0, 8).replace(/:/g, "");
+		const rawFolder = this.plugin.settings.rawFolder;
+		const fileName = `${date}-${time}.md`;
+		const relDir = RAW_FLASH_INBOX;
+		const filePath = `${rawFolder}/${relDir}/${fileName}`;
+
+		try {
+			await ensureFolder(this.app, `${rawFolder}/${relDir}`);
+			await this.app.vault.create(filePath, content);
+			new Notice(t("chat.noteSaved", lang, { path: filePath }));
+
+			new Notice(t("chat.noteCompiling", lang));
+			const targetFile = { path: filePath, content };
+			const result = await this.plugin.runWithCompileLock(() =>
+				quickIngest(this.app, this.plugin.settings, targetFile),
+			);
+			new Notice(t("chat.noteCompileDone", lang, { n: result.generated.length }));
+
+			// 刷新 wiki map
+			await this.loadWiki();
+		} catch (e: unknown) {
+			new Notice(t("chat.noteCompileFail", lang, { msg: describeLLMFailure(lang, e) }));
+		} finally {
+			this.saving = false;
+			this.toggleButtons(false);
+		}
 	}
 
 	private stop() {

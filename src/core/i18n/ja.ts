@@ -258,6 +258,12 @@ export const ja: typeof import("./en").en = {
 	"chat.freeQuota": "無料メッセージ {n}/3",
 	"chat.freeQuotaUsed": "月間無料メッセージを使い切りました。Pro にアップグレードで無制限チャット",
 	"chat.freeQuotaRemaining": "残り {n}/3",
+	"chat.saveAsNote": "メモとして保存",
+	"chat.noteSaved": "{path} に保存しました",
+	"chat.noteCompiling": "メモをコンパイル中...",
+	"chat.noteCompileDone": "メモをコンパイル完了：{n} ページ生成",
+	"chat.noteCompileFail": "コンパイル失敗: {msg}",
+	"chat.noteEmpty": "保存する内容を入力してください",
 
 		"wiki.tabIndex": "インデックス",
 		"wiki.mocShort": "MOC",

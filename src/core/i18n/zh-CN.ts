@@ -262,6 +262,12 @@ export const zhCN: typeof import("./en").en = {
 	"chat.freeQuota": "免费消息 {n}/3",
 	"chat.freeQuotaUsed": "本月已用完 3 条免费消息，升级 Pro 解锁无限对话",
 	"chat.freeQuotaRemaining": "剩余 {n}/3",
+	"chat.saveAsNote": "保存为笔记",
+	"chat.noteSaved": "已保存到 {path}",
+	"chat.noteCompiling": "正在编译笔记...",
+	"chat.noteCompileDone": "笔记已编译：{n} 个页面",
+	"chat.noteCompileFail": "编译失败: {msg}",
+	"chat.noteEmpty": "请输入要保存的内容",
 
 		// Wiki view
 		"wiki.tabIndex": "目录",

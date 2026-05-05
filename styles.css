@@ -1029,6 +1029,29 @@ pre:hover .sb-copy-btn {
 	color: var(--text-on-accent);
 }
 
+.sb-save-note-btn {
+	padding: 10px 12px;
+	min-height: 44px;
+	flex-shrink: 0;
+	border: 1px solid var(--interactive-accent);
+	background: var(--background-primary);
+	color: var(--interactive-accent);
+	border-radius: 10px;
+	cursor: pointer;
+	font-size: 13px;
+	transition: background 0.15s ease, color 0.15s ease;
+}
+
+.sb-save-note-btn:hover {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.sb-save-note-btn:disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
+}
+
 /* Chat 内联配额提示 */
 .sb-chat-quota-inline {
 	display: flex;
