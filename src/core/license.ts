@@ -16,7 +16,7 @@ export const BETA_MODE = false;
 export const TRIAL_PERIOD_DAYS = 14;
 
 const GUMROAD_PRODUCT_ID = "DNhBwrQ0DnDLWnieY-oaRg==";
-const GUMROAD_API = "https://app.gumroad.com/license";
+const GUMROAD_VERIFY_URL = "https://api.gumroad.com/v2/licenses/verify";
 
 // 预生成的 license key SHA256 哈希（离线验证用）
 const VALID_HASHES = new Set([
@@ -96,73 +96,64 @@ async function sha256(text: string): Promise<string> {
 
 // --- 在线验证 (Gumroad API) ---
 
-async function onlineActivate(key: string, instanceName: string): Promise<LicenseInfo | null> {
+async function gumroadVerify(key: string): Promise<{ success: boolean; refunded: boolean; chargebacked: boolean }> {
 	try {
-		const resp = await fetch(`${LICENSE_API}/activate`, {
+		const body = "product_id=" + encodeURIComponent(GUMROAD_PRODUCT_ID) + "&license_key=" + encodeURIComponent(key);
+		const resp = await fetch(GUMROAD_VERIFY_URL, {
 			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ license_key: key, instance_name: instanceName }),
+			headers: { "Content-Type": "application/x-www-form-urlencoded" },
+			body,
 		});
-		if (!resp.ok) return null;
+		if (!resp.ok) return { success: false, refunded: false, chargebacked: false };
 		const data = await resp.json();
-		if (!data.activated) return null;
 		return {
-			key,
-			status: "active",
-			plan: "pro",
-			expiresAt: null,
-			lastValidated: new Date().toISOString(),
-			graceStart: null,
-			trialStart: null,
-			instanceId: instanceName,
-			freeChatUsed: 0,
-			freeChatMonth: "",
-		trialExpiredShown: false,
+			success: !!data.success,
+			refunded: !!data.purchase?.refunded,
+			chargebacked: !!data.purchase?.chargebacked,
 		};
 	} catch {
-		return null;
+		return { success: false, refunded: false, chargebacked: false };
 	}
+}
+
+async function onlineActivate(key: string, instanceName: string): Promise<LicenseInfo | null> {
+	const result = await gumroadVerify(key);
+	if (!result.success || result.refunded || result.chargebacked) return null;
+	return {
+		key,
+		status: "active",
+		plan: "pro",
+		expiresAt: null,
+		lastValidated: new Date().toISOString(),
+		graceStart: null,
+		trialStart: null,
+		instanceId: instanceName,
+		freeChatUsed: 0,
+		freeChatMonth: "",
+		trialExpiredShown: false,
+	};
 }
 
 async function onlineValidate(key: string, instanceId: string | null): Promise<LicenseInfo | null> {
-	try {
-		const resp = await fetch(`${LICENSE_API}/validate`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ license_key: key, instance_id: instanceId }),
-		});
-		if (!resp.ok) return null;
-		const data = await resp.json();
-		if (!data.valid) return null;
-		return {
-			key,
-			status: "active",
-			plan: "pro",
-			expiresAt: null,
-			lastValidated: new Date().toISOString(),
-			graceStart: null,
-			trialStart: null,
-			instanceId: instanceId,
-			freeChatUsed: 0,
-			freeChatMonth: "",
+	const result = await gumroadVerify(key);
+	if (!result.success || result.refunded || result.chargebacked) return null;
+	return {
+		key,
+		status: "active",
+		plan: "pro",
+		expiresAt: null,
+		lastValidated: new Date().toISOString(),
+		graceStart: null,
+		trialStart: null,
+		instanceId: instanceId,
+		freeChatUsed: 0,
+		freeChatMonth: "",
 		trialExpiredShown: false,
-		};
-	} catch {
-		return null;
-	}
+	};
 }
 
-async function onlineDeactivate(key: string, instanceId: string): Promise<boolean> {
-	try {
-		const resp = await fetch(`${LICENSE_API}/deactivate`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ license_key: key, instance_id: instanceId }),
-		});
-		return resp.ok;
-	} catch {
-		return false;
-	}
+async function onlineDeactivate(_key: string, _instanceId: string): Promise<boolean> {
+	return true;
 }
 
 // --- 离线验证 (SHA256 哈希) ---
