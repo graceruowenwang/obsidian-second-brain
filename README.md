@@ -30,12 +30,15 @@ Incremental compilation: only changed files are re-processed. Subsequent compile
 
 ## Quick Start
 
-Installable **`second-brain.zip`** and demo assets are published from **[second-brain-release](https://github.com/graceruowenwang/second-brain-release)** on GitHub Releases, with a **[Gitee mirror](https://gitee.com/grinningGrace/second-brain-release/releases)** for faster access in China. This repo (**obsidian-second-brain**) holds plugin source code, CI, and development.
+### Install from Obsidian Community Plugins (Recommended)
 
-### Install
+1. Open Obsidian Settings → Community Plugins → Browse
+2. Search for "Second Brain"
+3. Click Install, then Enable
 
-1. Download `second-brain.zip` from **[GitHub Releases](https://github.com/graceruowenwang/second-brain-release/releases)** or **[Gitee Releases](https://gitee.com/grinningGrace/second-brain-release/releases)**
-2. Unzip and open the folder as an Obsidian Vault
+### Alternative: Manual Install
+
+Download **`second-brain.zip`** from **[GitHub Releases](https://github.com/graceruowenwang/second-brain-release/releases)** or **[Gitee Releases](https://gitee.com/grinningGrace/second-brain-release/releases)**, unzip and open as an Obsidian Vault.
 
 ### Configure API Key
 
@@ -81,7 +84,7 @@ Your API key stays local. Nothing is uploaded.
 | SVG Mind Map | Interactive visual knowledge graph |
 | Multi-LLM Backend | Switch between providers in one click |
 
-**Pricing**: ¥30 one-time purchase. Public beta: first successful compile starts a **14-day full Pro trial**.
+**Pricing**: $5 one-time purchase (via Gumroad). First successful compile starts a **14-day full Pro trial**.
 
 ## Folder Structure
 
@@ -191,12 +194,15 @@ raw/ (你的素材)  -->  AI 编译  -->  wiki/ (知识库)
 
 ### 快速开始
 
-安装包 **`second-brain.zip`** 与演示素材发布在 **[second-brain-release](https://github.com/graceruowenwang/second-brain-release)** 的 GitHub Releases；国内可优先从 **[Gitee 发行版](https://gitee.com/grinningGrace/second-brain-release/releases)** 下载。本仓库 **obsidian-second-brain** 为插件源码与 CI。
+#### 从社区插件市场安装（推荐）
 
-#### 安装
+1. 打开 Obsidian 设置 → 第三方插件 → 浏览
+2. 搜索 "Second Brain"
+3. 点击安装，然后启用
 
-1. 从 **[GitHub Releases](https://github.com/graceruowenwang/second-brain-release/releases)** 或 **[Gitee Releases](https://gitee.com/grinningGrace/second-brain-release/releases)** 下载 `second-brain.zip`
-2. 解压后，将文件夹作为 Obsidian Vault 打开
+#### 手动安装
+
+从 **[GitHub Releases](https://github.com/graceruowenwang/second-brain-release/releases)** 或 **[Gitee 发行版](https://gitee.com/grinningGrace/second-brain-release/releases)** 下载 `second-brain.zip`，解压后作为 Obsidian Vault 打开。
 
 #### 配置 API Key
 
@@ -242,7 +248,7 @@ API Key 仅保存在本地，不会上传到任何服务器。
 | SVG 知识图谱 | 可交互的可视化知识网络 |
 | 多 LLM 后端 | 一键切换 AI 提供商 |
 
-**定价**：¥30 买断。公测阶段：首次编译成功后开启 **14 天完整 Pro 试用**。
+**定价**：$5 买断（通过 Gumroad）。首次编译成功后开启 **14 天完整 Pro 试用**。
 
 ### 目录结构
 

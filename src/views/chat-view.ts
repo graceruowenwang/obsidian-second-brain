@@ -523,7 +523,7 @@ export class ChatView extends ItemView {
 	private toggleButtons(generating: boolean) {
 		const sendBtn = this.containerEl.querySelector(".sb-send-btn") as HTMLElement;
 		const stopBtn = this.containerEl.querySelector(".sb-stop-btn") as HTMLElement;
-		const saveNoteBtn = this.containerEl.querySelector(".sb-save-note-btn") as HTMLElement;
+		const saveNoteBtn = this.containerEl.querySelector(".sb-save-note-btn") as HTMLButtonElement;
 		if (sendBtn) sendBtn.style.display = generating ? "none" : "";
 		if (stopBtn) stopBtn.style.display = generating ? "" : "none";
 		if (saveNoteBtn) saveNoteBtn.disabled = generating || this.saving;
