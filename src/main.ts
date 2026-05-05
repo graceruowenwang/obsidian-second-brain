@@ -10,13 +10,12 @@ import { CompileView, VIEW_TYPE_COMPILE } from "./views/compile-view";
 import { ChatView, VIEW_TYPE_CHAT } from "./views/chat-view";
 import { WikiView, VIEW_TYPE_WIKI } from "./views/wiki-view";
 import { runCompile } from "./core/compile";
-import { readRawFiles, diffFingerprints, emptyCache } from "./core/file-utils";
+import { readRawFiles, diffFingerprints, emptyCache, clearEmbeddingCache } from "./core/file-utils";
 import { t } from "./core/i18n";
 import { SetupWizardModal } from "./ui/setup-wizard";
 import { validateLicense, isPro, needsRevalidation, enterGraceIfNeeded, checkGraceExpiry, checkTrialExpiry, getDefaultLicense, getTrialLicense, getTrialDaysLeft, isTrialActive } from "./core/license";
 import { requirePro, showUpgradeNotice } from "./core/feature-gate";
 import { quickIngest } from "./core/quick-ingest";
-import { computeWikiHealth } from "./core/health";
 import { SecondBrainSettingTab } from "./ui/settings-tab";
 import { encryptKeys, decryptKeys, isEncryptionAvailable, SecureStorageError } from "./core/secure-storage";
 import { describeLLMFailure } from "./core/llm-user-message";
@@ -268,21 +267,25 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 		try {
 			const { wikiFolder } = this.settings;
 			const lang = this.settings.language;
+			const STALE_THRESHOLD = 30;
+			const now = Date.now();
 			const wikiFiles = this.app.vault.getMarkdownFiles()
-				.filter(f => f.path.startsWith(wikiFolder + "/") && !f.path.endsWith("/index.md") && !f.path.endsWith("/log.md"));
+				.filter(f => f.path.startsWith(wikiFolder + "/") && !f.path.endsWith("/index.md") && !f.path.endsWith("/log.md") && f.path.includes("concepts/"));
 			if (wikiFiles.length === 0) return;
 
-			const pages = await Promise.all(wikiFiles.map(async f => ({
-				path: f.path,
-				content: await this.app.vault.cachedRead(f),
-			})));
-			const health = computeWikiHealth(pages);
-			if (health.stalePages.length > 0) {
-				const n = health.stalePages.length;
-				new Notice(t("notice.stalePages", lang, { n }));
+			let staleCount = 0;
+			for (const f of wikiFiles) {
+				const head = await this.app.vault.cachedRead(f).then(c => c.slice(0, 500));
+				const m = head.match(/last_updated:\s*["']?(\d{4}-\d{2}-\d{2})/);
+				if (m) {
+					const days = Math.floor((now - new Date(m[1]).getTime()) / (1000 * 60 * 60 * 24));
+					if (days >= STALE_THRESHOLD) staleCount++;
+				}
+			}
+			if (staleCount > 0) {
+				new Notice(t("notice.stalePages", lang, { n: staleCount }));
 			}
 		} catch (e) {
-			// 非关键路径，不影响启动
 			console.warn("checkStalePages:", e);
 		}
 	}
@@ -292,6 +295,7 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 			clearTimeout(this.autoCompileTimer);
 			this.autoCompileTimer = null;
 		}
+		clearEmbeddingCache();
 		this.app.workspace.detachLeavesOfType(VIEW_TYPE_COMPILE);
 		this.app.workspace.detachLeavesOfType(VIEW_TYPE_CHAT);
 		this.app.workspace.detachLeavesOfType(VIEW_TYPE_WIKI);

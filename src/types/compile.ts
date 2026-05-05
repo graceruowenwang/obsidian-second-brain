@@ -46,6 +46,7 @@ export interface Fingerprint {
 	m: number;
 	s: number;
 	h?: string;
+	hh?: string; // 首 64 字符采样哈希
 }
 
 export interface FailedPageEntry {

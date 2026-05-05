@@ -308,9 +308,10 @@ export async function callLLMBatch(
 	batchOpts: BatchOptions = {},
 ): Promise<BatchResult[]> {
 	const concurrency = batchOpts.concurrency ?? 5;
-	const batchDelay = batchOpts.batchDelay ?? 500;
+	const defaultDelay = batchOpts.batchDelay ?? 500;
 	const perItemRetry = batchOpts.perItemRetry ?? 3;
 	const results: BatchResult[] = new Array(tasks.length);
+	let currentDelay = defaultDelay;
 
 	for (let i = 0; i < tasks.length; i += concurrency) {
 		if (batchOpts.signal?.aborted) {
@@ -339,6 +340,19 @@ export async function callLLMBatch(
 			}
 		}));
 
+		// 分析本批结果，动态调整延迟
+		const fulfilled = batchResults.filter(r => r.status === "fulfilled").length;
+		const rejected429 = batchResults.some(r =>
+			r.status === "rejected" && (r as PromiseRejectedResult).reason instanceof LLMError &&
+			((r as PromiseRejectedResult).reason as LLMError).status === 429
+		);
+
+		if (rejected429) {
+			currentDelay = Math.min(currentDelay * 2, 30_000);
+		} else if (fulfilled === batch.length) {
+			currentDelay = Math.max(currentDelay / 2, 100);
+		}
+
 		for (let j = 0; j < batchResults.length; j++) {
 			const r = batchResults[j];
 			if (r.status === "fulfilled") {
@@ -349,9 +363,9 @@ export async function callLLMBatch(
 			}
 		}
 
-		// 批次间延迟，防止限流
-		if (i + concurrency < tasks.length && batchDelay > 0) {
-			await new Promise(r => setTimeout(r, batchDelay));
+		// 批次间延迟，动态调整
+		if (i + concurrency < tasks.length && currentDelay > 0) {
+			await new Promise(r => setTimeout(r, currentDelay));
 		}
 	}
 
@@ -391,6 +405,8 @@ interface StreamConfig {
 	skipDoneLine?: boolean;
 }
 
+const SSE_TOTAL_TIMEOUT_MS = 120_000; // 2 分钟总超时
+
 async function readSSEStream(config: StreamConfig, onChunk: (text: string) => void): Promise<string> {
 	let res: Response;
 	try {
@@ -424,10 +440,20 @@ async function readSSEStream(config: StreamConfig, onChunk: (text: string) => vo
 	let buffer = "";
 	let sseParseFailures = 0;
 
+	// 总超时保护：防止服务端挂起
+	const startTime = Date.now();
+	const timeoutId = setTimeout(() => {
+		reader.cancel().catch(() => {});
+	}, SSE_TOTAL_TIMEOUT_MS);
+
 	try {
 		while (true) {
 			const { done, value } = await reader.read();
 			if (done) break;
+			// 检查是否已超时
+			if (Date.now() - startTime > SSE_TOTAL_TIMEOUT_MS) {
+				throw new LLMError("SB_LLM_STREAM_TIMEOUT", 0, true, undefined, "timeout");
+			}
 			buffer += decoder.decode(value, { stream: true });
 			const lines = buffer.split("\n");
 			buffer = lines.pop() || "";
@@ -459,6 +485,7 @@ async function readSSEStream(config: StreamConfig, onChunk: (text: string) => vo
 		}
 		return fullText;
 	} finally {
+		clearTimeout(timeoutId);
 		try { await reader.cancel(); } catch { /* ignore */ }
 	}
 }

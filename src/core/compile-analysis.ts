@@ -294,17 +294,6 @@ export function buildDependencyGraph(
 		// 直接 raw 文件依赖
 		if (item.source_file) deps.add(item.source_file);
 
-		// 扫描 raw 文件内容中的概念引用（反向依赖）
-		for (const [name, rawFiles] of Object.entries(nameToRawFiles)) {
-			if (name !== item.name && rawFiles.size > 0) {
-				// 如果这个概念引用的 raw 文件和当前页面的 raw 文件有交集，建立依赖
-				for (const rf of rawFiles) {
-					if (deps.has(rf)) {
-						// 当前页面依赖了同一个 raw 文件，说明它们可能相互引用
-					}
-				}
-			}
-		}
 
 		// 扫描 raw 文件内容中包含当前概念名的文件
 		for (const f of allFiles) {

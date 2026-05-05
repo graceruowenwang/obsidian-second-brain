@@ -8,6 +8,7 @@ import {
 	diffFingerprints, updateFingerprints,
 	totalAnalysisCount, emptyCache, getStorage,
 	restoreEmbeddingStore, flushEmbeddingStore, migrateEmbeddingsToStore,
+	type StorageLike,
 } from "./file-utils";
 import {
 	buildAnalyzePrompt, buildIncrementalAnalyzePrompt,
@@ -300,7 +301,7 @@ function buildChangeImpact(
 interface CompileContext {
 	app: App;
 	settings: PluginSettings;
-	plugin?: { loadData: () => Promise<any>; saveData: (data: any) => Promise<void> };
+	plugin?: StorageLike;
 	signal?: AbortSignal;
 	onProgress: (e: ProgressEvent) => void;
 	forceRecompile: boolean;
@@ -399,26 +400,39 @@ async function phaseGenerate(ctx: CompileContext): Promise<void> {
 /** 阶段 4: 知识增强（缺口检测 + 补链） */
 async function phaseEnrich(ctx: CompileContext): Promise<void> {
 	const { cache, settings, newAnalysis, allFiles, onProgress, signal } = ctx;
+	const needsGap = !signal?.aborted && settings.enableGapDetection;
+	const needsLinks = !signal?.aborted && settings.enableLinkEnrichment;
+
+	// 共享读取一次 wiki 文件
+	let wikiFiles: Array<{ path: string; content: string }> = [];
+	if (needsGap || needsLinks) {
+		wikiFiles = await readWikiFiles(ctx.app, settings.wikiFolder);
+	}
 
 	// 缺口检测
 	ctx.gapDetected = 0;
 	ctx.stubsGenerated = 0;
-	if (!signal?.aborted && settings.enableGapDetection) {
+	if (needsGap) {
 		onProgress({ step: 3, stepName: "缺口检测", detail: "扫描知识缺口...", percent: 85 });
-		const wikiFilesForGap = await readWikiFiles(ctx.app, settings.wikiFolder);
-		const gapResult = await runGapDetection(wikiFilesForGap, newAnalysis!, ctx.tpl, ctx.app, settings.wikiFolder, cache, settings, signal);
+		const gapResult = await runGapDetection(wikiFiles, newAnalysis!, ctx.tpl, ctx.app, settings.wikiFolder, cache, settings, signal);
 		ctx.gapDetected = gapResult.gaps.length;
 		ctx.stubsGenerated = gapResult.stubsGenerated;
 		ctx.logBuilder.setGapDetected(ctx.gapDetected, ctx.stubsGenerated);
+
+		// 中间持久化：保存 gapPages 以防后续补链失败丢失
+		try {
+			await getStorage(ctx.app, ctx.plugin).saveData(cache);
+		} catch (e) {
+			console.warn("compile: gap checkpoint save failed:", e);
+		}
 	}
 
 	// 智能补链
 	ctx.linksAdded = 0;
-	if (!signal?.aborted && settings.enableLinkEnrichment) {
+	if (needsLinks) {
 		onProgress({ step: 3, stepName: "智能补链", detail: "发现语义连接...", percent: 90 });
-		const wikiFilesForLink = await readWikiFiles(ctx.app, settings.wikiFolder);
 		const linkResult = await runLinkEnrichment(
-			wikiFilesForLink, ctx.tpl, settings, ctx.app, settings.wikiFolder,
+			wikiFiles, ctx.tpl, settings, ctx.app, settings.wikiFolder,
 			(done: number, total: number) => onProgress({ step: 3, stepName: "智能补链", detail: `${done}/${total} 页`, percent: 90 + Math.round((done / total) * 5) }),
 			signal,
 		);
@@ -523,7 +537,7 @@ export async function runCompile(
 	settings: PluginSettings,
 	onProgress: (e: ProgressEvent) => void = () => {},
 	forceRecompile = false,
-	plugin?: { loadData: () => Promise<any>; saveData: (data: any) => Promise<void> },
+	plugin?: StorageLike,
 	signal?: AbortSignal,
 ): Promise<CompileResult> {
 	checkAborted(signal);
