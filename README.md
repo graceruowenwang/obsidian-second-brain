@@ -86,6 +86,12 @@ Your API key stays local. Nothing is uploaded.
 
 **Pricing**: $5 one-time purchase (via Gumroad). First successful compile starts a **14-day full Pro trial**.
 
+## Disclosures
+
+- **Paid features**: Pro tier ($5 one-time) unlocks auto-compile, AI chat, SVG mind map, and multi-LLM backend. Free features are fully usable without payment. First compile starts a 14-day full Pro trial.
+- **Network usage**: This plugin connects to external LLM APIs (e.g., DeepSeek, OpenAI, Claude) for compilation and chat. API calls are made directly from your device — your notes and API key are never sent to any server other than the LLM provider you configure.
+- **API key required**: You need your own API key from a supported LLM provider. Costs depend on your provider and usage (see Cost Estimate below).
+
 ## Folder Structure
 
 ```
@@ -121,24 +127,6 @@ wiki/                       # AI-generated output
 | Compile Delay | 30s | Debounce interval |
 | Embedding Model | text-embedding-3-small | Semantic search model |
 | Language | Auto | Follows Obsidian setting |
-
-## Build from Source
-
-```bash
-npm ci --legacy-peer-deps
-# or: npm install --legacy-peer-deps
-npm run release
-```
-
-Produces `second-brain.zip` containing the plugin bundle: **`main.js`** (compiled code), **`manifest.json`** (plugin metadata), **`styles.css`** (styles). Extract into `.obsidian/plugins/second-brain/`.
-
-Before cutting a release build for **second-brain-release**, run **`npm run ci`** locally in this repo (typecheck + tests + production build), then `npm run release` and attach the zip to **second-brain-release** on GitHub. Pushes and PRs to `main` / `master` here run CI; successful runs attach `main.js`, `manifest.json`, and `styles.css` as a workflow artifact for sanity checks.
-
-### GitHub + Gitee (dual remotes)
-
-- **Gitee Go (runs on Gitee):** enable **Gitee Go** for the Gitee repo and point it at **`.workflow/branch-pipeline.yml`**. That pipeline runs the same checks as GitHub CI (`npm ci --legacy-peer-deps`, `typecheck`, `test`, `build`). If `nodeVersion: 18.20.4` is not available in your Gitee tenant, change it in the Gitee UI or edit the YAML to a supported version.
-- **Releases on Gitee:** [grinningGrace/second-brain-release → Releases](https://gitee.com/grinningGrace/second-brain-release/releases) hosts the same install zip as GitHub for users in China.
-- **Mirror from GitHub (optional):** workflow **`.github/workflows/sync-gitee.yml`** runs after a **successful CI** run triggered by **`push`** to `main` or `master`, or when you run it manually (**Actions → Sync to Gitee → Run workflow**). Configure secrets `GITEE_REPO`, `GITEE_TOKEN`, and `GITEE_USERNAME` on GitHub. The job force-pushes the same branch name to Gitee (`main`→`main`, `master`→`master`); keep default branch names aligned on both hosts or adjust the workflow. If secrets are missing, the job skips the push and still succeeds.
 
 ## Cost Estimate
 
@@ -250,6 +238,12 @@ API Key 仅保存在本地，不会上传到任何服务器。
 
 **定价**：$5 买断（通过 Gumroad）。首次编译成功后开启 **14 天完整 Pro 试用**。
 
+### 披露声明
+
+- **付费功能**：Pro 版（$5 买断）解锁自动编译、AI 对话、SVG 知识图谱和多 LLM 后端。免费功能无需付费即可完整使用。首次编译开启 14 天完整 Pro 试用。
+- **网络使用**：本插件需要连接外部 LLM API（如 DeepSeek、OpenAI、Claude）进行编译和对话。API 请求直接从你的设备发出，笔记和 API Key 不会发送到除你选择的 LLM 提供商之外的任何服务器。
+- **需要 API Key**：你需要自行获取支持的 LLM 提供商的 API Key。费用取决于你的提供商和用量（见下方费用说明）。
+
 ### 目录结构
 
 ```
@@ -301,24 +295,7 @@ wiki/                       # AI 生成的知识库
 
 - 仅支持桌面端（`isDesktopOnly: true`）-- 流式对话依赖 `fetch` API
 - 清理 Wiki 需要输入 CONFIRM 确认，防止误删
-
-### 从源码构建
-
-```bash
-npm ci --legacy-peer-deps
-# 或 npm install --legacy-peer-deps
-npm run release
-```
-
-生成 `second-brain.zip`，包含插件三件套：`main.js`（主程序）、`manifest.json`（插件元数据）、`styles.css`（样式）。解压到 `.obsidian/plugins/second-brain/` 即可。
-
-**发版前建议**：在本仓库执行 `npm run ci`，再 `npm run release` 生成 zip，将产物上传到 **second-brain-release** 的 Releases。推送到 `main` / `master` 或提 PR 时，本仓库 GitHub Actions 会跑同一套检查；通过后可从 workflow 产物中下载 **`main.js`、`manifest.json`、`styles.css`**（插件三件套）核对体积与内容。
-
-### GitHub 与 Gitee 双托管
-
-- **在 Gitee 上跑 CI**：仓库启用 **Gitee Go**，关联仓库根目录 **`.workflow/branch-pipeline.yml`**（与 GitHub 的 `typecheck` + `test` + `build` 一致）。若流水线提示 Node `18.20.4` 不可用，在 Gitee 可视化配置里改成平台支持的版本，或修改 YAML 中的 `nodeVersion`。
-- **国内下载发行包**：[Gitee — second-brain-release / 发行版](https://gitee.com/grinningGrace/second-brain-release/releases)（与 GitHub Releases 内容对应，按需同步）。
-- **从 GitHub 同步到 Gitee（可选）**：配置 GitHub Secrets：`GITEE_REPO`（如 `用户名/仓库名`）、`GITEE_TOKEN`（有 push 权限的私人令牌）、`GITEE_USERNAME`。**CI** 在 **`push` 到 `main`/`master` 且成功** 后会触发 **Sync to Gitee**；也可在 Actions 里手动运行。未配置 secret 时只跳过推送、不报错。同步使用 `--force`，请确认 Gitee 侧无仅存在于本地的提交，或接受以 GitHub 为准覆盖。
+- 开发者文档（从源码构建、GitHub + Gitee 双托管）请参见 [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ### 许可证
 

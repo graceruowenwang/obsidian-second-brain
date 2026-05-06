@@ -1,6 +1,6 @@
 // 对话面板 -- 主编辑区 View，全宽聊天界面 + Markdown 渲染
 
-import { ItemView, WorkspaceLeaf, Notice, MarkdownRenderer, Component, TFile, setIcon } from "obsidian";
+import { ItemView, WorkspaceLeaf, Notice, MarkdownRenderer, Component, TFile, setIcon, requestUrl } from "obsidian";
 import { callLLMStreamWithFallback } from "../core/llm";
 import { describeLLMFailure } from "../core/llm-user-message";
 import { sanitizeLLMOutput } from "../core/sanitize";
@@ -46,14 +46,14 @@ export class ChatView extends ItemView {
 	private saveHistory(): void {
 		try {
 			const data = this.chatHistory.slice(-ChatView.MAX_HISTORY * 2);
-			localStorage.setItem(ChatView.STORAGE_KEY, JSON.stringify(data));
+			this.app.saveLocalStorage(ChatView.STORAGE_KEY, JSON.stringify(data));
 		} catch { /* quota exceeded, ignore */ }
 	}
 
 	private loadHistory(): Array<{ role: string; content: string }> {
 		try {
-			const raw = localStorage.getItem(ChatView.STORAGE_KEY);
-			if (!raw) return [];
+			const raw = this.app.loadLocalStorage(ChatView.STORAGE_KEY);
+			if (!raw || typeof raw !== "string") return [];
 			const data = JSON.parse(raw);
 			if (!Array.isArray(data)) return [];
 			return data.slice(-ChatView.MAX_HISTORY * 2);
@@ -458,8 +458,8 @@ export class ChatView extends ItemView {
 							const a = createEl("a", { attr: { href: src, download: "image.png" } });
 							a.click();
 						} else {
-							const res = await fetch(src);
-							const blob = await res.blob();
+							const res = await requestUrl({ url: src });
+							const blob = new Blob([res.arrayBuffer]);
 							const url = URL.createObjectURL(blob);
 							const a = createEl("a", { attr: { href: url, download: name } });
 							a.click();

@@ -65,7 +65,7 @@ async function findMissingLinks(
 	settings: PluginSettings,
 ): Promise<LinkSuggestion[]> {
 	const stripped = stripFrontmatter(pageContent);
-	const query = stripped.slice(0, 500).replace(/[\n#*>\-|`\[\]]/g, " ").trim();
+	const query = stripped.slice(0, 500).replace(/[\n#*>\-|`[\]]/g, " ").trim();
 	if (query.length < 20) return [];
 
 	try {

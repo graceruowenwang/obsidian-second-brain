@@ -151,7 +151,6 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 		this.addCommand({
 			id: "compile-all",
 			name: t("cmd.compileAll", lang),
-			hotkeys: [{ modifiers: ["Mod", "Shift"], key: "c" }],
 			callback: () => this.activateView(VIEW_TYPE_COMPILE),
 		});
 
@@ -159,7 +158,6 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 		this.addCommand({
 			id: "compile-current",
 			name: t("cmd.compileCurrent", lang),
-			hotkeys: [{ modifiers: ["Mod", "Shift"], key: "x" }],
 			editorCallback: (_editor: Editor, view: MarkdownView | MarkdownFileInfo) => this.compileCurrentFile(view as MarkdownView),
 		});
 
@@ -167,7 +165,6 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 		this.addCommand({
 			id: "open-chat",
 			name: t("cmd.openChat", lang),
-			hotkeys: [{ modifiers: ["Mod", "Shift"], key: "d" }],
 			callback: () => {
 				if (!requirePro(this.licenseInfo, "ai-chat")) {
 					showUpgradeNotice(this.app, "ai-chat", lang);
@@ -181,7 +178,6 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 		this.addCommand({
 			id: "open-wiki",
 			name: t("cmd.openWiki", lang),
-			hotkeys: [{ modifiers: ["Mod", "Shift"], key: "w" }],
 			callback: () => this.activateView(VIEW_TYPE_WIKI),
 		});
 
@@ -196,7 +192,6 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 		this.addCommand({
 			id: "capture-to-inbox",
 			name: t("cmd.captureToInbox", lang),
-			hotkeys: [{ modifiers: ["Mod", "Shift"], key: "i" }],
 			editorCallback: async (editor: Editor, view: MarkdownView | MarkdownFileInfo) => {
 				const file = (view as MarkdownView).file;
 				if (!file) return;
@@ -254,13 +249,13 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 			this.backgroundRevalidate();
 		}
 		this.registerInterval(
-			window.setInterval(() => this.backgroundRevalidate(), 24 * 60 * 60 * 1000)
+			window.setInterval(() => { void this.backgroundRevalidate(); }, 24 * 60 * 60 * 1000)
 		);
 
-		console.log("Second Brain plugin loaded");
+		console.debug("Second Brain plugin loaded");
 
 		// 笔记衰减通知
-		this.checkStalePages();
+		void this.checkStalePages();
 	}
 
 	private async checkStalePages() {
@@ -296,15 +291,12 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 			this.autoCompileTimer = null;
 		}
 		clearEmbeddingCache();
-		this.app.workspace.detachLeavesOfType(VIEW_TYPE_COMPILE);
-		this.app.workspace.detachLeavesOfType(VIEW_TYPE_CHAT);
-		this.app.workspace.detachLeavesOfType(VIEW_TYPE_WIKI);
 	}
 
 	// --- 数据持久化 ---
 
 	private get dataBackupPath(): string {
-		return ".obsidian/plugins/second-brain/data.json.bak";
+		return `${this.app.vault.configDir}/plugins/second-brain/data.json.bak`;
 	}
 
 	private async loadPluginData(): Promise<Record<string, unknown>> {
@@ -568,9 +560,10 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 		cancelBtn.addEventListener("click", () => modal.close());
 
 		const confirmBtn = btnRow.createEl("button", { text: t("compile.start", lang), cls: "mod-cta" });
-		confirmBtn.addEventListener("click", async () => {
+		confirmBtn.addEventListener("click", () => {
 			modal.close();
 			new Notice(t("notice.compiling", lang, { path: file.path }));
+			void (async () => {
 			try {
 				const content = await this.app.vault.read(file);
 				const targetFile = { path: file.path, content };
@@ -581,6 +574,7 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 			} catch (e: unknown) {
 				new Notice(t("notice.compileFail", lang, { msg: describeLLMFailure(lang, e) }));
 			}
+			})();
 		});
 		modal.open();
 	}

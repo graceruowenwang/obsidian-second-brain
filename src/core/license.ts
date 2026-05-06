@@ -1,6 +1,7 @@
 // License 验证模块 — 在线 (Gumroad API) + 离线 (SHA256 哈希) 双重验证
 
 import type { LicenseInfo } from "../types";
+import { requestUrl } from "obsidian";
 import { DEFAULT_LICENSE } from "../types";
 
 // === Beta 阶段开关 ===
@@ -99,13 +100,13 @@ async function sha256(text: string): Promise<string> {
 async function gumroadVerify(key: string): Promise<{ success: boolean; refunded: boolean; chargebacked: boolean }> {
 	try {
 		const body = "product_id=" + encodeURIComponent(GUMROAD_PRODUCT_ID) + "&license_key=" + encodeURIComponent(key);
-		const resp = await fetch(GUMROAD_VERIFY_URL, {
+		const resp = await requestUrl({
+			url: GUMROAD_VERIFY_URL,
 			method: "POST",
 			headers: { "Content-Type": "application/x-www-form-urlencoded" },
 			body,
 		});
-		if (!resp.ok) return { success: false, refunded: false, chargebacked: false };
-		const data = await resp.json();
+		const data = resp.json;
 		return {
 			success: !!data.success,
 			refunded: !!data.purchase?.refunded,

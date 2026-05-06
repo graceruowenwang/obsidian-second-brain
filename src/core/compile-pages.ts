@@ -111,7 +111,7 @@ export function diffAnalysis(oldAnalysis: Analysis | null, newAnalysis: Analysis
 				changedPathsSet.has(item.source_file || "")
 				|| changedFiles.some(f => f.content.includes(item.name) || f.content.includes(itemTitle))
 			));
-		isAffected ? regen.push(item) : skip.push(item);
+		if (isAffected) { regen.push(item); } else { skip.push(item); }
 	}
 
 	for (const [name, item] of oldMap) {
@@ -204,7 +204,7 @@ export async function generatePages(
 					}
 					// reviewed 页面源素材变更时，标记为 outdated 而非静默覆盖
 					const updated = existingContent.replace(/^status:\s*["']?\w+["']?\s*$/m, 'status: "outdated"');
-					try { await app.vault.modify(existingFile, updated); } catch {}
+					try { await app.vault.modify(existingFile, updated); } catch { /* status update best-effort */ }
 					syncProtected.push(item);
 					continue;
 				}

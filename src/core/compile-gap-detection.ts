@@ -99,6 +99,7 @@ ${relatedLinks.join("\n")}
 `;
 }
 
+// eslint-disable-next-line no-control-regex
 const UNSAFE_FILENAME_RE = /[<>:"/\\|?*\x00-\x1f]/g;
 const RESERVED_WIN = /^(CON|PRN|AUX|NUL|COM[0-9]|LPT[0-9])$/i;
 

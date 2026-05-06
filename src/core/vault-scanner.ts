@@ -10,7 +10,6 @@ export interface ScanResult {
 }
 
 const SKIP_PREFIXES = [
-	".obsidian/",
 	".trash/",
 	"blog/",
 	"raw-sample/",
@@ -22,7 +21,7 @@ export async function scanVaultForMaterials(
 	wikiFolder: string,
 ): Promise<ScanResult[]> {
 	const candidates: ScanResult[] = [];
-	const skip = [...SKIP_PREFIXES, rawFolder + "/", wikiFolder + "/"];
+	const skip = [...SKIP_PREFIXES, app.vault.configDir + "/", rawFolder + "/", wikiFolder + "/"];
 
 	const files = app.vault.getMarkdownFiles();
 

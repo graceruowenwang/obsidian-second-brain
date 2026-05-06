@@ -94,7 +94,8 @@ export function renderLicenseSettings(containerEl: HTMLElement, plugin: SecondBr
 	const btnRow = content.createDiv({ cls: "sb-license-btns" });
 
 	const activateBtn = btnRow.createEl("button", { text: t("license.activate", lang), cls: "mod-cta" });
-	activateBtn.addEventListener("click", async () => {
+	activateBtn.addEventListener("click", () => {
+		void (async () => {
 		const key = plugin.settings.licenseKey.trim();
 		if (!key) {
 			new Notice(t("license.activationFail", lang));
@@ -116,11 +117,13 @@ export function renderLicenseSettings(containerEl: HTMLElement, plugin: SecondBr
 		} finally {
 			activateBtn.disabled = false;
 		}
+		})();
 	});
 
 	if (isPro(state)) {
 		const deactivateBtn = btnRow.createEl("button", { text: t("license.deactivate", lang) });
-		deactivateBtn.addEventListener("click", async () => {
+		deactivateBtn.addEventListener("click", () => {
+			void (async () => {
 			await deactivateLicense(state.key, state.instanceId);
 			plugin.licenseInfo = { ...DEFAULT_LICENSE };
 			plugin.settings.licenseKey = "";
@@ -128,10 +131,12 @@ export function renderLicenseSettings(containerEl: HTMLElement, plugin: SecondBr
 			await plugin.saveLicenseInfo();
 			new Notice(t("license.statusFree", lang));
 			plugin.refreshSettingsTab();
+			})();
 		});
 
 		const validateBtn = btnRow.createEl("button", { text: t("license.validate", lang) });
-		validateBtn.addEventListener("click", async () => {
+		validateBtn.addEventListener("click", () => {
+			void (async () => {
 			validateBtn.disabled = true;
 			try {
 				const result = await validateLicense(state.key, state.instanceId);
@@ -145,6 +150,7 @@ export function renderLicenseSettings(containerEl: HTMLElement, plugin: SecondBr
 			} finally {
 				validateBtn.disabled = false;
 			}
+			})();
 		});
 	}
 

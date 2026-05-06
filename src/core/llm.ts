@@ -277,7 +277,7 @@ export async function callLLM(
 			await new Promise(r => setTimeout(r, delay));
 		}
 	}
-	throw lastError;
+	throw lastError ?? new Error("LLM call failed: all retries exhausted");
 }
 
 // 批量调用：每个任务独立重试，批次间可配延迟
@@ -410,6 +410,7 @@ const SSE_TOTAL_TIMEOUT_MS = 120_000; // 2 分钟总超时
 async function readSSEStream(config: StreamConfig, onChunk: (text: string) => void): Promise<string> {
 	let res: Response;
 	try {
+		// eslint-disable-next-line no-restricted-properties -- SSE streaming requires native fetch; requestUrl does not support streaming
 		res = await fetch(config.url, {
 			method: "POST",
 			headers: config.headers,

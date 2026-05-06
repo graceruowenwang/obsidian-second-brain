@@ -116,10 +116,12 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 					const oldProvider = this.plugin.settings.provider;
 					if (v !== oldProvider) {
 						// Imp 10: 切换确认
-						new ProviderSwitchModal(this.app, v as LLMProviderId, lang, async () => {
+						new ProviderSwitchModal(this.app, v as LLMProviderId, lang, () => {
+							void (async () => {
 							this.plugin.settings.provider = v as LLMProviderId;
 							await this.plugin.saveSettings();
 							this.display();
+							})();
 						}).open();
 					}
 				}));
@@ -168,13 +170,15 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 
 		new Setting(reqContent)
 			.setName(t("set.testConn", lang))
-			.addButton((btn) => btn.setButtonText(t("set.test", lang)).onClick(async () => {
+			.addButton((btn) => btn.setButtonText(t("set.test", lang)).onClick(() => {
+				void (async () => {
 				try {
 					await callLLM([{ role: "user", content: "Hi" }], this.plugin.settings, { maxTokens: 5, temperature: 0 });
 					new Notice(t("notice.connOkSimple", lang));
 				} catch (e: unknown) {
 					new Notice(t("notice.connFail", lang, { msg: describeLLMFailure(lang, e) }));
 				}
+				})();
 			}));
 
 		// --- 工作区（素材 / Wiki 目录） ---
