@@ -317,10 +317,7 @@ export function confirmDialog(
 		const modal = new Modal(app);
 		if (opts.title) modal.titleEl.setText(opts.title);
 		modal.contentEl.createEl("p", { text: opts.message });
-		const btnRow = modal.contentEl.createDiv();
-		btnRow.style.display = "flex";
-		btnRow.style.gap = "8px";
-		btnRow.style.justifyContent = "flex-end";
+		const btnRow = modal.contentEl.createDiv({ cls: "sb-flex-row-end" });
 		btnRow.createEl("button", {
 			text: opts.cancelText || "Cancel",
 		}).addEventListener("click", () => { modal.close(); resolve(false); });

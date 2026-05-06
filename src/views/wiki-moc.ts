@@ -23,13 +23,11 @@ export async function showMoc(ctx: WikiViewCtx): Promise<void> {
 	ctx.bodyEl.createEl("h2", { text: t("wiki.mocTitle", lang), cls: "sb-wiki-h2" });
 	ctx.bodyEl.createEl("p", { text: t("wiki.mocDesc", lang), cls: "sb-wiki-card-desc" });
 
-	const btnRow = ctx.bodyEl.createDiv({ cls: "sb-moc-btn-row" });
-	btnRow.style.display = "flex";
-	btnRow.style.gap = "8px";
-	btnRow.style.marginBottom = "16px";
+	const btnRow = ctx.bodyEl.createDiv({ cls: "sb-moc-btn-row sb-flex-row sb-mb-16" });
 
 	const aiBtn = btnRow.createEl("button", { text: t("wiki.mocGenerate", lang), cls: "sb-empty-btn mod-cta" });
-	aiBtn.addEventListener("click", async () => {
+	aiBtn.addEventListener("click", () => {
+		void (async () => {
 		aiBtn.textContent = t("wiki.mocGenerating", lang);
 		aiBtn.setAttribute("disabled", "true");
 		try {
@@ -43,6 +41,7 @@ export async function showMoc(ctx: WikiViewCtx): Promise<void> {
 			aiBtn.removeAttribute("disabled");
 			new Notice(t("wiki.mocGenerateFail", lang) + ": " + (e instanceof Error ? e.message : String(e)));
 		}
+		})();
 	});
 
 	if (mocPages.length === 0) {

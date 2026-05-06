@@ -48,31 +48,32 @@ export async function openSynthesisDialog(ctx: WikiViewCtx): Promise<void> {
 	searchEl.addEventListener("input", () => {
 		const q = searchEl.value.toLowerCase();
 		for (const c of checkboxes) {
-			c.label.style.display = c.name.toLowerCase().includes(q) ? "" : "none";
+			c.label.classList.toggle("sb-hidden", !c.name.toLowerCase().includes(q));
 		}
 	});
 
 	// Select all toggle
 	selectAllBtn.addEventListener("click", () => {
-		const allChecked = checkboxes.filter(c => c.label.style.display !== "none").every(c => c.el.checked);
-		checkboxes.filter(c => c.label.style.display !== "none").forEach(c => { c.el.checked = !allChecked; });
+		const allChecked = checkboxes.filter(c => !c.label.classList.contains("sb-hidden")).every(c => c.el.checked);
+		checkboxes.filter(c => !c.label.classList.contains("sb-hidden")).forEach(c => { c.el.checked = !allChecked; });
 		updateCounter();
 	});
 
 	// Error display element
 	const errorEl = container.createDiv({ cls: "sb-synth-error" });
-	errorEl.style.display = "none";
+	errorEl.classList.add("sb-hidden");
 
 	const btnRow = container.createDiv({ cls: "sb-wizard-btn-row" });
 	const genBtn = btnRow.createEl("button", { text: t("wiki.generate", lang), cls: "mod-cta" });
-	genBtn.addEventListener("click", async () => {
+	genBtn.addEventListener("click", () => {
+		void (async () => {
 		const selected = checkboxes.filter(c => c.el.checked).map(c => c.name);
 		if (selected.length < 2) {
 			errorEl.textContent = t("wiki.synthSelectMin", lang);
-			errorEl.style.display = "";
+			errorEl.classList.remove("sb-hidden");
 			return;
 		}
-		errorEl.style.display = "none";
+		errorEl.classList.add("sb-hidden");
 		setAsyncButton(genBtn, true);
 		try {
 			const relatedContent = selected.map(n => {
@@ -93,6 +94,7 @@ export async function openSynthesisDialog(ctx: WikiViewCtx): Promise<void> {
 		} catch (e) {
 			setAsyncButton(genBtn, false, t("wiki.generateFailed", lang));
 		}
+		})();
 	});
 	modal.open();
 }

@@ -3,7 +3,7 @@
 import { App, TFile, TFolder, TAbstractFile } from "obsidian";
 import type { CompileCache } from "../types";
 
-export type StorageLike = { loadData: () => Promise<any>; saveData: (data: any) => Promise<void> };
+export type StorageLike = { loadData: () => Promise<unknown>; saveData: (data: unknown) => Promise<void> };
 
 /** 控制异步任务并发数 */
 export async function parallelWithLimit<T>(tasks: Array<() => Promise<T>>, limit: number): Promise<T[]> {

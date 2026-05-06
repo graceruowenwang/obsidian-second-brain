@@ -66,7 +66,8 @@ export class CompileView extends ItemView {
 
 		const organizeBtn = btnRow.createEl("button", { text: t("compile.organizeRaw", lang), cls: "sb-compile-btn-secondary" });
 		bindHoverHint(organizeBtn, t("compile.tooltip.organizeRaw", lang));
-		organizeBtn.addEventListener("click", async () => {
+		organizeBtn.addEventListener("click", () => {
+			void (async () => {
 			organizeBtn.disabled = true;
 			try {
 				await this.plugin.organizeRawMaterials();
@@ -74,11 +75,12 @@ export class CompileView extends ItemView {
 			} finally {
 				organizeBtn.disabled = false;
 			}
+			})();
 		});
 
 		this.cancelBtn = btnRow.createEl("button", { text: t("compile.cancel", lang), cls: "sb-cancel-btn" });
 		bindHoverHint(this.cancelBtn, t("compile.tooltip.cancel", lang));
-		this.cancelBtn.style.display = "none";
+		this.cancelBtn.classList.add("sb-hidden");
 		this.cancelBtn.addEventListener("click", () => this.cancelCompile());
 
 		// 进度区（卡片）— 提示绑在 progressWrap 上，避免子节点挡住父级导致 hover 不触发
@@ -101,11 +103,11 @@ export class CompileView extends ItemView {
 
 		// Current file label
 		this.currentFileEl = progressWrap.createDiv({ cls: "sb-compile-current-file" });
-		this.currentFileEl.style.display = "none";
+		this.currentFileEl.classList.add("sb-hidden");
 
 		// 时间预估
 		this.timeEstimateEl = progressWrap.createDiv({ cls: "sb-time-estimate" });
-		this.timeEstimateEl.style.display = "none";
+		this.timeEstimateEl.classList.add("sb-hidden");
 
 		// 数据面板：分三块白话说明（素材 / 累计统计 / 最近记录）
 		const dataPanel = container.createDiv({ cls: "sb-compile-data-panel" });
@@ -249,14 +251,14 @@ export class CompileView extends ItemView {
 
 	private updateTimeEstimate(lang: string): void {
 		if (this.latestProgressPercent <= 20) {
-			this.timeEstimateEl.style.display = "none";
+			this.timeEstimateEl.classList.add("sb-hidden");
 			return;
 		}
 		const elapsed = this.elapsedSeconds();
 		const percent = Math.max(1, Math.min(100, this.latestProgressPercent));
 		const remain = percent >= 100 ? 0 : Math.max(1, Math.ceil((elapsed * (100 - percent)) / percent));
 		this.timeEstimateEl.textContent = t("compile.estimate", lang, { elapsed, remain });
-		this.timeEstimateEl.style.display = "";
+		this.timeEstimateEl.classList.remove("sb-hidden");
 	}
 
 	private async startCompile(force = false) {
@@ -277,11 +279,11 @@ export class CompileView extends ItemView {
 		this.abortController = new AbortController();
 		this.compileBtn.textContent = t("compile.compiling", lang);
 		bindHoverHint(this.compileBtn, t("compile.tooltip.compilingPrimary", lang));
-		this.cancelBtn.style.display = "";
+		this.cancelBtn.classList.remove("sb-hidden");
 		this.logEl.empty();
 		this.progressFill.style.width = "0%";
 		this.progressFill.style.background = "";
-		this.timeEstimateEl.style.display = "none";
+		this.timeEstimateEl.classList.add("sb-hidden");
 		this.stopEstimateTimer();
 		this.resetStageDots();
 
@@ -307,7 +309,7 @@ export class CompileView extends ItemView {
 			// Show current file
 			if (e.detail) {
 				this.currentFileEl.textContent = e.detail;
-				this.currentFileEl.style.display = "";
+				this.currentFileEl.classList.remove("sb-hidden");
 			}
 
 			// 时间预估：进度超过 20% 时显示，并每秒刷新一次避免长阶段卡在旧数值。
@@ -468,8 +470,8 @@ export class CompileView extends ItemView {
 		this.compileBtn.disabled = false;
 		this.compileBtn.textContent = t("compile.start", lang);
 		bindHoverHint(this.compileBtn, t("compile.tooltip.start", lang));
-		this.cancelBtn.style.display = "none";
-		this.timeEstimateEl.style.display = "none";
+		this.cancelBtn.classList.add("sb-hidden");
+		this.timeEstimateEl.classList.add("sb-hidden");
 		this.stopEstimateTimer();
 		this.progressFill.style.background = "";
 		this.resetStageDots();
@@ -570,15 +572,15 @@ export class CompileView extends ItemView {
 		const history = cache?.compileHistory ?? [];
 
 		if (history.length === 0) {
-			if (this.histSectionEl) this.histSectionEl.style.display = "none";
+			if (this.histSectionEl) this.histSectionEl.classList.add("sb-hidden");
 			if (this.dataPanelHeadEl && this.statsSectionEl) {
-				const statsHidden = this.statsSectionEl.style.display === "none";
-				if (statsHidden) this.dataPanelHeadEl.style.display = "none";
+				const statsHidden = this.statsSectionEl.classList.contains("sb-hidden");
+				if (statsHidden) this.dataPanelHeadEl.classList.add("sb-hidden");
 			}
 			return;
 		}
-		if (this.histSectionEl) this.histSectionEl.style.display = "";
-		if (this.dataPanelHeadEl) this.dataPanelHeadEl.style.display = "";
+		if (this.histSectionEl) this.histSectionEl.classList.remove("sb-hidden");
+		if (this.dataPanelHeadEl) this.dataPanelHeadEl.classList.remove("sb-hidden");
 
 		const listWrap = this.dataHistoryMount.createDiv({ cls: "sb-compile-history-cards" });
 		for (const entry of history.slice(0, 10)) {
@@ -633,15 +635,15 @@ export class CompileView extends ItemView {
 		const raw = cache?.usageStats;
 		const hasRealData = !!(raw && raw.totalCompiles > 0);
 		if (!hasRealData || !raw) {
-			if (this.statsSectionEl) this.statsSectionEl.style.display = "none";
+			if (this.statsSectionEl) this.statsSectionEl.classList.add("sb-hidden");
 			if (this.dataPanelHeadEl && this.histSectionEl) {
-				const histHidden = this.histSectionEl.style.display === "none";
-				if (histHidden) this.dataPanelHeadEl.style.display = "none";
+				const histHidden = this.histSectionEl.classList.contains("sb-hidden");
+				if (histHidden) this.dataPanelHeadEl.classList.add("sb-hidden");
 			}
 			return;
 		}
-		if (this.statsSectionEl) this.statsSectionEl.style.display = "";
-		if (this.dataPanelHeadEl) this.dataPanelHeadEl.style.display = "";
+		if (this.statsSectionEl) this.statsSectionEl.classList.remove("sb-hidden");
+		if (this.dataPanelHeadEl) this.dataPanelHeadEl.classList.remove("sb-hidden");
 		const stats = raw;
 		const dl = this.dataStatsMount.createEl("dl", { cls: "sb-compile-stat-dl" });
 		const rows: Array<{ dt: string; dd: string }> = [

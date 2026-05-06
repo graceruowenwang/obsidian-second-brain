@@ -56,10 +56,11 @@ async function migrateEmbeddingsIfNeeded(
 	settings: PluginSettings,
 ): Promise<void> {
 	if (cache.version >= 2) return;
-	const legacy = (cache as any).embeddings as Record<string, number[]> | undefined;
+	const legacyCache = cache as unknown as { embeddings?: Record<string, number[]> };
+	const legacy = legacyCache.embeddings;
 	if (legacy && Object.keys(legacy).length > 0) {
 		try {
-			await migrateEmbeddingsToStore(app, wikiFolder, cache as any, settings);
+			await migrateEmbeddingsToStore(app, wikiFolder, legacyCache, settings);
 		} catch (e) {
 			// 迁移失败：保留原字段，版本号不升级，下次 runCompile 再试
 			console.warn("compile: embedding migration failed, will retry next run:", e);
@@ -67,7 +68,7 @@ async function migrateEmbeddingsIfNeeded(
 			return;
 		}
 	}
-	delete (cache as any).embeddings;
+	delete (cache as unknown as { embeddings?: unknown }).embeddings;
 	cache.version = 2;
 
 	// 顺延到 v3

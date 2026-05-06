@@ -102,7 +102,8 @@ export function toggleBatchReview(
 	});
 
 	// 确认审核
-	applyBtn.addEventListener("click", async () => {
+	applyBtn.addEventListener("click", () => {
+		void (async () => {
 		const count = selectedPages.size;
 		if (count === 0) return;
 
@@ -111,9 +112,7 @@ export function toggleBatchReview(
 			modal.titleEl.setText(t("wiki.batchConfirmTitle", lang));
 			modal.contentEl.createEl("p", { text: t("wiki.batchConfirmDesc", lang, { n: count }) });
 			const btnRow = modal.contentEl.createDiv();
-			btnRow.style.display = "flex";
-			btnRow.style.gap = "8px";
-			btnRow.style.justifyContent = "flex-end";
+			btnRow.classList.add("sb-flex-row-end");
 			btnRow.createEl("button", { text: t("set.cancel", lang) }).addEventListener("click", () => { modal.close(); resolve(false); });
 			btnRow.createEl("button", { text: t("wiki.batchConfirmBtn", lang), cls: "mod-cta" }).addEventListener("click", () => { modal.close(); resolve(true); });
 			modal.open();
@@ -129,10 +128,12 @@ export function toggleBatchReview(
 		exitBatchMode(newBar, selectedPages, btn, lang);
 		await ctx.loadWiki();
 		ctx.renderIndex();
+		})();
 	});
 
 	// 批量重新生成
-	regenBtn.addEventListener("click", async () => {
+	regenBtn.addEventListener("click", () => {
+		void (async () => {
 		const count = selectedPages.size;
 		if (count === 0) return;
 		regenBtn.disabled = true;
@@ -143,6 +144,7 @@ export function toggleBatchReview(
 		exitBatchMode(newBar, selectedPages, btn, lang);
 		await ctx.loadWiki();
 		ctx.renderIndex();
+		})();
 	});
 
 	// 取消

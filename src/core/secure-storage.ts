@@ -22,7 +22,7 @@ export class SecureStorageError extends Error {
 
 function getSafeStorage(): SafeStorage | null {
 	try {
-		const electron = (window as any).require?.("electron");
+		const electron = (window as unknown as { require?: (mod: string) => { safeStorage?: SafeStorage } }).require?.("electron");
 		return electron?.safeStorage || null;
 	} catch {
 		return null;

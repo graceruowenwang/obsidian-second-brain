@@ -132,7 +132,8 @@ export class SetupWizardModal extends Modal {
 		const btnRow = this.container.createDiv({ cls: "sb-wizard-btn-row" });
 
 		const testBtn = btnRow.createEl("button", { text: t("wizard.testConn", lang) });
-		testBtn.addEventListener("click", async () => {
+		testBtn.addEventListener("click", () => {
+			void (async () => {
 			testBtn.textContent = "...";
 			try {
 				await callLLM([{ role: "user", content: "Hi" }], this.plugin.settings, { maxTokens: 5, temperature: 0 });
@@ -147,6 +148,7 @@ export class SetupWizardModal extends Modal {
 				testBtn.textContent = t("wizard.testConn", lang);
 				testBtn.classList.remove("mod-cta", "mod-warning");
 			}, 2000);
+			})();
 		});
 
 		const nextBtn = btnRow.createEl("button", { text: t("wizard.next", lang), cls: "mod-cta" });
@@ -213,9 +215,10 @@ export class SetupWizardModal extends Modal {
 			statusEl.createDiv({ text: t("wizard.step3SamplesAlreadyHas", lang), cls: "sb-wizard-folder-exists" });
 		} else {
 			const loadBtn = statusEl.createEl("button", { text: t("wizard.step3SamplesLoad", lang), cls: "mod-cta" });
-			loadBtn.style.marginTop = "12px";
+			loadBtn.classList.add("sb-mt-12");
 			loadBtn.disabled = !hasSampleSource;
-			loadBtn.addEventListener("click", async () => {
+			loadBtn.addEventListener("click", () => {
+				void (async () => {
 				loadBtn.textContent = "...";
 				try {
 					await loadSamplesIntoVault(this.app, rawFolder, wikiFolder);
@@ -225,6 +228,7 @@ export class SetupWizardModal extends Modal {
 					console.warn("setup-wizard: sample load failed:", e);
 					loadBtn.textContent = t("wizard.step3SamplesFail", lang);
 				}
+				})();
 			});
 		}
 

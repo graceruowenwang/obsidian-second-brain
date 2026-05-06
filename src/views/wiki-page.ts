@@ -125,7 +125,8 @@ export async function renderPage(
 	renderWikiReviewBanner(ctx.bodyEl, lang, name, page, ctx);
 
 	const expressBtn = breadcrumb.createEl("button", { text: t("wiki.generateArticle", lang), cls: "sb-wiki-generate-btn" });
-	expressBtn.addEventListener("click", async () => {
+	expressBtn.addEventListener("click", () => {
+		void (async () => {
 		const confirmed = await confirmDialog(ctx.app, {
 			title: t("wiki.generateArticle", lang),
 			message: t("wiki.generateArticleConfirm", lang),
@@ -156,6 +157,7 @@ export async function renderPage(
 			setAsyncButton(expressBtn, false, t("wiki.generateArticle", lang));
 			new Notice(t("wiki.generateFailed", lang));
 		}
+		})();
 	});
 
 	const metaRow = ctx.bodyEl.createDiv({ cls: "sb-wiki-meta" });
@@ -257,7 +259,7 @@ export async function renderPage(
 
 export function attachPageOutline(lang: string, tocCol: HTMLElement, contentEl: HTMLElement): void {
 	tocCol.empty();
-	tocCol.style.display = "none";
+	tocCol.classList.add("sb-hidden");
 
 	const headings = Array.from(contentEl.querySelectorAll<HTMLElement>("h1, h2, h3"));
 	if (headings.length < 2) return;
@@ -271,7 +273,7 @@ export function attachPageOutline(lang: string, tocCol: HTMLElement, contentEl: 
 		}
 	}
 
-	tocCol.style.display = "";
+	tocCol.classList.remove("sb-hidden");
 	tocCol.createEl("div", { text: t("wiki.pageOutline", lang), cls: "sb-wiki-toc-title" });
 	const nav = tocCol.createEl("nav", { cls: "sb-wiki-toc-nav" });
 	for (const h of headings) {
@@ -330,7 +332,8 @@ export function renderWikiReviewBanner(
 		const banner = bodyEl.createDiv({ cls: "sb-draft-banner" });
 		banner.createEl("span", { text: t("wiki.gap", lang), cls: "sb-draft-label" });
 		const regenBtn = banner.createEl("button", { text: t("wiki.regeneratePage", lang), cls: "sb-draft-review-btn" });
-		regenBtn.addEventListener("click", async () => {
+		regenBtn.addEventListener("click", () => {
+			void (async () => {
 			regenBtn.textContent = "...";
 			// 删除 stub 文件后重新编译
 			const wf = ctx.plugin.settings.wikiFolder;
@@ -342,22 +345,25 @@ export function renderWikiReviewBanner(
 			try {
 				const { runCompile } = await import("../core/compile");
 				await ctx.plugin.runWithCompileLock(() =>
-					runCompile(ctx.app, ctx.plugin.settings, undefined, false, ctx.plugin as any),
+					runCompile(ctx.app, ctx.plugin.settings, undefined, false, ctx.plugin as unknown as import("../core/file-utils").StorageLike),
 				);
 				await ctx.loadWiki();
 				ctx.showIndex();
 			} catch (e) {
 				console.warn("gap regen: compile failed:", e);
 			}
+			})();
 		});
 	} else if (sn === "outdated") {
 		const banner = bodyEl.createDiv({ cls: "sb-draft-banner" });
 		banner.createEl("span", { text: t("wiki.outdated", lang), cls: "sb-draft-label" });
 		const regenBtn = banner.createEl("button", { text: t("wiki.regeneratePage", lang), cls: "sb-draft-review-btn" });
-		regenBtn.addEventListener("click", async () => {
+		regenBtn.addEventListener("click", () => {
+			void (async () => {
 			await markForRegeneration(page.path, ctx);
 			regenBtn.textContent = t("wiki.regeneratePageDone", lang);
 			regenBtn.setAttribute("disabled", "true");
+			})();
 		});
 	} else if (sn === "draft" || sn === "" || sn === "pending") {
 		const banner = bodyEl.createDiv({ cls: "sb-draft-banner" });
@@ -366,15 +372,18 @@ export function renderWikiReviewBanner(
 				: t("wiki.draft", lang);
 		banner.createEl("span", { text: label, cls: "sb-draft-label" });
 		const reviewBtn = banner.createEl("button", { text: t("wiki.markReviewed", lang), cls: "sb-draft-review-btn" });
-		reviewBtn.addEventListener("click", async () => {
+		reviewBtn.addEventListener("click", () => {
+			void (async () => {
 			await markAsReviewed(page.path, ctx);
 			await ctx.renderPage(name);
+			})();
 		});
 	} else if (sn === "reviewed") {
 		const banner = bodyEl.createDiv({ cls: "sb-reviewed-banner" });
 		banner.createEl("span", { text: t("wiki.reviewed", lang), cls: "sb-draft-label" });
 		const summaryBtn = banner.createEl("button", { text: t("wiki.distillSummary", lang), cls: "sb-draft-review-btn" });
-		summaryBtn.addEventListener("click", async () => {
+		summaryBtn.addEventListener("click", () => {
+			void (async () => {
 			summaryBtn.textContent = "...";
 			try {
 				const { callLLM } = await import("../core/llm");
@@ -405,6 +414,7 @@ export function renderWikiReviewBanner(
 				summaryBtn.textContent = t("wiki.distillSummary", lang);
 				new Notice(t("wiki.summaryDistillFail", lang, { msg: e instanceof Error ? e.message : String(e) }));
 			}
+			})();
 		});
 	}
 }
@@ -460,7 +470,7 @@ export async function markForRegeneration(target: string, ctx: WikiPageCtx & { l
 		try {
 			const { runCompile } = await import("../core/compile");
 			await ctx.plugin.runWithCompileLock(() =>
-				runCompile(ctx.app, ctx.plugin.settings, undefined, false, ctx.plugin as any),
+				runCompile(ctx.app, ctx.plugin.settings, undefined, false, ctx.plugin as unknown as import("../core/file-utils").StorageLike),
 			);
 			await ctx.loadWiki();
 			await ctx.renderPage(shortName);

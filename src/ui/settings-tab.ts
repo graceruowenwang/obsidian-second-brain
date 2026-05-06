@@ -30,9 +30,7 @@ class ProviderSwitchModal extends Modal {
 		this.contentEl.createEl("p", { text: t("set.providerSwitchDesc", this.lang, { provider: label }) });
 
 		const btnRow = this.contentEl.createDiv();
-		btnRow.style.display = "flex";
-		btnRow.style.gap = "8px";
-		btnRow.style.justifyContent = "flex-end";
+		btnRow.classList.add("sb-flex-row-end");
 
 		const cancelBtn = btnRow.createEl("button", { text: t("set.cancel", this.lang) });
 		cancelBtn.addEventListener("click", () => this.close());
@@ -147,7 +145,7 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 			.addText((t2) => {
 				const preset = providerPresetOrUndefined(this.plugin.settings.provider);
 				if (preset && preset.models.includes(this.plugin.settings.model)) {
-					t2.inputEl.style.display = "none";
+					t2.inputEl.classList.add("sb-hidden");
 				} else {
 					t2.setPlaceholder(t("set.modelPh", lang)).setValue(this.plugin.settings.model).onChange(async (v) => { this.plugin.settings.model = v; await this.plugin.saveSettings(); });
 				}
@@ -199,8 +197,10 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 		new Setting(wsContent)
 			.setName(t("set.organizeRaw", lang))
 			.setDesc(t("set.organizeRawDesc", lang))
-			.addButton((btn) => btn.setButtonText(t("set.organizeRawBtn", lang)).onClick(async () => {
+			.addButton((btn) => btn.setButtonText(t("set.organizeRawBtn", lang)).onClick(() => {
+				void (async () => {
 				await this.plugin.organizeRawMaterials();
+				})();
 			}));
 
 		// --- 界面与模板 ---
@@ -334,7 +334,8 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 		new Setting(advContent)
 			.setName(t("set.cleanWiki", lang))
 			.setDesc(t("set.cleanWikiDesc", lang))
-			.addButton((btn) => btn.setButtonText(t("set.cleanWikiBtn", lang)).setWarning().onClick(async () => {
+			.addButton((btn) => btn.setButtonText(t("set.cleanWikiBtn", lang)).setWarning().onClick(() => {
+				void (async () => {
 				const modal = new Modal(this.app);
 				modal.contentEl.createEl("h3", { text: t("set.confirmTitle", lang) });
 				modal.contentEl.createEl("p", { text: t("set.confirmDesc", lang) });
@@ -342,15 +343,14 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 				const input = modal.contentEl.createEl("input", { type: "text", placeholder: t("set.confirmPh", lang) });
 
 				const btnRow = modal.contentEl.createDiv();
-				btnRow.style.display = "flex";
-				btnRow.style.gap = "8px";
-				btnRow.style.justifyContent = "flex-end";
+				btnRow.classList.add("sb-flex-row-end");
 
 				const cancelBtn = btnRow.createEl("button", { text: t("set.cancel", lang) });
 				cancelBtn.addEventListener("click", () => modal.close());
 
 				const confirmBtn = btnRow.createEl("button", { text: t("set.confirmBtn", lang), cls: "mod-warning" });
-				confirmBtn.addEventListener("click", async () => {
+				confirmBtn.addEventListener("click", () => {
+					void (async () => {
 					if (input.value !== "CONFIRM") {
 						new Notice(t("notice.pleaseConfirm", lang));
 						return;
@@ -393,17 +393,21 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 						confirmBtn.disabled = false;
 						confirmBtn.textContent = t("set.confirmBtn", lang);
 					}
+					})();
 				});
 				modal.open();
+				})();
 			}));
 
 		new Setting(advContent)
 			.setName(t("set.cleanCache", lang))
 			.setDesc(t("set.cleanCacheDesc", lang))
-			.addButton((btn) => btn.setButtonText(t("set.cleanCacheBtn", lang)).setWarning().onClick(async () => {
+			.addButton((btn) => btn.setButtonText(t("set.cleanCacheBtn", lang)).setWarning().onClick(() => {
+				void (async () => {
 				await this.plugin.saveData(emptyCache());
 				clearEmbeddingCache();
 				new Notice(t("notice.cacheCleaned", lang));
+				})();
 			}));
 	}
 

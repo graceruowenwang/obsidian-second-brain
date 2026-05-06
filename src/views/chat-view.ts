@@ -90,7 +90,7 @@ export class ChatView extends ItemView {
 			this.chatHistory = [];
 				this.saveHistory();
 			this.messagesEl.empty();
-			this.contextIndicator.style.display = "none";
+			this.contextIndicator.classList.add("sb-hidden");
 			this.addWelcome();
 		});
 
@@ -120,7 +120,7 @@ export class ChatView extends ItemView {
 
 		// 上下文指示器
 		this.contextIndicator = container.createDiv({ cls: "sb-context-indicator" });
-		this.contextIndicator.style.display = "none";
+		this.contextIndicator.classList.add("sb-hidden");
 		this.updateContextIndicator();
 
 		// 输入区
@@ -150,7 +150,7 @@ export class ChatView extends ItemView {
 		inputArea.createDiv({ cls: "sb-chat-input-hint", text: "Shift+Enter 换行" });
 		const sendBtn = composerActions.createEl("button", { text: t("chat.send", lang), cls: "sb-send-btn mod-cta", attr: { type: "button", "aria-label": t("chat.send", lang) } });
 		const stopBtn = composerActions.createEl("button", { text: t("chat.stop", lang), cls: "sb-stop-btn", attr: { type: "button", "aria-label": t("chat.stop", lang) } });
-		stopBtn.style.display = "none";
+		stopBtn.classList.add("sb-hidden");
 		const saveNoteBtn = composerActions.createEl("button", { cls: "sb-save-note-btn", attr: { type: "button", "aria-label": t("chat.saveAsNote", lang) } });
 		setIcon(saveNoteBtn, "save");
 		saveNoteBtn.title = t("chat.saveAsNote", lang);
@@ -203,11 +203,11 @@ export class ChatView extends ItemView {
 			const clearCtxBtn = this.contextIndicator.createEl("button", { text: t("chat.clearContext", lang), cls: "sb-context-clear" });
 			clearCtxBtn.addEventListener("click", () => {
 				this.chatHistory = [];
-				this.contextIndicator.style.display = "none";
+				this.contextIndicator.classList.add("sb-hidden");
 			});
-			this.contextIndicator.style.display = "";
+			this.contextIndicator.classList.remove("sb-hidden");
 		} else {
-			this.contextIndicator.style.display = "none";
+			this.contextIndicator.classList.add("sb-hidden");
 		}
 	}
 
@@ -410,12 +410,14 @@ export class ChatView extends ItemView {
 			const pre = codeEl.parentElement;
 			if (!pre || pre.querySelector(".sb-copy-btn")) return;
 			const btn = createEl("button", { cls: "sb-copy-btn", text: t("chat.copy", lang) });
-			btn.addEventListener("click", async () => {
+			btn.addEventListener("click", () => {
+				void (async () => {
 				await navigator.clipboard.writeText((codeEl as HTMLElement).textContent || "");
 				btn.textContent = t("chat.copied", lang);
 				setTimeout(() => { btn.textContent = t("chat.copy", lang); }, 1500);
+				})();
 			});
-			pre.style.position = "relative";
+			pre.classList.add("sb-position-relative");
 			pre.appendChild(btn);
 		});
 
@@ -451,7 +453,8 @@ export class ChatView extends ItemView {
 					if (hoverTimer) clearTimeout(hoverTimer);
 				});
 
-				dlBtn.addEventListener("click", async (e) => {
+				dlBtn.addEventListener("click", (e) => {
+					void (async () => {
 					e.stopPropagation();
 					try {
 						if (src.startsWith("data:")) {
@@ -466,6 +469,7 @@ export class ChatView extends ItemView {
 							URL.revokeObjectURL(url);
 						}
 					} catch (e) { console.warn("chat-view:", e) }
+					})();
 				});
 
 				openBtn.addEventListener("click", (e) => {
@@ -482,7 +486,8 @@ export class ChatView extends ItemView {
 			const wrap = createDiv({ cls: "sb-table-wrap" });
 			table.parentElement?.replaceChild(wrap, table);
 			const btn = createEl("button", { cls: "sb-table-copy-btn", text: t("chat.copyTable", lang) });
-			btn.addEventListener("click", async () => {
+			btn.addEventListener("click", () => {
+				void (async () => {
 				const rows = Array.from(table.querySelectorAll("tr"));
 				const md = rows.map((row) => {
 					const cells = Array.from(row.querySelectorAll("th, td"));
@@ -498,6 +503,7 @@ export class ChatView extends ItemView {
 				await navigator.clipboard.writeText(md.join("\n"));
 				btn.textContent = t("chat.copied", lang);
 				setTimeout(() => { btn.textContent = t("chat.copyTable", lang); }, 1500);
+				})();
 			});
 			wrap.appendChild(btn);
 			wrap.appendChild(table);
@@ -524,8 +530,8 @@ export class ChatView extends ItemView {
 		const sendBtn = this.containerEl.querySelector(".sb-send-btn") as HTMLElement;
 		const stopBtn = this.containerEl.querySelector(".sb-stop-btn") as HTMLElement;
 		const saveNoteBtn = this.containerEl.querySelector(".sb-save-note-btn") as HTMLButtonElement;
-		if (sendBtn) sendBtn.style.display = generating ? "none" : "";
-		if (stopBtn) stopBtn.style.display = generating ? "" : "none";
+		if (sendBtn) sendBtn.classList.toggle("sb-hidden", generating);
+		if (stopBtn) stopBtn.classList.toggle("sb-hidden", !generating);
 		if (saveNoteBtn) saveNoteBtn.disabled = generating || this.saving;
 	}
 

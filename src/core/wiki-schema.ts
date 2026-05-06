@@ -20,7 +20,7 @@ function yamlStr(v: string): string {
 	return `"${v.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 }
 
-export function frontmatter(fields: Record<string, any>): string {
+export function frontmatter(fields: Record<string, unknown>): string {
 	const lines = ["---"];
 	for (const [k, v] of Object.entries(fields)) {
 		if (Array.isArray(v)) {

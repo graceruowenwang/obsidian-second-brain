@@ -73,7 +73,7 @@ export class WikiView extends ItemView {
 
 		// 编译完成后自动刷新 wiki 视图（缺口文件、新页面等）
 		this.registerEvent(
-			(this.app.workspace as any).on("second-brain:compile-complete", () => {
+			(this.app.workspace as unknown as { on: (event: string, callback: () => void) => import("obsidian").EventRef }).on("second-brain:compile-complete", () => {
 				if (!this.wikiPages.length) return;
 				void this.loadWiki();
 			}),
@@ -347,13 +347,13 @@ export class WikiView extends ItemView {
 	}
 
 	private async markAsReviewed(target: string): Promise<void> {
-		if ((this.plugin as any).compileMutex?.locked) return;
+		if ((this.plugin as unknown as { compileMutex?: { locked?: boolean } }).compileMutex?.locked) return;
 		const { markAsReviewed: markFn } = await import("./wiki-page");
 		await markFn(target, this.pageCtx());
 	}
 
 	private async markForRegeneration(target: string): Promise<void> {
-		if ((this.plugin as any).compileMutex?.locked) return;
+		if ((this.plugin as unknown as { compileMutex?: { locked?: boolean } }).compileMutex?.locked) return;
 		const { markForRegeneration: markFn } = await import("./wiki-page");
 		await markFn(target, this.pageCtx());
 	}

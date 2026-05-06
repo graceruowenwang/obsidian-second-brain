@@ -218,7 +218,7 @@ export async function generatePages(
 	if (cache.failedPages) {
 		for (const [path, entry] of Object.entries(cache.failedPages)) {
 			if (entry.failCount < 3) {
-				const existing = finalRegen.find(r => getPagePath(r as AnalysisItem) === path);
+				const existing = finalRegen.find(r => getPagePath(r) === path);
 				if (!existing) {
 					const allItems: AnalysisItem[] = [
 						...(newAnalysis.concepts || []).map(c => ({ ...c, _type: "concept" as const })),

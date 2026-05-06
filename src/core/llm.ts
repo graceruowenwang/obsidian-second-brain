@@ -343,8 +343,8 @@ export async function callLLMBatch(
 		// 分析本批结果，动态调整延迟
 		const fulfilled = batchResults.filter(r => r.status === "fulfilled").length;
 		const rejected429 = batchResults.some(r =>
-			r.status === "rejected" && (r as PromiseRejectedResult).reason instanceof LLMError &&
-			((r as PromiseRejectedResult).reason as LLMError).status === 429
+			r.status === "rejected" && r.reason instanceof LLMError &&
+			(r.reason as LLMError).status === 429
 		);
 
 		if (rejected429) {
@@ -359,7 +359,7 @@ export async function callLLMBatch(
 				results[r.value.index] = r.value;
 			} else {
 				const idx = i + j;
-				results[idx] = { index: idx, status: "rejected", reason: String((r as PromiseRejectedResult).reason || "SB_UNKNOWN") };
+				results[idx] = { index: idx, status: "rejected", reason: String(r.reason || "SB_UNKNOWN") };
 			}
 		}
 
@@ -514,7 +514,11 @@ async function callOpenAIStream(
 		}),
 		signal: options.signal,
 		skipDoneLine: true,
-		extractText: (d: any) => d.choices?.[0]?.delta?.content || undefined,
+		extractText: (d: unknown) => {
+				const obj = d as Record<string, unknown>;
+				const choices = obj?.choices as Array<{ delta?: { content?: string } }> | undefined;
+				return choices?.[0]?.delta?.content || undefined;
+		},
 	}, onChunk);
 }
 
@@ -544,8 +548,14 @@ async function callAnthropicStream(
 			stream: true,
 		}),
 		signal: options.signal,
-		extractText: (d: any) =>
-			d.type === "content_block_delta" && d.delta?.text ? d.delta.text : undefined,
+		extractText: (d: unknown) => {
+				const obj = d as Record<string, unknown>;
+				if (obj?.type === "content_block_delta") {
+					const delta = obj?.delta as { text?: string } | undefined;
+					return delta?.text || undefined;
+				}
+				return undefined;
+			},
 	}, onChunk);
 }
 

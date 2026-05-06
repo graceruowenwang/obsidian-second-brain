@@ -63,7 +63,7 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 	 */
 	async runWithCompileLock<T>(fn: () => Promise<T>): Promise<T> {
 		const result = await this.compileMutex.runExclusive(fn);
-		this.app.workspace.trigger("second-brain:compile-complete" as any);
+		(this.app.workspace as unknown as { trigger: (event: string) => void }).trigger("second-brain:compile-complete");
 		return result;
 	}
 
@@ -551,10 +551,7 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 		modal.contentEl.createEl("h3", { text: t("set.compileFileTitle", lang) });
 		modal.contentEl.createEl("p", { text: t("set.compileFileDesc", lang, { path: file.path }) });
 
-		const btnRow = modal.contentEl.createDiv();
-		btnRow.style.display = "flex";
-		btnRow.style.gap = "8px";
-		btnRow.style.justifyContent = "flex-end";
+		const btnRow = modal.contentEl.createDiv({ cls: "sb-flex-row-end" });
 
 		const cancelBtn = btnRow.createEl("button", { text: t("set.cancel", lang) });
 		cancelBtn.addEventListener("click", () => modal.close());

@@ -63,7 +63,7 @@ export class UpgradeModal extends Modal {
 			cls: "mod-cta",
 		});
 		upgradeBtn.addEventListener("click", () => {
-			(window as any).open(t("license.purchaseUrl", this.lang));
+			(window as unknown as { open?: (url: string) => void }).open?.(t("license.purchaseUrl", this.lang));
 		});
 
 		const keyBtn = btnRow.createEl("button", {

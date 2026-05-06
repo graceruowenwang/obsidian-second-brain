@@ -59,9 +59,9 @@ function parseBatchEmbeddingResponse(body: unknown): number[][] {
 	if (!Array.isArray(data) || data.length === 0) {
 		throw new Error("SB_EMBED_NO_DATA");
 	}
-	return data.map((item: any) => {
+	return data.map((item: Record<string, unknown>) => {
 		const emb = item?.embedding;
-		if (!Array.isArray(emb) || !emb.every((x: unknown) => typeof x === "number" && Number.isFinite(x as number))) {
+		if (!Array.isArray(emb) || !emb.every((x: unknown) => typeof x === "number" && Number.isFinite(x))) {
 			throw new Error("SB_EMBED_INVALID");
 		}
 		return emb as number[];

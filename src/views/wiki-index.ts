@@ -258,8 +258,9 @@ export function renderWikiEmpty(
 	}
 	if (!rawHasFiles && hasSampleSource) {
 		const sampleBtn = guidance.createEl("button", { text: t("empty.loadSamples", lang), cls: "sb-empty-btn" });
-		sampleBtn.style.marginBottom = "8px";
-		sampleBtn.addEventListener("click", async () => {
+		sampleBtn.classList.add("sb-mb-8");
+		sampleBtn.addEventListener("click", () => {
+			void (async () => {
 			sampleBtn.textContent = "...";
 			try {
 				await loadSamplesIntoVault(app, rawFolder, wikiFolder);
@@ -267,6 +268,7 @@ export function renderWikiEmpty(
 			} catch (e) {
 				sampleBtn.textContent = t("empty.samplesFail", lang);
 			}
+			})();
 		});
 	}
 	const step2 = steps.createDiv({ cls: "sb-empty-step" });
@@ -401,11 +403,13 @@ export function buildWikiDataPanel(
 				});
 				sr.createEl("span", { cls: "sb-qa-stale-days", text: t("health.daysAgo", lang, { n: String(sp.daysSinceUpdate) }) });
 				sr.createEl("button", { cls: "sb-qa-stale-regen", text: t("wiki.issueStaleRegen", lang) })
-					.addEventListener("click", async (ev) => {
+					.addEventListener("click", (ev) => {
+						void (async () => {
 						ev.preventDefault();
 						ev.stopPropagation();
 						(ev.target as HTMLElement).textContent = "...";
 						await actions.markForRegeneration(sp.path);
+						})();
 					});
 			}
 		}
@@ -562,7 +566,7 @@ export function renderIndex(ctx: WikiIndexCtx): void {
 				ctx.vectorSearchAbort = searchAbort;
 				vectorSearch(query, filesMap, ctx.plugin.settings, 10, searchAbort.signal).then(results => {
 				if (indexGen !== ctx.indexRenderGeneration) return;
-				const currentView = (ctx as any).currentView;
+				const currentView = (ctx as unknown as { currentView?: string }).currentView;
 				if (currentView !== undefined && currentView !== "index") return;
 				const semanticNames = new Set<string>();
 				for (const r of results) {
