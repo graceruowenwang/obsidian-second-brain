@@ -170,7 +170,7 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 					showUpgradeNotice(this.app, "ai-chat", lang);
 					return;
 				}
-				this.activateView(VIEW_TYPE_CHAT);
+				void this.activateView(VIEW_TYPE_CHAT);
 			},
 		});
 

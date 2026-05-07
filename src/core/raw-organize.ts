@@ -88,13 +88,13 @@ export function pickTargetSubfolder(
 	return RAW_SUBFOLDER_UNSORTED;
 }
 
-async function uniqueTargetPath(
+function uniqueTargetPath(
 	app: App,
 	rawFolder: string,
 	relFolder: string,
 	baseName: string,
 	ext: string,
-): Promise<string> {
+): string {
 	const dir = `${rawFolder}/${relFolder}`;
 	let candidate = `${dir}/${baseName}.${ext}`;
 	let n = 1;
@@ -186,7 +186,7 @@ export async function organizeLooseRawFiles(app: App, rawFolder: string): Promis
 
 		try {
 			const fromPath = file.path;
-			const target = await uniqueTargetPath(app, rawFolder, relFolder, file.basename, ext);
+			const target = uniqueTargetPath(app, rawFolder, relFolder, file.basename, ext);
 			await app.vault.rename(file, target);
 			moved.push({ from: fromPath, to: target });
 		} catch (e) {

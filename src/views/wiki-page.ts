@@ -112,7 +112,7 @@ export async function renderPage(
 
 	const breadcrumb = ctx.bodyEl.createDiv({ cls: "sb-wiki-breadcrumb" });
 	const backBtn = breadcrumb.createEl("button", { cls: "sb-wiki-back", attr: { "aria-label": t("wiki.backNav", lang) } });
-	backBtn.addEventListener("click", () => goBack(ctx, ctx.showIndex));
+	backBtn.addEventListener("click", () => { void goBack(ctx, ctx.showIndex); });
 	const backIcon = backBtn.createSpan({ cls: "sb-wiki-back-icon-wrap" });
 	setIcon(backIcon, "arrow-left");
 	backBtn.createSpan({ text: t("wiki.backNav", lang), cls: "sb-wiki-back-text" });
@@ -153,7 +153,7 @@ export async function renderPage(
 			else await ctx.app.vault.create(blogPath, article);
 			setAsyncButton(expressBtn, false, t("wiki.articleGenerated", lang));
 			new Notice(t("wiki.articleGeneratedNotice", lang));
-		} catch (e) {
+		} catch (_e) {
 			setAsyncButton(expressBtn, false, t("wiki.generateArticle", lang));
 			new Notice(t("wiki.generateFailed", lang));
 		}
@@ -250,7 +250,7 @@ export async function renderPage(
 		const blGrid = ctx.bodyEl.createDiv({ cls: "sb-wiki-backlinks-grid" });
 		for (const bl of backlinks) {
 			blGrid.createEl("a", { text: bl.display, cls: "sb-wiki-backlink-chip" })
-				.addEventListener("click", (ev) => { ev.preventDefault(); ctx.navigateTo(bl.name); });
+				.addEventListener("click", (ev) => { ev.preventDefault(); void ctx.navigateTo(bl.name); });
 		}
 	}
 }
@@ -340,7 +340,7 @@ export function renderWikiReviewBanner(
 			const fullPath = `${wf}/${page.path}`;
 			const file = ctx.app.vault.getAbstractFileByPath(fullPath);
 			if (file instanceof TFile) {
-				await ctx.app.vault.delete(file);
+				await ctx.app.vault.trash(file, true);
 			}
 			try {
 				const { runCompile } = await import("../core/compile");

@@ -153,7 +153,7 @@ async function onlineValidate(key: string, instanceId: string | null): Promise<L
 	};
 }
 
-async function onlineDeactivate(_key: string, _instanceId: string): Promise<boolean> {
+function onlineDeactivate(_key: string, _instanceId: string): boolean {
 	return true;
 }
 
@@ -233,7 +233,7 @@ export async function validateLicense(key: string, instanceId?: string | null): 
 
 export async function deactivateLicense(key: string, instanceId: string | null): Promise<void> {
 	if (key && instanceId) {
-		await onlineDeactivate(key, instanceId);
+		onlineDeactivate(key, instanceId);
 	}
 }
 

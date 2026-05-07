@@ -87,7 +87,7 @@ export class SetupWizardModal extends Modal {
 		const startBtn = btnRow.createEl("button", { text: t("wizard.startSetup", lang), cls: "mod-cta" });
 		startBtn.addEventListener("click", () => { this.step = 1; this.renderStep(); });
 		const skipBtn = btnRow.createEl("button", { text: t("wizard.skip", lang) });
-		skipBtn.addEventListener("click", () => this.finish());
+		skipBtn.addEventListener("click", () => { void this.finish(); });
 	}
 
 	// Step 1: LLM 配置 (原 Step 0)
@@ -155,7 +155,7 @@ export class SetupWizardModal extends Modal {
 		nextBtn.addEventListener("click", () => { this.step = 2; this.renderStep(); });
 
 		const skipBtn = btnRow.createEl("button", { text: t("wizard.skip", lang) });
-		skipBtn.addEventListener("click", () => this.finish());
+		skipBtn.addEventListener("click", () => { void this.finish(); });
 	}
 
 	// Step 2: 目录配置 (原 Step 1)
@@ -191,11 +191,11 @@ export class SetupWizardModal extends Modal {
 		nextBtn.addEventListener("click", () => { this.step = 3; this.renderStep(); });
 
 		const skipBtn = btnRow.createEl("button", { text: t("wizard.skip", lang) });
-		skipBtn.addEventListener("click", () => this.finish());
+		skipBtn.addEventListener("click", () => { void this.finish(); });
 	}
 
 	// Step 3: 加载示例素材
-	private async renderStep3Samples(lang: string) {
+	private renderStep3Samples(lang: string) {
 		this.container.createEl("h3", { text: t("wizard.step3SamplesTitle", lang) });
 		this.container.createEl("p", { text: t("wizard.step3SamplesDesc", lang) });
 
@@ -240,7 +240,7 @@ export class SetupWizardModal extends Modal {
 		nextBtn.addEventListener("click", () => { this.step = 4; this.renderStep(); });
 
 		const skipBtn = btnRow.createEl("button", { text: t("wizard.skip", lang) });
-		skipBtn.addEventListener("click", () => this.finish());
+		skipBtn.addEventListener("click", () => { void this.finish(); });
 	}
 
 	// Step 4: 完成
@@ -262,7 +262,7 @@ export class SetupWizardModal extends Modal {
 		prevBtn.addEventListener("click", () => { this.step = 3; this.renderStep(); });
 
 		const doneBtn = btnRow.createEl("button", { text: t("wizard.done", lang), cls: "mod-cta" });
-		doneBtn.addEventListener("click", () => this.finish());
+		doneBtn.addEventListener("click", () => { void this.finish(); });
 	}
 
 	private async finish() {

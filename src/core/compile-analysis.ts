@@ -40,7 +40,7 @@ export function parseAnalysisJSON(raw: string): Analysis {
 	let parsed: unknown;
 	try {
 		parsed = JSON.parse(jsonMatch[0]);
-	} catch (e) {
+	} catch (_e) {
 		throw new Error("SB_JSON_PARSE");
 	}
 

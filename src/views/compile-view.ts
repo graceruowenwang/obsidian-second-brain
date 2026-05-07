@@ -58,11 +58,11 @@ export class CompileView extends ItemView {
 		const btnRow = container.createDiv({ cls: "sb-compile-toolbar sb-btn-row" });
 		this.compileBtn = btnRow.createEl("button", { text: t("compile.start", lang), cls: "mod-cta sb-compile-btn-primary" });
 		bindHoverHint(this.compileBtn, t("compile.tooltip.start", lang));
-		this.compileBtn.addEventListener("click", () => this.startCompile());
+		this.compileBtn.addEventListener("click", () => { void this.startCompile(); });
 
 		const forceBtn = btnRow.createEl("button", { text: t("compile.force", lang), cls: "sb-compile-btn-secondary" });
 		bindHoverHint(forceBtn, t("compile.tooltip.force", lang));
-		forceBtn.addEventListener("click", () => this.startCompile(true));
+		forceBtn.addEventListener("click", () => { void this.startCompile(true); });
 
 		const organizeBtn = btnRow.createEl("button", { text: t("compile.organizeRaw", lang), cls: "sb-compile-btn-secondary" });
 		bindHoverHint(organizeBtn, t("compile.tooltip.organizeRaw", lang));
@@ -281,8 +281,8 @@ export class CompileView extends ItemView {
 		bindHoverHint(this.compileBtn, t("compile.tooltip.compilingPrimary", lang));
 		this.cancelBtn.classList.remove("sb-hidden");
 		this.logEl.empty();
-		this.progressFill.style.width = "0%";
-		this.progressFill.style.background = "";
+		this.progressFill.setCssProps({ width: "0%" });
+		this.progressFill.setCssProps({ background: "" });
 		this.timeEstimateEl.classList.add("sb-hidden");
 		this.stopEstimateTimer();
 		this.resetStageDots();
@@ -292,7 +292,7 @@ export class CompileView extends ItemView {
 		if (oldSummary) oldSummary.remove();
 
 		const onProgress = (e: ProgressEvent) => {
-			this.progressFill.style.width = `${e.percent}%`;
+			this.progressFill.setCssProps({ width: `${e.percent}%` });
 				const bar = this.containerEl.querySelector(".sb-progress-bar");
 				if (bar) bar.setAttribute("aria-valuenow", String(e.percent));
 			this.progressLabel.textContent = t("compile.progress", lang, { step: e.stepName, detail: e.detail, pct: e.percent });
@@ -473,7 +473,7 @@ export class CompileView extends ItemView {
 		this.cancelBtn.classList.add("sb-hidden");
 		this.timeEstimateEl.classList.add("sb-hidden");
 		this.stopEstimateTimer();
-		this.progressFill.style.background = "";
+		this.progressFill.setCssProps({ background: "" });
 		this.resetStageDots();
 	}
 
@@ -536,11 +536,11 @@ export class CompileView extends ItemView {
 				const viewBtn = guideEl.createEl("button", { text: t("compile.viewWiki", lang), cls: "sb-compile-guide-btn mod-cta" });
 				bindHoverHint(viewBtn, t("compile.tooltip.viewWiki", lang));
 				viewBtn.addEventListener("click", () => {
-					this.plugin.activateView("second-brain-wiki");
+					void this.plugin.activateView("second-brain-wiki");
 				});
 				const chatBtn = guideEl.createEl("button", { text: t("compile.tryChat", lang), cls: "sb-compile-guide-btn" });
 				chatBtn.addEventListener("click", () => {
-					this.plugin.activateView("second-brain-chat");
+					void this.plugin.activateView("second-brain-chat");
 				});
 			}
 
@@ -660,7 +660,7 @@ export class CompileView extends ItemView {
 		}
 	}
 
-	async onClose() {
+	onClose() {
 		this.cancelCompile();
 		if (this.rawRefreshTimer != null) {
 			window.clearTimeout(this.rawRefreshTimer);

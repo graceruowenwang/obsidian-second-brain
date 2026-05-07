@@ -265,7 +265,7 @@ export function renderWikiEmpty(
 			try {
 				await loadSamplesIntoVault(app, rawFolder, wikiFolder);
 				sampleBtn.textContent = t("empty.samplesLoaded", lang);
-			} catch (e) {
+			} catch (_e) {
 				sampleBtn.textContent = t("empty.samplesFail", lang);
 			}
 			})();
@@ -281,7 +281,7 @@ export function renderWikiEmpty(
 	btnRow.createEl("button", { text: t("empty.openSettings", lang), cls: "sb-empty-btn" })
 		.addEventListener("click", () => openPluginSettings(app));
 	btnRow.createEl("button", { text: t("empty.startCompile", lang), cls: "sb-empty-btn mod-cta" })
-		.addEventListener("click", () => plugin.activateView("second-brain-compile"));
+		.addEventListener("click", () => { void plugin.activateView("second-brain-compile"); });
 }
 
 export function buildIssueRow(
@@ -583,8 +583,8 @@ export function renderIndex(ctx: WikiIndexCtx): void {
 				const semList = host.createDiv({ cls: "sb-wiki-list sb-wiki-list-semantic" });
 				for (const entry of sortPageEntries(semEntries, ctx.findPage, ctx.sortMode)) {
 					appendWikiListRow(semList, entry, lang, {
-						findPage: ctx.findPage,
-						navigateTo: (n) => ctx.navigateTo(n),
+						findPage: (n) => ctx.findPage(n),
+						navigateTo: (n) => { void ctx.navigateTo(n); },
 						semantic: true,
 						highlightQuery: query,
 					});
@@ -617,8 +617,8 @@ export function renderIndex(ctx: WikiIndexCtx): void {
 		const visible = sorted.slice(0, ctx.pageLimit);
 		for (const entry of visible) {
 			appendWikiListRow(listRoot, entry, lang, {
-				findPage: ctx.findPage,
-				navigateTo: (n) => ctx.navigateTo(n),
+				findPage: (n) => ctx.findPage(n),
+				navigateTo: (n) => { void ctx.navigateTo(n); },
 			});
 		}
 		if (sorted.length === 0) {

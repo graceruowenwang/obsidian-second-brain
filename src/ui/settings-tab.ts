@@ -364,7 +364,7 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 							const fullPath = `${wikiFolder}/${f.path}`;
 							const file = this.app.vault.getAbstractFileByPath(fullPath);
 							if (file instanceof TFile) {
-								await this.app.vault.delete(file);
+								await this.app.vault.trash(file, true);
 							}
 						}
 						// 只重置 wiki/cache 相关状态，保留用户配置

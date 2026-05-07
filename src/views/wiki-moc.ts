@@ -6,7 +6,7 @@ import { writeWikiFile } from "../core/file-utils";
 import { t } from "../core/i18n";
 import type { WikiViewCtx } from "./wiki-shared";
 
-export async function showMoc(ctx: WikiViewCtx): Promise<void> {
+export function showMoc(ctx: WikiViewCtx): void {
 	ctx.currentView = "index";
 	ctx.currentName = "";
 	ctx.navHistory = [];
@@ -56,7 +56,7 @@ export async function showMoc(ctx: WikiViewCtx): Promise<void> {
 			cls: "sb-wiki-list-row sb-wiki-list-row-moc",
 			attr: { "data-name": name, role: "button", tabindex: "0" },
 		});
-		row.addEventListener("click", () => ctx.navigateTo(name));
+		row.addEventListener("click", () => { void ctx.navigateTo(name); });
 		row.addEventListener("keydown", (ev) => {
 			if (ev.key === "Enter" || ev.key === " ") {
 				ev.preventDefault();

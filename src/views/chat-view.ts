@@ -166,14 +166,14 @@ export class ChatView extends ItemView {
 		});
 		// 自动调整高度
 		this.inputEl.addEventListener("input", () => {
-			this.inputEl.style.height = "auto";
-			this.inputEl.style.height = Math.min(this.inputEl.scrollHeight, 150) + "px";
+			this.inputEl.setCssProps({ height: "auto" });
+			this.inputEl.setCssProps({ height: Math.min(this.inputEl.scrollHeight, 150) + "px" });
 		});
 
 		// 内部链接点击
 		this.messagesEl.addEventListener("click", (e) => {
 			const target = e.target as HTMLElement;
-			const anchor = target.closest("a") as HTMLAnchorElement | null;
+			const anchor = target.closest("a");
 			if (!anchor) return;
 
 			const href = anchor.getAttribute("data-href") || anchor.getAttribute("href") || "";
@@ -241,7 +241,7 @@ export class ChatView extends ItemView {
 		if (Object.keys(this.wikiMap).length === 0) {
 			const compileBtn = actionRow.createEl("button", { text: t("empty.startCompile", lang), cls: "sb-empty-btn mod-cta" });
 			compileBtn.addEventListener("click", () => {
-				this.plugin.activateView("second-brain-compile");
+				void this.plugin.activateView("second-brain-compile");
 			});
 		}
 	}
@@ -274,7 +274,7 @@ export class ChatView extends ItemView {
 			}
 
 		this.inputEl.value = "";
-		this.inputEl.style.height = "auto";
+		this.inputEl.setCssProps({ height: "auto" });
 		this.sending = true;
 		this.abortController = new AbortController();
 		this.toggleButtons(true);
@@ -549,7 +549,7 @@ export class ChatView extends ItemView {
 		}
 
 		this.inputEl.value = "";
-		this.inputEl.style.height = "auto";
+		this.inputEl.setCssProps({ height: "auto" });
 		this.saving = true;
 		this.toggleButtons(false);
 
@@ -592,7 +592,7 @@ export class ChatView extends ItemView {
 		this.toggleButtons(false);
 	}
 
-	async onClose() {
+	onClose() {
 		this.abortController?.abort();
 		if (this.streamRenderRaf) cancelAnimationFrame(this.streamRenderRaf);
 		this.streamRenderPending = false;

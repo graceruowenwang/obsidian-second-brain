@@ -344,7 +344,7 @@ export async function callLLMBatch(
 		const fulfilled = batchResults.filter(r => r.status === "fulfilled").length;
 		const rejected429 = batchResults.some(r =>
 			r.status === "rejected" && r.reason instanceof LLMError &&
-			(r.reason as LLMError).status === 429
+			r.reason.status === 429
 		);
 
 		if (rejected429) {
@@ -410,7 +410,7 @@ const SSE_TOTAL_TIMEOUT_MS = 120_000; // 2 分钟总超时
 async function readSSEStream(config: StreamConfig, onChunk: (text: string) => void): Promise<string> {
 	let res: Response;
 	try {
-		// eslint-disable-next-line no-restricted-properties -- SSE streaming requires native fetch; requestUrl does not support streaming
+		// eslint-disable-next-line obsidian/no-fetch -- SSE streaming requires native fetch; requestUrl does not support streaming
 		res = await fetch(config.url, {
 			method: "POST",
 			headers: config.headers,

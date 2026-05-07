@@ -369,10 +369,11 @@ async function phaseAnalyze(ctx: CompileContext): Promise<void> {
 	const analysisResult = await runAnalysis(allFiles, changedFiles, cache, tpl, settings, ctx.forceRecompile, onProgress, signal);
 	ctx.newAnalysis = analysisResult.analysis;
 	ctx.validationIssues = analysisResult.validationIssues;
+	if (!ctx.newAnalysis) throw new Error("SB_ANALYSIS_NULL");
 
-	const cc = ctx.newAnalysis!.concepts?.length || 0;
-	const ce = ctx.newAnalysis!.entities?.length || 0;
-	const cs = ctx.newAnalysis!.sources?.length || 0;
+	const cc = ctx.newAnalysis.concepts?.length || 0;
+	const ce = ctx.newAnalysis.entities?.length || 0;
+	const cs = ctx.newAnalysis.sources?.length || 0;
 	onProgress({ step: 2, stepName: "AI 分析", detail: `提取：${cc} 概念 + ${ce} 实体 + ${cs} 来源`, percent: 40 });
 }
 

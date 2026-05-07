@@ -7,7 +7,7 @@ import { t } from "../core/i18n";
 import type { WikiViewCtx } from "./wiki-shared";
 import { setAsyncButton } from "../ui/async-button";
 
-export async function openSynthesisDialog(ctx: WikiViewCtx): Promise<void> {
+export function openSynthesisDialog(ctx: WikiViewCtx): void {
 	const lang = ctx.plugin.settings.language;
 	const concepts = ctx.wikiPages
 		.filter((f: { path: string }) => f.path.includes("concepts/"))
@@ -91,7 +91,7 @@ export async function openSynthesisDialog(ctx: WikiViewCtx): Promise<void> {
 			modal.close();
 			new Notice(t("wiki.synthDone", lang));
 			await ctx.loadWiki();
-		} catch (e) {
+		} catch (_e) {
 			setAsyncButton(genBtn, false, t("wiki.generateFailed", lang));
 		}
 		})();
