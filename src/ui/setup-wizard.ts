@@ -45,7 +45,7 @@ export class SetupWizardModal extends Modal {
 		} else if (this.step === 1) {
 			this.renderStep1(lang);
 		} else if (this.step === 2) {
-			this.renderStep2(lang);
+			void this.renderStep2(lang);
 		} else if (this.step === 3) {
 			this.renderStep3Samples(lang);
 		} else {
@@ -75,11 +75,11 @@ export class SetupWizardModal extends Modal {
 		// Before/After comparison
 		const comparison = this.container.createDiv({ cls: "sb-wizard-comparison" });
 		const before = comparison.createDiv({ cls: "sb-wizard-compare-box sb-wizard-compare-before" });
-		before.createEl("span", { text: t("wizard.beforeLabel", lang), cls: "sb-wizard-compare-label" });
+		before.createSpan({ text: t("wizard.beforeLabel", lang), cls: "sb-wizard-compare-label" });
 		before.createDiv({ cls: "sb-wizard-compare-content", text: t("wizard.beforeSample", lang) });
 		comparison.createDiv({ cls: "sb-wizard-compare-arrow", text: "\u2192" });
 		const after = comparison.createDiv({ cls: "sb-wizard-compare-box sb-wizard-compare-after" });
-		after.createEl("span", { text: t("wizard.afterLabel", lang), cls: "sb-wizard-compare-label" });
+		after.createSpan({ text: t("wizard.afterLabel", lang), cls: "sb-wizard-compare-label" });
 		after.createDiv({ cls: "sb-wizard-compare-content", text: t("wizard.afterSample", lang) });
 
 		// Buttons
@@ -117,7 +117,7 @@ export class SetupWizardModal extends Modal {
 		const apiKeySetting = new Setting(this.container)
 			.setName(t("set.apiKey", lang))
 			.addText((t2) => {
-				t2.setPlaceholder("sk-...").setValue(this.plugin.settings.apiKey);
+				t2.setPlaceholder("Sk-...").setValue(this.plugin.settings.apiKey);
 				t2.inputEl.type = "password";
 				t2.onChange(async (v) => {
 					this.plugin.settings.apiKey = v;
@@ -144,7 +144,7 @@ export class SetupWizardModal extends Modal {
 				testBtn.textContent = "FAIL";
 				testBtn.classList.add("mod-warning");
 			}
-			setTimeout(() => {
+			activeWindow.setTimeout(() => {
 				testBtn.textContent = t("wizard.testConn", lang);
 				testBtn.classList.remove("mod-cta", "mod-warning");
 			}, 2000);

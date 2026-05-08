@@ -32,8 +32,8 @@ export function renderLicenseSettings(containerEl: HTMLElement, plugin: SecondBr
 	// --- Beta 阶段横幅 ---
 	if (BETA_MODE) {
 		const banner = content.createDiv({ cls: "sb-beta-banner" });
-		banner.createEl("div", { text: t("license.betaBannerTitle", lang), cls: "sb-beta-banner-title" });
-		banner.createEl("div", { text: t("license.betaBannerDesc", lang), cls: "sb-beta-banner-desc" });
+		banner.createDiv({ text: t("license.betaBannerTitle", lang), cls: "sb-beta-banner-title" });
+		banner.createDiv({ text: t("license.betaBannerDesc", lang), cls: "sb-beta-banner-desc" });
 	}
 
 	// --- Free vs Pro 对比表 ---
@@ -44,17 +44,17 @@ export function renderLicenseSettings(containerEl: HTMLElement, plugin: SecondBr
 	const dotCls = state.status === "active" || state.status === "trial" ? "sb-license-dot-ok"
 		: state.status === "grace" ? "sb-license-dot-warn"
 		: "sb-license-dot-err";
-	statusRow.createEl("span", { cls: `sb-license-dot ${dotCls}` });
+	statusRow.createSpan({ cls: `sb-license-dot ${dotCls}` });
 	const statusText = state.status === "active" ? t("license.statusActive", lang)
 		: state.status === "trial" ? t("pro.trialActive", lang) + " (" + t("pro.trialDaysLeft", lang, { days: getTrialDaysLeft(state) }) + ")"
 		: state.status === "grace" ? t("license.statusGrace", lang)
 		: state.status === "expired" ? t("license.statusExpired", lang)
 		: t("license.statusFree", lang);
-	statusRow.createEl("span", { text: statusText, cls: "sb-license-status-text" });
+	statusRow.createSpan({ text: statusText, cls: "sb-license-status-text" });
 
 	if (state.expiresAt) {
 		const d = new Date(state.expiresAt).toLocaleDateString();
-		statusRow.createEl("span", { text: t("license.expiresAt", lang, { date: d }), cls: "sb-license-expires" });
+		statusRow.createSpan({ text: t("license.expiresAt", lang, { date: d }), cls: "sb-license-expires" });
 	}
 
 	// 购买引导（仅未激活时显示）
@@ -69,12 +69,12 @@ export function renderLicenseSettings(containerEl: HTMLElement, plugin: SecondBr
 		];
 		steps.forEach((step, i) => {
 			const row = stepsEl.createDiv({ cls: "sb-license-step" });
-			row.createEl("span", { text: `${i + 1}`, cls: "sb-license-step-num" });
-			row.createEl("span", { text: step, cls: "sb-license-step-text" });
+			row.createSpan({ text: `${i + 1}`, cls: "sb-license-step-num" });
+			row.createSpan({ text: step, cls: "sb-license-step-text" });
 		});
 
 		const priceEl = purchaseSection.createDiv({ cls: "sb-upgrade-pricing" });
-		priceEl.createEl("span", { text: t("license.price", lang), cls: "sb-upgrade-price" });
+		priceEl.createSpan({ text: t("license.price", lang), cls: "sb-upgrade-price" });
 	}
 
 	// License Key 输入
@@ -124,7 +124,7 @@ export function renderLicenseSettings(containerEl: HTMLElement, plugin: SecondBr
 		const deactivateBtn = btnRow.createEl("button", { text: t("license.deactivate", lang) });
 		deactivateBtn.addEventListener("click", () => {
 			void (async () => {
-			await deactivateLicense(state.key, state.instanceId);
+			deactivateLicense(state.key, state.instanceId);
 			plugin.licenseInfo = { ...DEFAULT_LICENSE };
 			plugin.settings.licenseKey = "";
 			await plugin.saveSettings();
@@ -158,18 +158,18 @@ export function renderLicenseSettings(containerEl: HTMLElement, plugin: SecondBr
 	if (isTrialActive(state)) {
 		const days = getTrialDaysLeft(state);
 		const trialNotice = content.createDiv({ cls: "sb-trial-notice" });
-		trialNotice.createEl("span", { text: t("pro.trialDaysLeft", lang, { days }) });
+		trialNotice.createSpan({ text: t("pro.trialDaysLeft", lang, { days }) });
 	} else if (state.status === "none" || state.status === "inactive" || state.status === "expired") {
 		if (!state.key) {
 			const trialHint = content.createDiv({ cls: "sb-trial-hint" });
-			trialHint.createEl("span", { text: t("pro.trialStarted", lang).split("!")[0] + " — " + t("pro.trialDaysLeft", lang, { days: TRIAL_PERIOD_DAYS }) });
+			trialHint.createSpan({ text: t("pro.trialStarted", lang).split("!")[0] + " — " + t("pro.trialDaysLeft", lang, { days: TRIAL_PERIOD_DAYS }) });
 		}
 	}
 }
 
 function renderCompareTable(container: HTMLElement, lang: string, _state: LicenseInfo): void {
 	const wrapper = container.createDiv({ cls: "sb-compare-table-wrap" });
-	wrapper.createEl("div", { text: t("pro.compareTitle", lang), cls: "sb-compare-title" });
+	wrapper.createDiv({ text: t("pro.compareTitle", lang), cls: "sb-compare-title" });
 
 	const table = wrapper.createEl("table", { cls: "sb-compare-table" });
 

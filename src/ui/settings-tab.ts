@@ -154,7 +154,7 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 		const apiKeySetting = new Setting(reqContent)
 			.setName(t("set.apiKey", lang))
 			.setDesc(t("set.apiKeyDesc", lang))
-			.addText((t2) => { t2.setPlaceholder("sk-...").setValue(this.plugin.settings.apiKey).onChange(async (v) => { this.plugin.settings.apiKey = v; await this.plugin.saveSettings(); }); t2.inputEl.type = "password"; });
+			.addText((t2) => { t2.setPlaceholder("Sk-...").setValue(this.plugin.settings.apiKey).onChange(async (v) => { this.plugin.settings.apiKey = v; await this.plugin.saveSettings(); }); t2.inputEl.type = "password"; });
 
 		// apiKey 获取链接随 provider 变化
 		const preset = providerPresetOrUndefined(this.plugin.settings.provider);
@@ -318,7 +318,7 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 			.setName(t("set.embedKey", lang))
 			.setDesc(t("set.embedKeyDesc", lang))
 			.addText((t2) => {
-				t2.setPlaceholder("sk-...").setValue(this.plugin.settings.embeddingApiKey).onChange(async (v) => {
+				t2.setPlaceholder("Sk-...").setValue(this.plugin.settings.embeddingApiKey).onChange(async (v) => {
 					if (!requirePro(this.plugin.licenseInfo, "embedding-config")) {
 						showUpgradeNotice(this.app, "embedding-config", lang);
 						return;
@@ -337,7 +337,7 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 			.addButton((btn) => btn.setButtonText(t("set.cleanWikiBtn", lang)).setWarning().onClick(() => {
 				void (async () => {
 				const modal = new Modal(this.app);
-				modal.contentEl.createEl("h3", { text: t("set.confirmTitle", lang) });
+				new Setting(modal.contentEl).setName(t("set.confirmTitle", lang)).setHeading();
 				modal.contentEl.createEl("p", { text: t("set.confirmDesc", lang) });
 				modal.contentEl.createEl("p", { text: t("set.confirmHint", lang) });
 				const input = modal.contentEl.createEl("input", { type: "text", placeholder: t("set.confirmPh", lang) });
@@ -417,8 +417,8 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 
 		// API 状态
 		const apiItem = bar.createDiv({ cls: "sb-health-item" });
-		apiItem.createEl("span", { cls: "sb-health-dot sb-health-err" });
-		apiItem.createEl("span", { text: t("health.apiFail", lang), cls: "sb-health-label" });
+		apiItem.createSpan({ cls: "sb-health-dot sb-health-err" });
+		apiItem.createSpan({ text: t("health.apiFail", lang), cls: "sb-health-label" });
 		if (this.plugin.settings.apiKey) {
 			apiItem.querySelector(".sb-health-dot")?.classList.replace("sb-health-err", "sb-health-ok");
 			apiItem.querySelector(".sb-health-label")?.setText(t("health.apiOk", lang));
@@ -429,15 +429,15 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 		const rawFolder = this.plugin.settings.rawFolder;
 		const rawExists = !!this.app.vault.getAbstractFileByPath(rawFolder);
 		const rawFileCount = rawExists ? this.app.vault.getFiles().filter(f => f.path.startsWith(rawFolder + "/")).length : 0;
-		rawItem.createEl("span", { cls: `sb-health-dot ${rawExists ? "sb-health-ok" : "sb-health-err"}` });
-		rawItem.createEl("span", { text: rawExists ? t("health.rawOk", lang, { n: rawFileCount }) : t("health.rawFail", lang), cls: "sb-health-label" });
+		rawItem.createSpan({ cls: `sb-health-dot ${rawExists ? "sb-health-ok" : "sb-health-err"}` });
+		rawItem.createSpan({ text: rawExists ? t("health.rawOk", lang, { n: rawFileCount }) : t("health.rawFail", lang), cls: "sb-health-label" });
 
 		// 编译状态
 		const compileItem = bar.createDiv({ cls: "sb-health-item" });
 		const wikiFolder = this.plugin.settings.wikiFolder;
 		const wikiExists = !!this.app.vault.getAbstractFileByPath(wikiFolder);
-		compileItem.createEl("span", { cls: `sb-health-dot ${wikiExists ? "sb-health-ok" : "sb-health-err"}` });
-		compileItem.createEl("span", { text: wikiExists ? t("health.compiled", lang) : t("health.notCompiled", lang), cls: "sb-health-label" });
+		compileItem.createSpan({ cls: `sb-health-dot ${wikiExists ? "sb-health-ok" : "sb-health-err"}` });
+		compileItem.createSpan({ text: wikiExists ? t("health.compiled", lang) : t("health.notCompiled", lang), cls: "sb-health-label" });
 
 		// 刷新按钮
 		const refreshBtn = bar.createEl("button", { text: t("health.refresh", lang), cls: "sb-health-refresh" });

@@ -76,13 +76,13 @@ export class ChatView extends ItemView {
 		const titleBlock = titleRow.createDiv({ cls: "sb-chat-title-block" });
 		const titleIcon = titleBlock.createSpan({ cls: "sb-chat-title-icon" });
 		setIcon(titleIcon, "message-circle");
-		titleBlock.createEl("span", { text: t("chat.title", lang), cls: "sb-chat-title" });
+		titleBlock.createSpan({ text: t("chat.title", lang), cls: "sb-chat-title" });
 		// Pro 增强信息：模型 + 索引状态
 		const proInfo = titleRow.createDiv({ cls: "sb-chat-pro-info" });
-		proInfo.createEl("span", { text: t("pro.chat.model", lang, { model: this.plugin.settings.model }), cls: "sb-chat-pro-tag" });
+		proInfo.createSpan({ text: t("pro.chat.model", lang, { model: this.plugin.settings.model }), cls: "sb-chat-pro-tag" });
 		if (!isPro(this.plugin.licenseInfo)) {
 			const quota = checkFreeChatQuota(this.plugin.licenseInfo);
-			const quotaTag = proInfo.createEl("span", { cls: "sb-chat-quota-tag" });
+			const quotaTag = proInfo.createSpan({ cls: "sb-chat-quota-tag" });
 			quotaTag.textContent = t("chat.freeQuotaRemaining", lang, { n: quota.remaining, limit: quota.limit });
 		}
 		const clearBtn = header.createEl("button", { text: t("chat.clear", lang), cls: "sb-chat-clear-btn", attr: { type: "button" } });
@@ -112,7 +112,7 @@ export class ChatView extends ItemView {
 					const typing = el.querySelector(".sb-typing");
 					if (typing) typing.remove();
 					const contentEl = el.querySelector(".sb-ai-content") as HTMLElement;
-					if (contentEl) MarkdownRenderer.render(this.app, sanitizeLLMOutput(msg.content), contentEl, "", this.component);
+					if (contentEl) void MarkdownRenderer.render(this.app, sanitizeLLMOutput(msg.content), contentEl, "", this.component);
 					this.addMsgCopyBtn(el);
 				}
 			}
@@ -129,7 +129,7 @@ export class ChatView extends ItemView {
 		if (isQuotaExceeded) {
 			// 内联升级提示，替代全屏 overlay
 			const quotaNotice = inputArea.createDiv({ cls: "sb-chat-quota-inline" });
-			quotaNotice.createEl("span", { text: t("chat.freeQuotaUsed", lang, { limit: quota.limit }), cls: "sb-chat-quota-inline-text" });
+			quotaNotice.createSpan({ text: t("chat.freeQuotaUsed", lang, { limit: quota.limit }), cls: "sb-chat-quota-inline-text" });
 			const upgradeBtn = quotaNotice.createEl("button", { text: t("license.upgradeBtn", lang), cls: "mod-cta sb-chat-quota-upgrade-btn" });
 			upgradeBtn.addEventListener("click", () => {
 				window.open(t("license.purchaseUrl", lang), "_blank", "noopener,noreferrer");
@@ -199,7 +199,7 @@ export class ChatView extends ItemView {
 		if (rounds > 0) {
 			const lang = this.plugin.settings.language;
 			this.contextIndicator.empty();
-			this.contextIndicator.createEl("span", { text: t("chat.contextInfo", lang, { n: rounds }) });
+			this.contextIndicator.createSpan({ text: t("chat.contextInfo", lang, { n: rounds }) });
 			const clearCtxBtn = this.contextIndicator.createEl("button", { text: t("chat.clearContext", lang), cls: "sb-context-clear" });
 			clearCtxBtn.addEventListener("click", () => {
 				this.chatHistory = [];
@@ -319,7 +319,7 @@ export class ChatView extends ItemView {
 					this.streamRenderRaf = requestAnimationFrame(() => {
 						this.streamRenderPending = false;
 						msgContentEl.empty();
-						MarkdownRenderer.render(this.app, fullText, msgContentEl, "", this.component);
+						void MarkdownRenderer.render(this.app, fullText, msgContentEl, "", this.component);
 						this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
 					});
 				}
@@ -335,11 +335,11 @@ export class ChatView extends ItemView {
 			// 最终渲染（净化后确保安全）
 			const safeFullText = sanitizeLLMOutput(fullText);
 			msgContentEl.empty();
-			MarkdownRenderer.render(this.app, safeFullText, msgContentEl, "", this.component);
+			void MarkdownRenderer.render(this.app, safeFullText, msgContentEl, "", this.component);
 
 			if (pages.length > 0) {
 				const srcEl = msgContentEl.createDiv({ cls: "sb-sources" });
-				srcEl.createEl("span", { text: t("chat.refLabel", lang) });
+				srcEl.createSpan({ text: t("chat.refLabel", lang) });
 				for (const p of pages) {
 					const link = srcEl.createEl("a", { text: p.filePath, cls: "sb-source-link" });
 					link.addEventListener("click", (e) => {
@@ -364,7 +364,7 @@ export class ChatView extends ItemView {
 				if (e instanceof DOMException && e.name === "AbortError") {
 					const el = aiMsgEl.querySelector(".sb-ai-content") as HTMLElement;
 					el.empty();
-					MarkdownRenderer.render(this.app, t("chat.stopped", lang), el, "", this.component);
+					void MarkdownRenderer.render(this.app, t("chat.stopped", lang), el, "", this.component);
 				} else {
 				const msgContentEl = aiMsgEl.querySelector(".sb-ai-content") as HTMLElement;
 				msgContentEl.empty();
@@ -414,7 +414,7 @@ export class ChatView extends ItemView {
 				void (async () => {
 				await navigator.clipboard.writeText((codeEl as HTMLElement).textContent || "");
 				btn.textContent = t("chat.copied", lang);
-				setTimeout(() => { btn.textContent = t("chat.copy", lang); }, 1500);
+				activeWindow.setTimeout(() => { btn.textContent = t("chat.copy", lang); }, 1500);
 				})();
 			});
 			pre.classList.add("sb-position-relative");
@@ -443,14 +443,14 @@ export class ChatView extends ItemView {
 				const hidePreview = () => { preview.classList.remove("active"); };
 
 				linkText.addEventListener("mouseenter", () => {
-					hoverTimer = setTimeout(showPreview, 200);
+					hoverTimer = activeWindow.setTimeout(showPreview, 200);
 				});
 				link.addEventListener("mouseleave", () => {
-					if (hoverTimer) clearTimeout(hoverTimer);
+					if (hoverTimer) activeWindow.clearTimeout(hoverTimer);
 					hidePreview();
 				});
 				preview.addEventListener("mouseenter", () => {
-					if (hoverTimer) clearTimeout(hoverTimer);
+					if (hoverTimer) activeWindow.clearTimeout(hoverTimer);
 				});
 
 				dlBtn.addEventListener("click", (e) => {
@@ -477,7 +477,7 @@ export class ChatView extends ItemView {
 					const overlay = createDiv({ cls: "sb-img-overlay" });
 					overlay.createEl("img", { attr: { src } });
 					overlay.addEventListener("click", () => overlay.remove());
-					document.body.appendChild(overlay);
+					activeDocument.body.appendChild(overlay);
 				});
 			});
 		// 表格：包裹可滚动 + 复制 Markdown 按钮
@@ -502,7 +502,7 @@ export class ChatView extends ItemView {
 				}
 				await navigator.clipboard.writeText(md.join("\n"));
 				btn.textContent = t("chat.copied", lang);
-				setTimeout(() => { btn.textContent = t("chat.copyTable", lang); }, 1500);
+				activeWindow.setTimeout(() => { btn.textContent = t("chat.copyTable", lang); }, 1500);
 				})();
 			});
 			wrap.appendChild(btn);
@@ -519,10 +519,10 @@ export class ChatView extends ItemView {
 			ev.stopPropagation();
 			const contentEl = bubble.querySelector(".sb-ai-content") as HTMLElement;
 			const text = contentEl?.textContent || "";
-			navigator.clipboard.writeText(text).then(() => {
-				copyBtn.textContent = t("chat.copied", this.plugin.settings.language);
-				setTimeout(() => setIcon(copyBtn, "copy"), 1500);
-			});
+				void navigator.clipboard.writeText(text).then(() => {
+					copyBtn.textContent = t("chat.copied", this.plugin.settings.language);
+					activeWindow.setTimeout(() => setIcon(copyBtn, "copy"), 1500);
+				});
 		});
 	}
 
@@ -593,6 +593,7 @@ export class ChatView extends ItemView {
 	}
 
 	async onClose() {
+		await Promise.resolve();
 		this.abortController?.abort();
 		if (this.streamRenderRaf) cancelAnimationFrame(this.streamRenderRaf);
 		this.streamRenderPending = false;

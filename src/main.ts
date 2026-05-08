@@ -287,7 +287,7 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 
 	onunload() {
 		if (this.autoCompileTimer) {
-			clearTimeout(this.autoCompileTimer);
+			activeWindow.clearTimeout(this.autoCompileTimer);
 			this.autoCompileTimer = null;
 		}
 		clearEmbeddingCache();
@@ -346,7 +346,7 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 
 	async saveLicenseInfo() {
 		const data = await this.loadPluginData();
-		data._licenseInfo = this.licenseInfo as unknown;
+		data._licenseInfo = this.licenseInfo;
 		await this.savePluginData(data);
 	}
 
@@ -423,7 +423,7 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 		coercePluginSettings(this.settings);
 		const data = await this.loadPluginData();
 		Object.assign(data, this.settings);
-		data._licenseInfo = this.licenseInfo as unknown;
+		data._licenseInfo = this.licenseInfo;
 
 		// 加密 API Key：仅在加密成功后才删除明文字段。
 		// 任何环节失败（不可用 / 抛异常）都要保留明文，绝不制造"既无密文也无明文"的空洞。
@@ -471,9 +471,9 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 		if (!requirePro(this.licenseInfo, "auto-compile")) return;
 		if (!this.isRawFile(file)) return;
 
-		if (this.autoCompileTimer) clearTimeout(this.autoCompileTimer);
+		if (this.autoCompileTimer) activeWindow.clearTimeout(this.autoCompileTimer);
 		this.updateStatusBar("pending", 1);
-		this.autoCompileTimer = setTimeout(() => {
+		this.autoCompileTimer = activeWindow.setTimeout(() => {
 			this.autoCompileTimer = null;
 			void this.triggerAutoCompile();
 		}, this.settings.autoCompileDelay * 1000);
@@ -533,7 +533,7 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 			}
 		}
 		if (leaf) {
-			workspace.revealLeaf(leaf);
+			void workspace.revealLeaf(leaf);
 		}
 	}
 
