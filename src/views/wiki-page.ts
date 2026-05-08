@@ -112,7 +112,7 @@ export async function renderPage(
 
 	const breadcrumb = ctx.bodyEl.createDiv({ cls: "sb-wiki-breadcrumb" });
 	const backBtn = breadcrumb.createEl("button", { cls: "sb-wiki-back", attr: { "aria-label": t("wiki.backNav", lang) } });
-	backBtn.addEventListener("click", () => { void goBack(ctx, ctx.showIndex); });
+	backBtn.addEventListener("click", () => { void goBack(ctx, () => ctx.showIndex()); });
 	const backIcon = backBtn.createSpan({ cls: "sb-wiki-back-icon-wrap" });
 	setIcon(backIcon, "arrow-left");
 	backBtn.createSpan({ text: t("wiki.backNav", lang), cls: "sb-wiki-back-text" });
@@ -153,7 +153,7 @@ export async function renderPage(
 			else await ctx.app.vault.create(blogPath, article);
 			setAsyncButton(expressBtn, false, t("wiki.articleGenerated", lang));
 			new Notice(t("wiki.articleGeneratedNotice", lang));
-		} catch (_e) {
+		} catch {
 			setAsyncButton(expressBtn, false, t("wiki.generateArticle", lang));
 			new Notice(t("wiki.generateFailed", lang));
 		}
@@ -202,7 +202,7 @@ export async function renderPage(
 					ev.preventDefault();
 					const file = ctx.app.vault.getAbstractFileByPath(src);
 					if (file instanceof TFile) {
-						ctx.app.workspace.getLeaf(false).openFile(file);
+						void ctx.app.workspace.getLeaf(false).openFile(file);
 					}
 				});
 			}
@@ -216,7 +216,7 @@ export async function renderPage(
 					ev.preventDefault();
 					const file = ctx.app.vault.getAbstractFileByPath(src);
 					if (file instanceof TFile) {
-						ctx.app.workspace.getLeaf(false).openFile(file);
+						void ctx.app.workspace.getLeaf(false).openFile(file);
 					}
 				});
 			}
@@ -306,14 +306,14 @@ export function wireInternalLinks(contentEl: HTMLElement, wikiFolder: string, ct
 					const fullPath = `${wikiFolder}/${target.path}`;
 					const file = ctx.app.vault.getAbstractFileByPath(fullPath);
 					if (file instanceof TFile) {
-						ctx.app.workspace.getLeaf("tab").openFile(file);
+						void ctx.app.workspace.getLeaf("tab").openFile(file);
 					}
 				}
 				return;
 			}
 			ev.preventDefault();
 			ev.stopPropagation();
-			ctx.navigateTo(targetName);
+			void ctx.navigateTo(targetName);
 		});
 	});
 }
@@ -340,7 +340,7 @@ export function renderWikiReviewBanner(
 			const fullPath = `${wf}/${page.path}`;
 			const file = ctx.app.vault.getAbstractFileByPath(fullPath);
 			if (file instanceof TFile) {
-				await ctx.app.vault.trash(file, true);
+				await ctx.app.fileManager.trashFile(file);
 			}
 			try {
 				const { runCompile } = await import("../core/compile");
@@ -426,7 +426,7 @@ export function openInEditor(name: string, ctx: WikiPageCtx): void {
 		const fullPath = `${wf}/${page.path}`;
 		const file = ctx.app.vault.getAbstractFileByPath(fullPath);
 		if (file instanceof TFile) {
-			ctx.app.workspace.getLeaf(false).openFile(file);
+			void ctx.app.workspace.getLeaf(false).openFile(file);
 			return;
 		}
 	}

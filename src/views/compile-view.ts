@@ -374,7 +374,7 @@ export class CompileView extends ItemView {
 						() => {
 							const file = findWikiFile(this.app, this.plugin.settings.wikiFolder, c.title);
 							if (file) {
-								this.app.workspace.getLeaf(true).openFile(file);
+								void this.app.workspace.getLeaf(true).openFile(file);
 							} else {
 								new Notice(t("chat.pageNotFound", lang, { name: c.title }));
 							}
@@ -391,7 +391,7 @@ export class CompileView extends ItemView {
 						() => {
 							const file = findWikiFile(this.app, this.plugin.settings.wikiFolder, c.title);
 							if (file) {
-								this.app.workspace.getLeaf(true).openFile(file);
+								void this.app.workspace.getLeaf(true).openFile(file);
 							} else {
 								new Notice(t("chat.pageNotFound", lang, { name: c.title }));
 							}
@@ -526,7 +526,7 @@ export class CompileView extends ItemView {
 			bindHoverHint(retryBtn, t("compile.tooltip.retryFailed", lang));
 			retryBtn.addEventListener("click", () => {
 				summary.remove();
-				this.startCompile(force);
+				void this.startCompile(force);
 			});
 		}
 
@@ -660,7 +660,7 @@ export class CompileView extends ItemView {
 		}
 	}
 
-	onClose() {
+	async onClose() {
 		this.cancelCompile();
 		if (this.rawRefreshTimer != null) {
 			window.clearTimeout(this.rawRefreshTimer);

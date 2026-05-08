@@ -57,7 +57,7 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 		containerEl.empty();
 		const lang = this.plugin.settings.language;
 
-		containerEl.createEl("h2", { text: t("set.title", lang) });
+		new Setting(containerEl).setName(t("set.title", lang)).setHeading();
 
 		// --- License & Pro 区域（最顶部） ---
 		renderLicenseSettings(containerEl, this.plugin);
@@ -105,7 +105,7 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 			.addDropdown((dd) => dd
 				.addOptions({ deepseek: "DeepSeek", openai: "OpenAI", anthropic: "Anthropic (Claude)", openrouter: "OpenRouter", custom: "Custom" })
 				.setValue(this.plugin.settings.provider)
-				.onChange(async (v) => {
+				.onChange((v) => {
 					// 非 DeepSeek 需要 Pro
 					if (v !== "deepseek" && !requirePro(this.plugin.licenseInfo, "multi-llm")) {
 						showUpgradeNotice(this.app, "multi-llm", lang);
@@ -285,7 +285,7 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 		const advContent = advDetails.createDiv();
 
 		// Embedding 配置（Pro）
-		const embedHeader = advContent.createEl("h4", { text: t("set.embedSection", lang) });
+		const embedHeader = new Setting(advContent).setName(t("set.embedSection", lang)).setHeading().nameEl;
 		if (!requirePro(this.plugin.licenseInfo, "embedding-config")) {
 			createProBadge(embedHeader, lang);
 		}
@@ -329,7 +329,7 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 				t2.inputEl.type = "password";
 			});
 
-		advContent.createEl("h4", { text: t("set.dataSection", lang) });
+		new Setting(advContent).setName(t("set.dataSection", lang)).setHeading();
 
 		new Setting(advContent)
 			.setName(t("set.cleanWiki", lang))
@@ -364,7 +364,7 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 							const fullPath = `${wikiFolder}/${f.path}`;
 							const file = this.app.vault.getAbstractFileByPath(fullPath);
 							if (file instanceof TFile) {
-								await this.app.vault.trash(file, true);
+								await this.app.fileManager.trashFile(file);
 							}
 						}
 						// 只重置 wiki/cache 相关状态，保留用户配置

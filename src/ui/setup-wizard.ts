@@ -253,8 +253,8 @@ export class SetupWizardModal extends Modal {
 		guide.createEl("p", { text: t("wizard.completeGuide", lang) || "完成后，打开编译面板开始将素材编译为知识库。", cls: "sb-wizard-complete-text" });
 		const compileBtn = guide.createEl("button", { text: t("wizard.openCompile", lang) || "打开编译面板", cls: "mod-cta sb-wizard-compile-btn" });
 		compileBtn.addEventListener("click", () => {
-			this.finish();
-			this.plugin.activateView("second-brain-compile");
+			void this.finish();
+			void this.plugin.activateView("second-brain-compile");
 		});
 
 		const btnRow = this.container.createDiv({ cls: "sb-wizard-btn-row" });
@@ -274,7 +274,7 @@ export class SetupWizardModal extends Modal {
 	onClose() {
 		if (!this.plugin.settings.setupCompleted) {
 			this.plugin.settings.setupCompleted = true;
-			this.plugin.saveSettings();
+			void this.plugin.saveSettings();
 		}
 	}
 }

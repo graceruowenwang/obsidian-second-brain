@@ -60,7 +60,7 @@ export function showMoc(ctx: WikiViewCtx): void {
 		row.addEventListener("keydown", (ev) => {
 			if (ev.key === "Enter" || ev.key === " ") {
 				ev.preventDefault();
-				ctx.navigateTo(name);
+				void ctx.navigateTo(name);
 			}
 		});
 		row.createDiv({ cls: "sb-wiki-list-kind sb-wiki-list-kind-moc", text: t("wiki.mocShort", lang) });

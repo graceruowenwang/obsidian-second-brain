@@ -141,10 +141,10 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 				showUpgradeNotice(this.app, "ai-chat", lang);
 				return;
 			}
-			this.activateView(VIEW_TYPE_CHAT);
+			void this.activateView(VIEW_TYPE_CHAT);
 		});
 		ribbonChat.setAttribute("aria-label", t("cmd.wikiChat", lang));
-		const ribbonWiki = this.addRibbonIcon("globe", t("cmd.wikiPreview", lang), () => this.activateView(VIEW_TYPE_WIKI));
+	const ribbonWiki = this.addRibbonIcon("globe", t("cmd.wikiPreview", lang), () => { void this.activateView(VIEW_TYPE_WIKI); });
 		ribbonWiki.setAttribute("aria-label", t("cmd.wikiPreview", lang));
 
 		// 命令：编译全部
@@ -178,14 +178,14 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 		this.addCommand({
 			id: "open-wiki",
 			name: t("cmd.openWiki", lang),
-			callback: () => this.activateView(VIEW_TYPE_WIKI),
+			callback: () => { void this.activateView(VIEW_TYPE_WIKI); },
 		});
 
 		// 命令：整理 raw 根目录散落文件
 		this.addCommand({
 			id: "organize-raw",
 			name: t("cmd.organizeRaw", lang),
-			callback: () => this.organizeRawMaterials(),
+			callback: () => { void this.organizeRawMaterials(); },
 		});
 
 		// 命令：捕获当前笔记到闪念收件箱
@@ -241,12 +241,12 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 
 		// 启动时自动检查是否有新素材需要编译（Pro only）
 		if (requirePro(this.licenseInfo, "auto-compile") && this.settings.autoCompile && this.settings.apiKey) {
-			this.startupAutoCompile();
+			void this.startupAutoCompile();
 		}
 
 		// 后台定期重新验证 License
 		if (this.settings.licenseKey && needsRevalidation(this.licenseInfo)) {
-			this.backgroundRevalidate();
+			void this.backgroundRevalidate();
 		}
 		this.registerInterval(
 			window.setInterval(() => { void this.backgroundRevalidate(); }, 24 * 60 * 60 * 1000)
@@ -475,7 +475,7 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 		this.updateStatusBar("pending", 1);
 		this.autoCompileTimer = setTimeout(() => {
 			this.autoCompileTimer = null;
-			this.triggerAutoCompile();
+			void this.triggerAutoCompile();
 		}, this.settings.autoCompileDelay * 1000);
 	}
 
@@ -488,7 +488,7 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 			const { changed } = diffFingerprints(allFiles, cache);
 			if (changed.length > 0) {
 				new Notice(t("notice.detectNew", this.settings.language, { n: changed.length }));
-				this.triggerAutoCompile();
+				void this.triggerAutoCompile();
 			}
 		} catch (e) {
 			console.warn("main:", e);
@@ -537,7 +537,7 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 		}
 	}
 
-	async compileCurrentFile(view: MarkdownView) {
+	compileCurrentFile(view: MarkdownView) {
 		const file = view.file;
 		if (!file) return;
 

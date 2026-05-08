@@ -265,7 +265,7 @@ export function renderWikiEmpty(
 			try {
 				await loadSamplesIntoVault(app, rawFolder, wikiFolder);
 				sampleBtn.textContent = t("empty.samplesLoaded", lang);
-			} catch (_e) {
+			} catch {
 				sampleBtn.textContent = t("empty.samplesFail", lang);
 			}
 			})();
@@ -581,7 +581,7 @@ export function renderIndex(ctx: WikiIndexCtx): void {
 				if (!host) return;
 				host.createEl("h2", { text: t("wiki.semanticMatch", lang), cls: "sb-wiki-h2 sb-wiki-list-section-title" });
 				const semList = host.createDiv({ cls: "sb-wiki-list sb-wiki-list-semantic" });
-				for (const entry of sortPageEntries(semEntries, ctx.findPage, ctx.sortMode)) {
+				for (const entry of sortPageEntries(semEntries, (n) => ctx.findPage(n), ctx.sortMode)) {
 					appendWikiListRow(semList, entry, lang, {
 						findPage: (n) => ctx.findPage(n),
 						navigateTo: (n) => { void ctx.navigateTo(n); },
@@ -603,7 +603,7 @@ export function renderIndex(ctx: WikiIndexCtx): void {
 			});
 		}
 
-		const sorted = sortPageEntries(filtered, ctx.findPage, ctx.sortMode);
+		const sorted = sortPageEntries(filtered, (n) => ctx.findPage(n), ctx.sortMode);
 			// 筛选结果为空且非 all 筛选 -> 自动重置
 			if (sorted.length === 0 && ctx.statusFilter !== "all" && entries.length > 0) {
 				ctx.statusFilter = "all";

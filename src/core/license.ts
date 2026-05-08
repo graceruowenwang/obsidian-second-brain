@@ -231,7 +231,7 @@ export async function validateLicense(key: string, instanceId?: string | null): 
 	return { ...DEFAULT_LICENSE, key: trimmed, status: "invalid" };
 }
 
-export async function deactivateLicense(key: string, instanceId: string | null): Promise<void> {
+export function deactivateLicense(key: string, instanceId: string | null): void {
 	if (key && instanceId) {
 		onlineDeactivate(key, instanceId);
 	}

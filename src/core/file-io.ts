@@ -113,7 +113,7 @@ export async function deleteWikiFile(app: App, wikiFolder: string, filePath: str
 	const fullPath = `${wikiFolder}/${filePath}`;
 	const existing = app.vault.getAbstractFileByPath(fullPath);
 	if (existing instanceof TFile) {
-		await app.vault.trash(existing, true);
+		await app.fileManager.trashFile(existing);
 	}
 }
 

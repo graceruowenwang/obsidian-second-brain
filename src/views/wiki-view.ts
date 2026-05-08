@@ -368,7 +368,7 @@ export class WikiView extends ItemView {
 		return resolveWikiPageTarget(target, this.wikiPages);
 	}
 
-	onClose() {
+	async onClose() {
 		this.component.unload();
 		if (this.searchTimer) {
 			clearTimeout(this.searchTimer);

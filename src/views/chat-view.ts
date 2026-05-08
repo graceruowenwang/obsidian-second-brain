@@ -155,13 +155,13 @@ export class ChatView extends ItemView {
 		setIcon(saveNoteBtn, "save");
 		saveNoteBtn.title = t("chat.saveAsNote", lang);
 
-		sendBtn.addEventListener("click", () => this.send());
+		sendBtn.addEventListener("click", () => { void this.send(); });
 		stopBtn.addEventListener("click", () => this.stop());
-		saveNoteBtn.addEventListener("click", () => this.saveAsNote());
+	saveNoteBtn.addEventListener("click", () => { void this.saveAsNote(); });
 		this.inputEl.addEventListener("keydown", (e) => {
 			if (e.key === "Enter" && !e.shiftKey) {
 				e.preventDefault();
-				this.send();
+				void this.send();
 			}
 		});
 		// 自动调整高度
@@ -184,7 +184,7 @@ export class ChatView extends ItemView {
 			const file = findWikiFile(this.app, wikiFolder, href);
 			if (file) {
 				const leaf = this.app.workspace.getLeaf(true);
-				leaf.openFile(file);
+				void leaf.openFile(file);
 				return;
 			}
 			new Notice(t("chat.pageNotFound", this.plugin.settings.language, { name: href }));
@@ -227,7 +227,7 @@ export class ChatView extends ItemView {
 			const chip = tips.createDiv({ cls: "sb-tip-chip", text: ex });
 			chip.addEventListener("click", () => {
 				this.inputEl.value = ex;
-				this.send();
+				void this.send();
 			});
 		}
 		// Imp 3: conditional guidance buttons
@@ -348,7 +348,7 @@ export class ChatView extends ItemView {
 						const file = this.app.vault.getAbstractFileByPath(fullPath);
 						if (file instanceof TFile) {
 							const leaf = this.app.workspace.getLeaf(true);
-							leaf.openFile(file);
+							void leaf.openFile(file);
 						} else {
 							new Notice(t("chat.fileNotFound", lang, { name: fullPath }));
 						}
@@ -592,7 +592,7 @@ export class ChatView extends ItemView {
 		this.toggleButtons(false);
 	}
 
-	onClose() {
+	async onClose() {
 		this.abortController?.abort();
 		if (this.streamRenderRaf) cancelAnimationFrame(this.streamRenderRaf);
 		this.streamRenderPending = false;

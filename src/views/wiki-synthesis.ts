@@ -91,7 +91,7 @@ export function openSynthesisDialog(ctx: WikiViewCtx): void {
 			modal.close();
 			new Notice(t("wiki.synthDone", lang));
 			await ctx.loadWiki();
-		} catch (_e) {
+		} catch {
 			setAsyncButton(genBtn, false, t("wiki.generateFailed", lang));
 		}
 		})();
