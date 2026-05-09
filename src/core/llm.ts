@@ -274,7 +274,7 @@ export async function callLLM(
 			const maxDelay = err instanceof LLMError && err.status === 429 ? 60000 : 30000;
 			const delay = Math.min(base * Math.pow(2, attempt) + Math.random() * base * 0.5, maxDelay);
 			if (options.signal?.aborted) throw err;
-			await new Promise(r => setTimeout(r, delay));
+			await new Promise(r => activeWindow.setTimeout(r, delay));
 		}
 	}
 	throw lastError ?? new Error("LLM call failed: all retries exhausted");
@@ -365,7 +365,7 @@ export async function callLLMBatch(
 
 		// 批次间延迟，动态调整
 		if (i + concurrency < tasks.length && currentDelay > 0) {
-			await new Promise(r => setTimeout(r, currentDelay));
+			await new Promise(r => activeWindow.setTimeout(r, currentDelay));
 		}
 	}
 
@@ -443,7 +443,7 @@ async function readSSEStream(config: StreamConfig, onChunk: (text: string) => vo
 
 	// 总超时保护：防止服务端挂起
 	const startTime = Date.now();
-	const timeoutId = setTimeout(() => {
+	const timeoutId = activeWindow.setTimeout(() => {
 		reader.cancel().catch(() => {});
 	}, SSE_TOTAL_TIMEOUT_MS);
 
@@ -486,7 +486,7 @@ async function readSSEStream(config: StreamConfig, onChunk: (text: string) => vo
 		}
 		return fullText;
 	} finally {
-		clearTimeout(timeoutId);
+		activeWindow.clearTimeout(timeoutId);
 		try { await reader.cancel(); } catch { /* ignore */ }
 	}
 }

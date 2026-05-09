@@ -3,8 +3,7 @@
 export const en = {
 		// Settings
 		"set.title": "Second brain — settings",
-		// eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module
-		"set.provider": "llm provider",
+		"set.provider": "LLM provider",
 		"set.model": "Model",
 		"set.modelPh": "Deepseek-chat",
 		"set.apiKey": "API key",
@@ -30,12 +29,10 @@ export const en = {
 		"set.embedModelDesc": "Embedding model for semantic search",
 		"set.embedModelPh": "Text-embedding-3-small",
 		"set.embedUrl": "Embedding base URL",
-		// eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module
-		"set.embedUrlDesc": "Embedding API endpoint (leave empty to use the llm base URL above)",
+		"set.embedUrlDesc": "Embedding API endpoint (leave empty to use the LLM base URL above)",
 		"set.embedUrlPh": "HTTPS://api.OpenAI.com/v1",
 		"set.embedKey": "Embedding API key",
-		// eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module
-		"set.embedKeyDesc": "Leave empty to reuse the llm API key above",
+		"set.embedKeyDesc": "Leave empty to reuse the LLM API key above",
 		"set.langSection": "Language & templates",
 		"set.language": "Language",
 		"set.languageDesc": "Plugin UI and AI output language",
@@ -74,18 +71,15 @@ export const en = {
 		"set.cleanCacheDesc": "Clean compilation cache only (fingerprints, analysis results). Wiki pages are not deleted. Next compile will be a full re-analysis.",
 		"set.cleanCacheBtn": "Clean cache",
 		"set.sectionStatus": "Configuration status",
-		// eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module
-		"set.sectionConnection": "llm connection",
+		"set.sectionConnection": "LLM connection",
 		"set.sectionWorkspace": "Workspace",
 		"set.sectionCompile": "Compilation & smart enhancements",
 		"set.sectionUi": "Interface & templates",
 		"set.sectionAdvanced": "Advanced settings",
 		"set.compileFileTitle": "Compile current file",
 		"set.compileFileDesc": "Manually compile the currently open raw file",
-		// eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module
-		"set.providerSwitchTitle": "Switch llm provider",
-		// eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module
-		"set.providerSwitchDesc": "Switch to a different llm backend (pro feature)",
+		"set.providerSwitchTitle": "Switch LLM provider",
+		"set.providerSwitchDesc": "Switch to a different LLM backend (pro feature)",
 		"set.switch": "Switch",
 
 		"cmd.compileWiki": "Compile wiki",
@@ -359,8 +353,7 @@ export const en = {
 		"wiki.synthDone": "Synthesis generated",
 		"wiki.mocCreated": "Moc created",
 		"wiki.loadMore": "Load more ({n}+)",
-		// eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module
-		"wiki.generateArticleConfirm": "Generate an article from this wiki page? This will call the llm and write to the blog/ folder.",
+		"wiki.generateArticleConfirm": "Generate an article from this wiki page? This will call the LLM and write to the blog/ folder.",
 		"wiki.articleGeneratedNotice": "Article generated in blog/ folder",
 		"wiki.synthSearch": "Search concepts...",
 		"wiki.synthSelectAll": "Select all / none",
@@ -373,8 +366,7 @@ export const en = {
 	"wiki.originalSources": "Original insights:",
 	"wiki.referenceSources": "Reference materials:",
 	"wiki.regenerateSection": "Regenerate",
-		// eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module
-	"wiki.regenerateConfirm": "Regenerate this section? This will call the llm to replace the content.",
+	"wiki.regenerateConfirm": "Regenerate this section? This will call the LLM to replace the content.",
 	"wiki.regenerating": "Generating...",
 	"wiki.regenerateDone": "Section regenerated",
 	"wiki.regenerateFail": "Regeneration failed",
@@ -488,7 +480,7 @@ export const en = {
 		"license.purchaseUrl": "HTTPS://gracewen.gumroad.com/l/Obsidian-second-brain",
 		"license.price": "$5 usd one-time",
 		"license.step1": "Click \"get pro\" or \"buy full version\" to open the purchase page",
-		"license.step2": "Complete payment on gumroad ($5, supports credit card / PayPal / apple pay / Google pay)",
+		"license.step2": "Complete payment on gumroad ($5, supports credit card / paypal / apple pay / Google pay)",
 		"license.step3": "Copy the license key from gumroad and paste it here, then click activate",
 		"license.betaBannerTitle": "Beta · all features free",
 		"license.betaBannerDesc": "The plugin is in public beta. All pro features are currently unlocked for everyone. Once payments go live it will become a $5 usd one-time purchase; users who activate before that are unaffected.",
@@ -546,8 +538,7 @@ export const en = {
 		"preset.quickSetup": "Quick setup",
 
 		"wizard.title": "Setup wizard",
-		// eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module
-		"wizard.step1": "Choose llm service",
+		"wizard.step1": "Choose LLM service",
 		"wizard.step1Desc": "Select your AI provider and configure API key",
 		"wizard.step2": "Configure folders",
 		"wizard.step2Desc": "Set up raw materials and wiki output folders",
@@ -569,7 +560,7 @@ export const en = {
 	"wizard.beforeLabel": "Raw notes",
 	"wizard.afterLabel": "Compiled wiki",
 	"wizard.beforeSample": "Read an article about feynman technique today...\nThe core idea is to teach what you learned...",
-	"wizard.afterSample": "# Feynman technique\ntype: concept | level: method\n\n## definition\na learning method based on teaching...\n\n## Related\n- [[LearningMethods]] - [[KnowledgeInternalization]]",
+	"wizard.afterSample": "# Feynman technique\ntype: concept | level: method\n\n## definition\na learning method based on teaching...\n\n## Related\n- [[learningmethods]] - [[knowledgeinternalization]]",
 	"wizard.startSetup": "Start setup",
 		"wizard.step3SamplesTitle": "Load sample materials",
 		"wizard.step3SamplesDesc": "Load sample materials into raw/ folder to try compilation immediately. You can also skip this step and add your own materials later.",
@@ -618,8 +609,7 @@ export const en = {
 
 		// Compile errors
 		"compile.analysisFormatError": "AI analysis returned unexpected format. Please retry.",
-		// eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module
-		"compile.noValidJSON": "No valid JSON found in llm response.",
+		"compile.noValidJSON": "No valid JSON found in LLM response.",
 		"compile.emptyAnalysis": "Analysis result is empty: no concepts, entities, or sources extracted.",
 		"compile.jsonParseError": "JSON parsing failed. Please retry.",
 		"compile.embedNoData": "Embedding response error, fell back to keyword search",

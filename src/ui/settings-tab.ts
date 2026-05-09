@@ -335,7 +335,7 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 			.setName(t("set.cleanWiki", lang))
 			.setDesc(t("set.cleanWikiDesc", lang))
 			.addButton((btn) => btn.setButtonText(t("set.cleanWikiBtn", lang)).setWarning().onClick(() => {
-				void (async () => {
+					void (() => {
 				const modal = new Modal(this.app);
 				new Setting(modal.contentEl).setName(t("set.confirmTitle", lang)).setHeading();
 				modal.contentEl.createEl("p", { text: t("set.confirmDesc", lang) });
