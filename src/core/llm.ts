@@ -410,7 +410,6 @@ const SSE_TOTAL_TIMEOUT_MS = 120_000; // 2 分钟总超时
 async function readSSEStream(config: StreamConfig, onChunk: (text: string) => void): Promise<string> {
 	let res: Response;
 	try {
-		// eslint-disable-next-line obsidian/no-fetch -- SSE streaming requires native fetch; requestUrl does not support streaming
 		res = await fetch(config.url, {
 			method: "POST",
 			headers: config.headers,
