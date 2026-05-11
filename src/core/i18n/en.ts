@@ -3,8 +3,7 @@
 export const en = {
 		// Settings
 		"set.title": "Second brain — settings",
-		// eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module
-		"set.provider": "llm provider",
+		"set.provider": "AI provider",
 		"set.model": "Model",
 		"set.modelPh": "Deepseek-chat",
 		"set.apiKey": "API key",
@@ -30,11 +29,9 @@ export const en = {
 		"set.embedModelDesc": "Embedding model for semantic search",
 		"set.embedModelPh": "Text-embedding-3-small",
 		"set.embedUrl": "Embedding base URL",
-		// eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module
 		"set.embedUrlDesc": "Embedding API endpoint (leave empty to use the llm base URL above)",
 		"set.embedUrlPh": "HTTPS://api.OpenAI.com/v1",
 		"set.embedKey": "Embedding API key",
-		// eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module
 		"set.embedKeyDesc": "Leave empty to reuse the llm API key above",
 		"set.langSection": "Language & templates",
 		"set.language": "Language",
@@ -74,17 +71,14 @@ export const en = {
 		"set.cleanCacheDesc": "Clean compilation cache only (fingerprints, analysis results). Wiki pages are not deleted. Next compile will be a full re-analysis.",
 		"set.cleanCacheBtn": "Clean cache",
 		"set.sectionStatus": "Configuration status",
-		// eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module
-		"set.sectionConnection": "llm connection",
+		"set.sectionConnection": "AI connection",
 		"set.sectionWorkspace": "Workspace",
 		"set.sectionCompile": "Compilation & smart enhancements",
 		"set.sectionUi": "Interface & templates",
 		"set.sectionAdvanced": "Advanced settings",
 		"set.compileFileTitle": "Compile current file",
 		"set.compileFileDesc": "Manually compile the currently open raw file",
-		// eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module
 		"set.providerSwitchTitle": "Switch llm provider",
-		// eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module
 		"set.providerSwitchDesc": "Switch to a different llm backend (pro feature)",
 		"set.switch": "Switch",
 
@@ -359,7 +353,6 @@ export const en = {
 		"wiki.synthDone": "Synthesis generated",
 		"wiki.mocCreated": "Moc created",
 		"wiki.loadMore": "Load more ({n}+)",
-		// eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module
 		"wiki.generateArticleConfirm": "Generate an article from this wiki page? This will call the llm and write to the blog/ folder.",
 		"wiki.articleGeneratedNotice": "Article generated in blog/ folder",
 		"wiki.synthSearch": "Search concepts...",
@@ -373,7 +366,6 @@ export const en = {
 	"wiki.originalSources": "Original insights:",
 	"wiki.referenceSources": "Reference materials:",
 	"wiki.regenerateSection": "Regenerate",
-	// eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module
 	"wiki.regenerateConfirm": "Regenerate this section? This will call the llm to replace the content.",
 	"wiki.regenerating": "Generating...",
 	"wiki.regenerateDone": "Section regenerated",
@@ -524,7 +516,7 @@ export const en = {
 		"pro.compare.smartLinkingDesc": "Add cross-page links from semantic similarity",
 		"pro.compare.autoCompileDesc": "Auto-detect new materials & compile",
 		"pro.compare.aiChatDesc": "Chat with AI about your knowledge base",
-		"pro.compare.multiLlmDesc": "Use OpenAI, Claude, and other models",
+		"pro.compare.multiLlmDesc": "Use models from various providers",
 		"pro.compare.templatesDesc": "Customize compilation prompt templates",
 		"pro.compare.embeddingDesc": "Semantic vector search in knowledge base",
 		"pro.compare.healthCheckDesc": "Check configuration & connectivity",
@@ -546,7 +538,6 @@ export const en = {
 		"preset.quickSetup": "Quick setup",
 
 		"wizard.title": "Setup wizard",
-		// eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module
 		"wizard.step1": "Choose llm service",
 		"wizard.step1Desc": "Select your AI provider and configure API key",
 		"wizard.step2": "Configure folders",
@@ -618,7 +609,6 @@ export const en = {
 
 		// Compile errors
 		"compile.analysisFormatError": "AI analysis returned unexpected format. Please retry.",
-		// eslint-disable-next-line obsidianmd/ui/sentence-case-locale-module
 		"compile.noValidJSON": "No valid JSON found in llm response.",
 		"compile.emptyAnalysis": "Analysis result is empty: no concepts, entities, or sources extracted.",
 		"compile.jsonParseError": "JSON parsing failed. Please retry.",
