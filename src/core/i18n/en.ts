@@ -560,7 +560,7 @@ export const en = {
 	"wizard.beforeLabel": "Raw notes",
 	"wizard.afterLabel": "Compiled wiki",
 	"wizard.beforeSample": "Read an article about feynman technique today...\nThe core idea is to teach what you learned...",
-	"wizard.afterSample": "# Feynman technique\ntype: concept | level: method\n\n## definition\na learning method based on teaching...\n\n## related\n- [[learningmethods]] - [[knowledgeinternalization]]",
+	"wizard.afterSample": "# Feynman technique\nType: concept | Level: method\n\n## Definition\nA learning method based on teaching...\n\n## Related\n- [[LearningMethods]] - [[KnowledgeInternalization]]",
 	"wizard.startSetup": "Start setup",
 		"wizard.step3SamplesTitle": "Load sample materials",
 		"wizard.step3SamplesDesc": "Load sample materials into raw/ folder to try compilation immediately. You can also skip this step and add your own materials later.",
