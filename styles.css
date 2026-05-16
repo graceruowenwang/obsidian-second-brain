@@ -308,12 +308,6 @@
 	font-size: 11px;
 	color: var(--text-muted);
 }
-	font-size: 12px;
-	line-height: 1.5;
-	padding: 8px 10px;
-	border-radius: 8px;
-	margin-bottom: 8px;
-}
 
 .second-brain-compile .sb-compile-vault-status--ok {
 	color: var(--text-normal);
