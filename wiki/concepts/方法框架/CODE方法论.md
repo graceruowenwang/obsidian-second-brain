@@ -66,3 +66,8 @@ CODE 不是线性的流水线，而是持续的循环：
 - [[渐进式总结]] -- Distill 阶段的核心技术
 - [[TiagoForte]] -- CODE 方法论的提出者
 - [[中间包]] -- Express 阶段的工作单元概念
+- [[CODE|CODE]]
+- [[SecondBrain|SecondBrain]]
+- [[Tiago Forte|Tiago Forte]]
+- [[building-second-brain-book|building-second-brain-book]]
+- [[code-para|code-para]]

@@ -35,3 +35,6 @@ Forte Labs -- 专注于知识管理和生产力培训的教育公司。
 - [[CODE方法论]] -- 他提出的工作流框架
 - [[PARA系统]] -- 他开发的信息组织系统
 - [[渐进式总结]] -- 他设计的笔记提炼技术
+- [[摘要-building-second-brain-forte|摘要-building-second-brain-forte]]
+- [[second-brain|second-brain]]
+- [[分析-知识管理方法论比较|分析-知识管理方法论比较]]

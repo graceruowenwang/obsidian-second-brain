@@ -7,7 +7,6 @@ import { readWikiFiles, emptyCache, clearEmbeddingCache } from "../core/file-uti
 import { callLLM } from "../core/llm";
 import { t } from "../core/i18n";
 import { PROVIDER_PRESETS, providerPresetOrUndefined } from "../core/presets";
-import { renderLicenseSettings } from "./license-settings";
 import { describeLLMFailure } from "../core/llm-user-message";
 
 // === Imp 10: Provider 切换确认 Modal ===
@@ -57,9 +56,6 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 		const lang = this.plugin.settings.language;
 
 		new Setting(containerEl).setName(t("set.title", lang)).setHeading();
-
-		// --- 状态信息 ---
-		renderLicenseSettings(containerEl, this.plugin);
 
 		// --- 配置状态 ---
 		const statusDetails = containerEl.createEl("details", { cls: "sb-settings-section", attr: { open: "" } });

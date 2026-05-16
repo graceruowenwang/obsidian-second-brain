@@ -38,3 +38,8 @@ Luhmann 写道："我们不能仅仅记下我们看到和想到的东西。重�
 - [[卡片盒笔记法]] -- Luhmann 发展和完善的笔记方法论
 - [[知识网络]] -- Luhmann 的卡片盒是知识网络的经典实现
 - [[常青笔记]] -- Andy Matuschak 受 Luhmann 启发发展的笔记实践
+- [[Niklas Luhmann|Niklas Luhmann]]
+- [[Zettelkasten|Zettelkasten]]
+- [[Sönke Ahrens|Sönke Ahrens]]
+- [[SecondBrain|SecondBrain]]
+- [[AtomicNotes|AtomicNotes]]

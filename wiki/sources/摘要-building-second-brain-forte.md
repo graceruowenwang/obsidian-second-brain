@@ -66,3 +66,8 @@ last_updated: 2026-04-17
 - [[PARA系统]] -- 信息组织的具体框架
 - [[TiagoForte]] -- 本文作者
 - [[渐进式总结]] -- 笔记提炼的核心技术
+- [[ai-enhanced-km|ai-enhanced-km]]
+- [[second-brain|second-brain]]
+- [[SecondBrain|SecondBrain]]
+- [[Tiago Forte|Tiago Forte]]
+- [[PARA|PARA]]

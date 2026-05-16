@@ -89,3 +89,8 @@ PARA 的四个类别不是静态的：
 - [[第二大脑]] -- PARA 是第二大脑的信息架构
 - [[TiagoForte]] -- PARA 系统的提出者
 - [[渐进式总结]] -- 在 PARA 框架内提炼知识的技术
+- [[Tiago Forte|Tiago Forte]]
+- [[code-para|code-para]]
+- [[building-second-brain-book|building-second-brain-book]]
+- [[PARA|PARA]]
+- [[摘要-building-second-brain-forte|摘要-building-second-brain-forte]]

@@ -37,3 +37,7 @@ Andy Matuschak 的常青笔记实践深受 [[NiklasLuhmann]] 的 [[卡片盒笔�
 - [[常青笔记]] -- Andy Matuschak 的核心方法论贡献
 - [[卡片盒笔记法]] -- 常青笔记的理论前身
 - [[知识网络]] -- 常青笔记所追求的知识结构
+- [[Andy Matuschak|Andy Matuschak]]
+- [[分析-知识管理方法论比较|分析-知识管理方法论比较]]
+- [[个人知识管理|个人知识管理]]
+- [[Sönke Ahrens|Sönke Ahrens]]
