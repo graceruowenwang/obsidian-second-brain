@@ -61,12 +61,15 @@ Your API key stays local. Nothing is uploaded.
 
 ## Features
 
-### Free
+All features are free and open source.
 
 | Feature | Description |
 |---------|-------------|
 | Manual Compile | Compile all or individual files on demand |
+| Auto Compile | Watch `raw/` for changes, compile automatically with debounce |
 | Wiki Browser | Card-based index, page preview, backlinks |
+| AI Chat | Streaming conversation with your knowledge base |
+| SVG Mind Map | Interactive visual knowledge graph |
 | Global Search | Search concepts, entities, sources |
 | Multi-LLM | DeepSeek, OpenAI, Claude, OpenRouter, any OpenAI-compatible API |
 | Multi-language UI | English, Chinese, Japanese |
@@ -74,21 +77,12 @@ Your API key stays local. Nothing is uploaded.
 | Vector Search | Embedding-based semantic search with keyword fallback |
 | Vault Scanner | Auto-detect and import existing notes as raw materials |
 | Knowledge Health | Freshness tracking, stale page alerts, orphan detection |
-
-### Pro
-
-| Feature | Description |
-|---------|-------------|
-| Auto Compile | Watch `raw/` for changes, compile automatically with debounce |
-| AI Chat | Streaming conversation with your knowledge base |
-| SVG Mind Map | Interactive visual knowledge graph |
-| Multi-LLM Backend | Switch between providers in one click |
-
-**Pricing**: $5 one-time purchase (via Gumroad). First successful compile starts a **14-day full Pro trial**.
+| Gap Detection | Find broken links and generate stub pages |
+| Smart Auto-Linking | Discover semantic connections between pages |
 
 ## Disclosures
 
-- **Paid features**: Pro tier ($5 one-time) unlocks auto-compile, AI chat, SVG mind map, and multi-LLM backend. Free features are fully usable without payment. First compile starts a 14-day full Pro trial.
+- **Free and open source**: All features are available at no cost (MIT License).
 - **Network usage**: This plugin connects to external LLM APIs (e.g., DeepSeek, OpenAI, Claude) for compilation and chat. API calls are made directly from your device — your notes and API key are never sent to any server other than the LLM provider you configure.
 - **API key required**: You need your own API key from a supported LLM provider. Costs depend on your provider and usage (see Cost Estimate below).
 
@@ -123,7 +117,7 @@ wiki/                       # AI-generated output
 | Model | deepseek-chat | Model name |
 | Raw Folder | `raw` | Input materials folder |
 | Wiki Folder | `wiki` | Output wiki folder |
-| Auto Compile | On | Trigger on file changes (Pro) |
+| Auto Compile | On | Trigger on file changes |
 | Compile Delay | 30s | Debounce interval |
 | Embedding Model | text-embedding-3-small | Semantic search model |
 | Language | Auto | Follows Obsidian setting |
@@ -213,12 +207,15 @@ API Key 仅保存在本地，不会上传到任何服务器。
 
 ### 功能一览
 
-#### 免费功能
+所有功能免费开源。
 
 | 功能 | 说明 |
 |------|------|
 | 手动编译 | 按需编译全部或单个文件 |
+| 自动编译 | 监听 `raw/` 目录变化，自动编译（带防抖） |
 | Wiki 浏览器 | 卡片式索引、页面预览、反向链接 |
+| AI 对话 | 与知识库的流式对话 |
+| SVG 知识图谱 | 可交互的可视化知识网络 |
 | 全局搜索 | 搜索概念、实体、素材 |
 | 多 LLM 支持 | DeepSeek、OpenAI、Claude、OpenRouter 及任何 OpenAI 兼容 API |
 | 多语言界面 | 中文、英文、日文 |
@@ -226,21 +223,12 @@ API Key 仅保存在本地，不会上传到任何服务器。
 | 向量搜索 | 基于 Embedding 的语义搜索，带关键词回退 |
 | 笔记库扫描 | 自动检测并导入已有笔记作为素材 |
 | 知识健康度 | 新鲜度追踪、过期页面提醒、孤儿页面检测 |
-
-#### Pro 功能
-
-| 功能 | 说明 |
-|------|------|
-| 自动编译 | 监听 `raw/` 目录变化，自动编译（带防抖） |
-| AI 对话 | 与知识库的流式对话 |
-| SVG 知识图谱 | 可交互的可视化知识网络 |
-| 多 LLM 后端 | 一键切换 AI 提供商 |
-
-**定价**：$5 买断（通过 Gumroad）。首次编译成功后开启 **14 天完整 Pro 试用**。
+| 缺口检测 | 自动发现断链，为缺失概念生成占位页面 |
+| 智能补链 | 发现页面间的语义关联，自动添加双向链接 |
 
 ### 披露声明
 
-- **付费功能**：Pro 版（$5 买断）解锁自动编译、AI 对话、SVG 知识图谱和多 LLM 后端。免费功能无需付费即可完整使用。首次编译开启 14 天完整 Pro 试用。
+- **免费开源**：所有功能均可免费使用（MIT 许可证）。
 - **网络使用**：本插件需要连接外部 LLM API（如 DeepSeek、OpenAI、Claude）进行编译和对话。API 请求直接从你的设备发出，笔记和 API Key 不会发送到除你选择的 LLM 提供商之外的任何服务器。
 - **需要 API Key**：你需要自行获取支持的 LLM 提供商的 API Key。费用取决于你的提供商和用量（见下方费用说明）。
 
@@ -275,7 +263,7 @@ wiki/                       # AI 生成的知识库
 | 模型 | deepseek-chat | 模型名称 |
 | 素材目录 | `raw` | 输入素材文件夹 |
 | Wiki 目录 | `wiki` | 输出知识库文件夹 |
-| 自动编译 | 开启 | 文件变化时触发（Pro 功能） |
+| 自动编译 | 开启 | 文件变化时触发 |
 | 编译延迟 | 30 秒 | 防抖间隔 |
 | Embedding 模型 | text-embedding-3-small | 语义搜索模型 |
 | 界面语言 | 自动 | 跟随 Obsidian 设置 |
