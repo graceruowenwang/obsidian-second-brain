@@ -8,7 +8,6 @@ import { callLLM } from "../core/llm";
 import { t } from "../core/i18n";
 import { PROVIDER_PRESETS, providerPresetOrUndefined } from "../core/presets";
 import { renderLicenseSettings } from "./license-settings";
-import { requirePro, showUpgradeNotice, createProBadge } from "../core/feature-gate";
 import { describeLLMFailure } from "../core/llm-user-message";
 
 // === Imp 10: Provider 切换确认 Modal ===
@@ -59,22 +58,20 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl).setName(t("set.title", lang)).setHeading();
 
-		// --- License & Pro 区域（最顶部） ---
+		// --- 状态信息 ---
 		renderLicenseSettings(containerEl, this.plugin);
 
-		// --- 配置状态（Pro：健康检查） ---
-		if (requirePro(this.plugin.licenseInfo, "health-check")) {
-			const statusDetails = containerEl.createEl("details", { cls: "sb-settings-section", attr: { open: "" } });
-			statusDetails.createEl("summary", { text: t("set.sectionStatus", lang) });
-			this.renderHealthBar(statusDetails.createDiv(), lang);
-		}
+		// --- 配置状态 ---
+		const statusDetails = containerEl.createEl("details", { cls: "sb-settings-section", attr: { open: "" } });
+		statusDetails.createEl("summary", { text: t("set.sectionStatus", lang) });
+		this.renderHealthBar(statusDetails.createDiv(), lang);
 
 		// --- LLM 连接 ---
 		const reqDetails = containerEl.createEl("details", { cls: "sb-settings-section", attr: { open: "" } });
 		reqDetails.createEl("summary", { text: t("set.sectionConnection", lang) });
 		const reqContent = reqDetails.createDiv();
 
-		// Imp 9: 快速配置
+		// 快速配置
 		new Setting(reqContent)
 			.setName(t("preset.quickSetup", lang))
 			.addDropdown((dd) => {
@@ -85,11 +82,6 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 				dd.setValue("");
 				dd.onChange(async (v) => {
 					if (!v) return;
-					// 非 DeepSeek 需要 Pro
-					if (v !== "deepseek" && !requirePro(this.plugin.licenseInfo, "multi-llm")) {
-						showUpgradeNotice(this.app, "multi-llm", lang);
-						return;
-					}
 					const preset = PROVIDER_PRESETS[v as keyof typeof PROVIDER_PRESETS];
 					if (!preset) return;
 					this.plugin.settings.provider = v as LLMProviderId;
@@ -106,14 +98,8 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 				.addOptions({ deepseek: "DeepSeek", openai: "OpenAI", anthropic: "Anthropic (Claude)", openrouter: "OpenRouter", custom: "Custom" })
 				.setValue(this.plugin.settings.provider)
 				.onChange((v) => {
-					// 非 DeepSeek 需要 Pro
-					if (v !== "deepseek" && !requirePro(this.plugin.licenseInfo, "multi-llm")) {
-						showUpgradeNotice(this.app, "multi-llm", lang);
-						return;
-					}
 					const oldProvider = this.plugin.settings.provider;
 					if (v !== oldProvider) {
-						// Imp 10: 切换确认
 						new ProviderSwitchModal(this.app, v as LLMProviderId, lang, () => {
 							void (async () => {
 							this.plugin.settings.provider = v as LLMProviderId;
@@ -156,7 +142,6 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 			.setDesc(t("set.apiKeyDesc", lang))
 			.addText((t2) => { t2.setPlaceholder("Sk-...").setValue(this.plugin.settings.apiKey).onChange(async (v) => { this.plugin.settings.apiKey = v; await this.plugin.saveSettings(); }); t2.inputEl.type = "password"; });
 
-		// apiKey 获取链接随 provider 变化
 		const preset = providerPresetOrUndefined(this.plugin.settings.provider);
 		if (preset) {
 			apiKeySetting.descEl.createEl("a", { text: t("set.getApiKey", lang), href: preset.keyUrl });
@@ -216,29 +201,20 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.language)
 				.onChange(async (v) => { this.plugin.settings.language = v as UILanguageId; await this.plugin.saveSettings(); this.display(); }));
 
-// --- 编译与智能增强 ---
+	// --- 编译与智能增强 ---
 		const compileDetails = containerEl.createEl("details", { cls: "sb-settings-section" });
 		compileDetails.createEl("summary", { text: t("set.sectionCompile", lang) });
 		const recContent = compileDetails.createDiv();
 
-		// 自动编译（Pro）— 带 PRO badge
-		const autoCompileSetting = new Setting(recContent)
+		new Setting(recContent)
 			.setName(t("set.autoCompile", lang))
-			.setDesc(t("set.autoCompileDesc", lang));
-		if (!requirePro(this.plugin.licenseInfo, "auto-compile")) {
-			createProBadge(autoCompileSetting.nameEl, lang);
-		}
-		autoCompileSetting.addToggle((toggle) => toggle
-			.setValue(this.plugin.settings.autoCompile)
-			.setDisabled(!requirePro(this.plugin.licenseInfo, "auto-compile"))
-			.onChange(async (v) => {
-				if (!requirePro(this.plugin.licenseInfo, "auto-compile")) {
-					showUpgradeNotice(this.app, "auto-compile", lang);
-					return;
-				}
-				this.plugin.settings.autoCompile = v;
-				await this.plugin.saveSettings();
-			}));
+			.setDesc(t("set.autoCompileDesc", lang))
+			.addToggle((toggle) => toggle
+				.setValue(this.plugin.settings.autoCompile)
+				.onChange(async (v) => {
+					this.plugin.settings.autoCompile = v;
+					await this.plugin.saveSettings();
+				}));
 
 		new Setting(recContent)
 			.setName(t("set.delay", lang))
@@ -284,20 +260,12 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 		advDetails.createEl("summary", { text: t("set.sectionAdvanced", lang) });
 		const advContent = advDetails.createDiv();
 
-		// Embedding 配置（Pro）
-		const embedHeader = new Setting(advContent).setName(t("set.embedSection", lang)).setHeading().nameEl;
-		if (!requirePro(this.plugin.licenseInfo, "embedding-config")) {
-			createProBadge(embedHeader, lang);
-		}
+		new Setting(advContent).setName(t("set.embedSection", lang)).setHeading();
 
 		new Setting(advContent)
 			.setName(t("set.embedModel", lang))
 			.setDesc(t("set.embedModelDesc", lang))
 			.addText((t2) => t2.setPlaceholder(t("set.embedModelPh", lang)).setValue(this.plugin.settings.embeddingModel).onChange(async (v) => {
-				if (!requirePro(this.plugin.licenseInfo, "embedding-config")) {
-					showUpgradeNotice(this.app, "embedding-config", lang);
-					return;
-				}
 				this.plugin.settings.embeddingModel = v;
 				await this.plugin.saveSettings();
 			}));
@@ -306,10 +274,6 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 			.setName(t("set.embedUrl", lang))
 			.setDesc(t("set.embedUrlDesc", lang))
 			.addText((t2) => t2.setPlaceholder(t("set.embedUrlPh", lang)).setValue(this.plugin.settings.embeddingBaseUrl).onChange(async (v) => {
-				if (!requirePro(this.plugin.licenseInfo, "embedding-config")) {
-					showUpgradeNotice(this.app, "embedding-config", lang);
-					return;
-				}
 				this.plugin.settings.embeddingBaseUrl = v;
 				await this.plugin.saveSettings();
 			}));
@@ -319,10 +283,6 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 			.setDesc(t("set.embedKeyDesc", lang))
 			.addText((t2) => {
 				t2.setPlaceholder("Sk-...").setValue(this.plugin.settings.embeddingApiKey).onChange(async (v) => {
-					if (!requirePro(this.plugin.licenseInfo, "embedding-config")) {
-						showUpgradeNotice(this.app, "embedding-config", lang);
-						return;
-					}
 					this.plugin.settings.embeddingApiKey = v;
 					await this.plugin.saveSettings();
 				});
@@ -367,7 +327,6 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 								await this.app.fileManager.trashFile(file);
 							}
 						}
-						// 只重置 wiki/cache 相关状态，保留用户配置
 						const s = this.plugin.settings;
 						this.plugin.settings = {
 							...DEFAULT_SETTINGS,
@@ -396,7 +355,7 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 					})();
 				});
 				modal.open();
-				})();
+					})();
 			}));
 
 		new Setting(advContent)
@@ -411,7 +370,7 @@ export class SecondBrainSettingTab extends PluginSettingTab {
 			}));
 	}
 
-	// --- Imp 2: 健康检查 ---
+	// --- 健康检查 ---
 	private renderHealthBar(containerEl: HTMLElement, lang: string) {
 		const bar = containerEl.createDiv({ cls: "sb-health-bar" });
 
