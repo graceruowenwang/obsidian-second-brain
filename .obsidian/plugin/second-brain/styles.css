@@ -1,3 +1,20 @@
+
+/* === Wiki compile overlay === */
+.sb-wiki-compile-overlay {
+	position: absolute;
+	inset: 0;
+	background: var(--background-primary);
+	opacity: 0.85;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 100;
+	pointer-events: all;
+}
+.sb-wiki-compile-overlay-text {
+	color: var(--text-muted);
+	font-size: 1.1em;
+}
 /* 第二大脑 Obsidian 插件 — 样式 */
 
 /* === 编译面板（右侧栏） === */
@@ -290,12 +307,6 @@
 .second-brain-compile .sb-compile-data-section-lead-inline {
 	font-size: 11px;
 	color: var(--text-muted);
-}
-	font-size: 12px;
-	line-height: 1.5;
-	padding: 8px 10px;
-	border-radius: 8px;
-	margin-bottom: 8px;
 }
 
 .second-brain-compile .sb-compile-vault-status--ok {
@@ -1012,6 +1023,29 @@ pre:hover .sb-copy-btn {
 	color: var(--text-on-accent);
 }
 
+.sb-save-note-btn {
+	padding: 10px 12px;
+	min-height: 44px;
+	flex-shrink: 0;
+	border: 1px solid var(--interactive-accent);
+	background: var(--background-primary);
+	color: var(--interactive-accent);
+	border-radius: 10px;
+	cursor: pointer;
+	font-size: 13px;
+	transition: background 0.15s ease, color 0.15s ease;
+}
+
+.sb-save-note-btn:hover {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.sb-save-note-btn:disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
+}
+
 /* Chat 内联配额提示 */
 .sb-chat-quota-inline {
 	display: flex;
@@ -1093,6 +1127,7 @@ pre:hover .sb-copy-btn {
    ============================================ */
 
 .second-brain-wiki {
+	position: relative;
 	--sb-wiki-radius: 12px;
 	--sb-wiki-radius-sm: 8px;
 	--sb-wiki-border: var(--background-modifier-border);
@@ -4378,4 +4413,36 @@ pre:hover .sb-copy-btn {
 	text-align: center;
 	font-size: 13px;
 	color: var(--text-faint);
+}
+
+/* Utility classes replacing inline styles */
+.sb-flex-row {
+	display: flex;
+	gap: 8px;
+}
+
+.sb-flex-row-end {
+	display: flex;
+	gap: 8px;
+	justify-content: flex-end;
+}
+
+.sb-mb-16 {
+	margin-bottom: 16px;
+}
+
+.sb-hidden {
+	display: none !important;
+}
+
+.sb-mt-12 {
+	margin-top: 12px;
+}
+
+.sb-position-relative {
+	position: relative;
+}
+
+.sb-mb-8 {
+	margin-bottom: 8px;
 }
