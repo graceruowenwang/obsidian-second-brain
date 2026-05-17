@@ -13,11 +13,10 @@ import { runCompile } from "./core/compile";
 import { readRawFiles, diffFingerprints, emptyCache, clearEmbeddingCache } from "./core/file-utils";
 import { t } from "./core/i18n";
 import { SetupWizardModal } from "./ui/setup-wizard";
-import { validateLicense, isPro, needsRevalidation, enterGraceIfNeeded, checkGraceExpiry, checkTrialExpiry, getDefaultLicense, getTrialLicense, getTrialDaysLeft, isTrialActive } from "./core/license";
+import { validateLicense, getDefaultLicense } from "./core/license";
 import { quickIngest } from "./core/quick-ingest";
 import { SecondBrainSettingTab } from "./ui/settings-tab";
 import { encryptKeys, decryptKeys, isEncryptionAvailable, SecureStorageError } from "./core/secure-storage";
-import { requirePro } from "./core/feature-gate";
 import { describeLLMFailure } from "./core/llm-user-message";
 import { organizeLooseRawFiles, RAW_FLASH_INBOX } from "./core/raw-organize";
 
@@ -129,7 +128,7 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 			editorCallback: (_editor: Editor, view: MarkdownView | MarkdownFileInfo) => this.compileCurrentFile(view as MarkdownView),
 		});
 
-		// 命令：打开对话（Pro）
+					// 命令：打开对话
 		this.addCommand({
 			id: "open-chat",
 			name: t("cmd.openChat", lang),
@@ -201,8 +200,8 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 			new SetupWizardModal(this.app, this).open();
 		}
 
-		// 启动时自动检查是否有新素材需要编译（Pro only）
-		if (requirePro(this.licenseInfo, "auto-compile") && this.settings.autoCompile && this.settings.apiKey) {
+					// 启动时自动检查是否有新素材需要编译
+		if (this.settings.autoCompile && this.settings.apiKey) {
 			void this.startupAutoCompile();
 		}
 
@@ -242,7 +241,7 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 
 	onunload() {
 		if (this.autoCompileTimer) {
-			activeWindow.clearTimeout(this.autoCompileTimer);
+			window.clearTimeout(this.autoCompileTimer);
 			this.autoCompileTimer = null;
 		}
 		clearEmbeddingCache();
@@ -291,12 +290,7 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 	// --- License ---
 
 	async loadLicenseInfo() {
-		const data = await this.loadPluginData();
-		if (data._licenseInfo) {
-			this.licenseInfo = checkTrialExpiry(checkGraceExpiry(data._licenseInfo as LicenseInfo));
-		} else {
-			this.licenseInfo = getDefaultLicense();
-		}
+		this.licenseInfo = getDefaultLicense();
 	}
 
 	async saveLicenseInfo() {
@@ -305,45 +299,29 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 		await this.savePluginData(data);
 	}
 
-	private async backgroundRevalidate() {
-		if (!this.settings.licenseKey) return;
-		try {
-			const result = await validateLicense(this.settings.licenseKey, this.licenseInfo.instanceId);
-			this.licenseInfo = result;
-			await this.saveLicenseInfo();
-		} catch {
-			this.licenseInfo = enterGraceIfNeeded(this.licenseInfo);
-			this.licenseInfo = checkGraceExpiry(this.licenseInfo);
-			await this.saveLicenseInfo();
-		}
-	}
+
 
 	refreshSettingsTab() {
 		if (this.settingsTab) this.settingsTab.display();
 	}
 
-	private showProWelcome(lang: string) {
-		new Notice(t("pro.trialStarted", lang));
-	}
 
 	// --- 状态栏 ---
 
 	updateStatusBar(state: "ready" | "compiling" | "pending", count?: number) {
 		if (!this.statusBarItem) return;
 		const lang = this.settings.language;
-		const pro = isPro(this.licenseInfo);
 		if (state === "ready") {
-			this.statusBarItem.setText(pro ? t("pro.statusReady", lang) : t("sb.ready", lang));
+			this.statusBarItem.setText(t("sb.ready", lang));
 		} else if (state === "compiling") {
-			this.statusBarItem.setText(pro ? t("pro.statusCompiling", lang) : t("sb.compiling", lang));
+			this.statusBarItem.setText(t("sb.compiling", lang));
 		} else if (state === "pending") {
-			// wiki 非空时显示就绪，只有首次（wiki 为空）才显示待编译
 			const wikiDir = this.app.vault.getAbstractFileByPath(this.settings.wikiFolder);
 			const hasWikiPages = wikiDir instanceof TFolder && wikiDir.children.length > 0;
 			if (hasWikiPages) {
-				this.statusBarItem.setText(pro ? t("pro.statusReady", lang) : t("sb.ready", lang));
+				this.statusBarItem.setText(t("sb.ready", lang));
 			} else {
-				this.statusBarItem.setText(pro ? t("pro.statusPending", lang) : t("sb.pending", lang, { n: count || 0 }));
+				this.statusBarItem.setText(t("sb.pending", lang, { n: count || 0 }));
 			}
 		}
 	}
@@ -423,12 +401,11 @@ export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 
 	private onRawFileChange(file: TFile | TFolder) {
 		if (!this.settings.autoCompile || !this.settings.apiKey) return;
-		if (!requirePro(this.licenseInfo, "auto-compile")) return;
 		if (!this.isRawFile(file)) return;
 
-		if (this.autoCompileTimer) activeWindow.clearTimeout(this.autoCompileTimer);
+		if (this.autoCompileTimer) window.clearTimeout(this.autoCompileTimer);
 		this.updateStatusBar("pending", 1);
-		this.autoCompileTimer = activeWindow.setTimeout(() => {
+		this.autoCompileTimer = window.setTimeout(() => {
 			this.autoCompileTimer = null;
 			void this.triggerAutoCompile();
 		}, this.settings.autoCompileDelay * 1000);

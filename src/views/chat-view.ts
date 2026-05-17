@@ -8,8 +8,6 @@ import { readWikiFiles, filesToMap, vectorSearch, buildEmbeddingCache, ensureFol
 import type { SecondBrainPlugin } from "../types";
 import { openPluginSettings } from "../types";
 import { t, LANG_INSTRUCTION } from "../core/i18n";
-import { requirePro } from "../core/feature-gate";
-import { isPro, checkFreeChatQuota } from "../core/license";
 import { findWikiFile } from "./wiki-shared";
 import { quickIngest } from "../core/quick-ingest";
 import { RAW_FLASH_INBOX } from "../core/raw-organize";
@@ -66,10 +64,6 @@ export class ChatView extends ItemView {
 		container.classList.add("second-brain-chat");
 		const lang = this.plugin.settings.language;
 
-		// Freemium Chat: Pro 无限制，Free 用户每月 3 条
-		const quota = checkFreeChatQuota(this.plugin.licenseInfo);
-		const isQuotaExceeded = !requirePro(this.plugin.licenseInfo, "ai-chat") && !quota.allowed;
-
 		// 头部
 		const header = container.createDiv({ cls: "sb-chat-header" });
 		const titleRow = header.createDiv({ cls: "sb-chat-title-row" });
@@ -77,14 +71,8 @@ export class ChatView extends ItemView {
 		const titleIcon = titleBlock.createSpan({ cls: "sb-chat-title-icon" });
 		setIcon(titleIcon, "message-circle");
 		titleBlock.createSpan({ text: t("chat.title", lang), cls: "sb-chat-title" });
-		// Pro 增强信息：模型 + 索引状态
-		const proInfo = titleRow.createDiv({ cls: "sb-chat-pro-info" });
-		proInfo.createSpan({ text: t("pro.chat.model", lang, { model: this.plugin.settings.model }), cls: "sb-chat-pro-tag" });
-		if (!isPro(this.plugin.licenseInfo)) {
-			const quota = checkFreeChatQuota(this.plugin.licenseInfo);
-			const quotaTag = proInfo.createSpan({ cls: "sb-chat-quota-tag" });
-			quotaTag.textContent = t("chat.freeQuotaRemaining", lang, { n: quota.remaining, limit: quota.limit });
-		}
+		const modelInfo = titleRow.createDiv({ cls: "sb-chat-pro-info" });
+		modelInfo.createSpan({ text: this.plugin.settings.model, cls: "sb-chat-pro-tag" });
 		const clearBtn = header.createEl("button", { text: t("chat.clear", lang), cls: "sb-chat-clear-btn", attr: { type: "button" } });
 		clearBtn.addEventListener("click", () => {
 			this.chatHistory = [];
@@ -126,20 +114,6 @@ export class ChatView extends ItemView {
 		// 输入区
 		const inputArea = container.createDiv({ cls: "sb-input-area" });
 
-		if (isQuotaExceeded) {
-			// 内联升级提示，替代全屏 overlay
-			const quotaNotice = inputArea.createDiv({ cls: "sb-chat-quota-inline" });
-			quotaNotice.createSpan({ text: t("chat.freeQuotaUsed", lang, { limit: quota.limit }), cls: "sb-chat-quota-inline-text" });
-			const upgradeBtn = quotaNotice.createEl("button", { text: t("license.upgradeBtn", lang), cls: "mod-cta sb-chat-quota-upgrade-btn" });
-			upgradeBtn.addEventListener("click", () => {
-				window.open(t("license.purchaseUrl", lang), "_blank", "noopener,noreferrer");
-			});
-			const keyBtn = quotaNotice.createEl("button", { text: t("license.enterKey", lang), cls: "sb-chat-quota-key-btn" });
-			keyBtn.addEventListener("click", () => {
-				openPluginSettings(this.app);
-			});
-			return;
-		}
 
 		const composer = inputArea.createDiv({ cls: "sb-chat-composer" });
 		this.inputEl = composer.createEl("textarea", {
@@ -264,14 +238,6 @@ export class ChatView extends ItemView {
 		const lang = settings.language;
 		if (!settings.apiKey) { new Notice(t("chat.noApiKey", lang)); return; }
 
-			// Freemium quota check
-			if (!isPro(this.plugin.licenseInfo)) {
-				const quota = checkFreeChatQuota(this.plugin.licenseInfo);
-				if (!quota.allowed) {
-					new Notice(t("chat.freeQuotaUsed", lang, { limit: quota.limit }));
-					return;
-				}
-			}
 
 		this.inputEl.value = "";
 		this.inputEl.setCssProps({ height: "auto" });
@@ -414,7 +380,7 @@ export class ChatView extends ItemView {
 				void (async () => {
 				await navigator.clipboard.writeText((codeEl as HTMLElement).textContent || "");
 				btn.textContent = t("chat.copied", lang);
-				activeWindow.setTimeout(() => { btn.textContent = t("chat.copy", lang); }, 1500);
+				window.setTimeout(() => { btn.textContent = t("chat.copy", lang); }, 1500);
 				})();
 			});
 			pre.classList.add("sb-position-relative");
@@ -443,14 +409,14 @@ export class ChatView extends ItemView {
 				const hidePreview = () => { preview.classList.remove("active"); };
 
 				linkText.addEventListener("mouseenter", () => {
-					hoverTimer = activeWindow.setTimeout(showPreview, 200);
+					hoverTimer = window.setTimeout(showPreview, 200);
 				});
 				link.addEventListener("mouseleave", () => {
-					if (hoverTimer) activeWindow.clearTimeout(hoverTimer);
+					if (hoverTimer) window.clearTimeout(hoverTimer);
 					hidePreview();
 				});
 				preview.addEventListener("mouseenter", () => {
-					if (hoverTimer) activeWindow.clearTimeout(hoverTimer);
+					if (hoverTimer) window.clearTimeout(hoverTimer);
 				});
 
 				dlBtn.addEventListener("click", (e) => {
@@ -502,7 +468,7 @@ export class ChatView extends ItemView {
 				}
 				await navigator.clipboard.writeText(md.join("\n"));
 				btn.textContent = t("chat.copied", lang);
-				activeWindow.setTimeout(() => { btn.textContent = t("chat.copyTable", lang); }, 1500);
+				window.setTimeout(() => { btn.textContent = t("chat.copyTable", lang); }, 1500);
 				})();
 			});
 			wrap.appendChild(btn);
@@ -521,7 +487,7 @@ export class ChatView extends ItemView {
 			const text = contentEl?.textContent || "";
 				void navigator.clipboard.writeText(text).then(() => {
 					copyBtn.textContent = t("chat.copied", this.plugin.settings.language);
-					activeWindow.setTimeout(() => setIcon(copyBtn, "copy"), 1500);
+					window.setTimeout(() => setIcon(copyBtn, "copy"), 1500);
 				});
 		});
 	}

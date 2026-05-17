@@ -153,8 +153,8 @@ export class WikiView extends ItemView {
 		this.bodyEl = container.createDiv({ cls: "sb-wiki-body" });
 		// Issue #13: search debounce
 		this.searchEl.addEventListener("input", () => {
-			if (this.searchTimer) activeWindow.clearTimeout(this.searchTimer);
-			this.searchTimer = activeWindow.setTimeout(() => {
+			if (this.searchTimer) window.clearTimeout(this.searchTimer);
+			this.searchTimer = window.setTimeout(() => {
 				if (this.currentView === "index") this.renderIndex();
 			}, 300);
 		});
@@ -372,7 +372,7 @@ export class WikiView extends ItemView {
 		await Promise.resolve();
 		this.component.unload();
 		if (this.searchTimer) {
-			activeWindow.clearTimeout(this.searchTimer);
+			window.clearTimeout(this.searchTimer);
 			this.searchTimer = null;
 		}
 		this.pageScrollTop.clear();

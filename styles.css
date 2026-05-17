@@ -3019,26 +3019,7 @@ pre:hover .sb-copy-btn {
 
 /* === Pro 功能门控 === */
 
-/* PRO 徽章 */
-.sb-pro-badge {
-	display: inline-block;
-	padding: 1px 7px;
-	margin-left: 6px;
-	font-size: 10px;
-	font-weight: 700;
-	letter-spacing: 0.5px;
-	color: #fff;
-	background: linear-gradient(135deg, #7c3aed, #a855f7);
-	border-radius: 10px;
-	vertical-align: middle;
-	line-height: 1.6;
-	text-transform: uppercase;
-}
 
-/* License 设置区域 */
-.sb-license-section {
-	padding: 8px 0;
-}
 
 .sb-beta-banner {
 	margin: 0 0 16px;
@@ -3111,17 +3092,6 @@ pre:hover .sb-copy-btn {
 	text-decoration: underline;
 }
 
-/* Pro 锁定遮罩 */
-.sb-pro-locked-overlay {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	height: 100%;
-	padding: 40px;
-	text-align: center;
-	background: var(--background-primary);
-}
 
 .sb-pro-locked-overlay h2 {
 	font-size: 22px;
@@ -3187,10 +3157,6 @@ pre:hover .sb-copy-btn {
 	justify-content: flex-end;
 }
 
-/* === Pro 功能对比表 === */
-.sb-compare-table-wrap {
-	margin-bottom: 16px;
-}
 
 .sb-compare-title {
 	font-size: 13px;
@@ -3247,12 +3213,6 @@ pre:hover .sb-copy-btn {
 	border-bottom: none;
 }
 
-/* === Pro 激活引导 Modal === */
-.sb-pro-welcome-modal h2 {
-	text-align: center;
-	color: var(--text-normal);
-	margin-bottom: 8px;
-}
 
 .sb-pro-welcome-desc {
 	text-align: center;
@@ -3353,10 +3313,6 @@ pre:hover .sb-copy-btn {
 	line-height: 1.5;
 }
 
-/* Pro 统计增强 */
-.sb-stat-pro .sb-stat-num {
-	color: #7c3aed;
-}
 
 /* 试用提示 */
 .sb-trial-notice {
@@ -3722,11 +3678,6 @@ pre:hover .sb-copy-btn {
 }
 
 /* === Chat Preview Blur (Issue #7) === */
-.sb-chat-preview-blur {
-	max-width: 360px;
-	margin: 0 auto 20px;
-	pointer-events: none;
-}
 
 /* === Compare Table Descriptions (Issue #14) === */
 .sb-compare-feat-name {
@@ -4155,21 +4106,6 @@ pre:hover .sb-copy-btn {
 }
 
 /* === Phase 4: Feature 6 — Chat Free Quota === */
-.sb-chat-quota-tag {
-	font-size: 11px;
-	padding: 2px 8px;
-	border-radius: 4px;
-	background: rgba(234, 179, 8, 0.12);
-	color: #eab308;
-	border: 1px solid rgba(234, 179, 8, 0.25);
-	margin-left: 6px;
-}
-.sb-chat-quota-msg {
-	font-size: 12px;
-	color: var(--text-muted);
-	text-align: center;
-	margin: 8px 0;
-}
 
 /* === Phase 4: Feature 7 — Needs Update Badge === */
 .sb-status-needs-update {

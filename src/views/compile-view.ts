@@ -9,7 +9,6 @@ import type { SecondBrainPlugin, ProgressEvent, CompileResult, CompileCache, Com
 import { openPluginSettings } from "../types";
 import { getSuccessRate, getAvgDurationSec } from "../core/usage-stats";
 import { t } from "../core/i18n";
-import { shouldStartCompileTrial, getCompileTrialLicense } from "../core/license";
 import { friendlyCompilePageError, describeLLMFailure } from "../core/llm-user-message";
 import type { LLMErrorCode } from "../core/llm";
 
