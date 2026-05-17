@@ -611,6 +611,7 @@
 
 .sb-msg-ai {
 	justify-content: flex-start;
+	position: relative;
 }
 
 /* 头像 */
@@ -753,9 +754,13 @@
 	background: var(--background-primary-alt);
 }
 
-.sb-ai-content pre code {
-	padding: 14px 16px;
-	font-size: 13px;
+/* 行内代码 */
+.sb-ai-content code {
+	font-family: var(--font-monospace);
+	font-size: 0.9em;
+	padding: 2px 6px;
+	border-radius: 3px;
+	background: var(--background-primary-alt);
 }
 
 /* Mermaid / SVG 图表约束 */
@@ -1107,10 +1112,6 @@ pre:hover .sb-copy-btn {
 }
 
 /* AI 消息复制按钮 */
-.sb-msg-ai {
-	position: relative;
-}
-
 .sb-msg-copy-btn {
 	position: absolute;
 	top: 8px;
@@ -1564,6 +1565,7 @@ pre:hover .sb-copy-btn {
 }
 
 .sb-wiki-card {
+	position: relative;
 	padding: 16px 16px 14px;
 	background: var(--sb-wiki-card-bg, var(--background-secondary));
 	border: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 88%, transparent);
@@ -3360,10 +3362,6 @@ pre:hover .sb-copy-btn {
 	background: color-mix(in srgb, var(--text-success) 14%, var(--background-primary));
 	color: var(--text-success);
 	border: 1px solid color-mix(in srgb, var(--text-success) 35%, transparent);
-}
-
-.sb-wiki-card {
-	position: relative;
 }
 
 /* === 批量审核 === */
