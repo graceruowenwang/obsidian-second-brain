@@ -230,7 +230,8 @@ export const zhCN: typeof import("./en").en = {
 		"compile.tooltip.statRelations": "检测到的「素材变更 → 受影响 Wiki 页」条目数，用于了解编辑影响面。",
 		"compile.tooltip.statTotal": "当前 Wiki 中概念、实体与来源页面的合计数量。",
 		"compile.tooltip.historyDetail": "展开查看该次编译新增、修改、删除的页面标题列表。",
-		"compile.tooltip.usageStats": "基于本库本地记录的编译次数、成功率与耗时等，不会上传到云端。",
+		"compile.tooltip.usageStats": "仅在本地存储的编译次数、成功率和耗时统计（不上传）。",
+		"compile.closeConfirm": "编译正在进行中，关闭面板将取消编译。确定关闭？",
 
 		// Chat
 		"chat.title": "Wiki 对话",
@@ -258,6 +259,9 @@ export const zhCN: typeof import("./en").en = {
 		"chat.refLabel": "参考: ",
 		"chat.contextInfo": "当前上下文：{n} 轮对话",
 		"chat.clearContext": "清除上下文",
+		"chat.newChat": "新建对话",
+		"chat.sessions": "历史对话",
+		"chat.contextLimit": "上下文: {used}/{max} 轮上限",
 		"chat.systemPrompt": "你是用户的个人知识库助手。{lang}。回答规则：1) 优先基于下方提供的相关页面内容回答；2) 提及具体概念或实体时，用 [[页面名]] 格式引用（如 [[认知负荷]]、[[ spaced repetition ]]）；3) 使用 Markdown 格式，代码用代码块包裹。\n\n相关页面：\n{context}",
 		"chat.systemPromptEmpty": "你是用户的个人知识库助手。{lang}。当前问题暂无直接相关的 Wiki 页面，根据通识回答。如果用户提到特定概念，建议他们先编译相关素材。使用 Markdown 格式。",
 	"chat.freeQuota": "免费消息 {n}/3",

@@ -228,6 +228,7 @@ export const ja: typeof import("./en").en = {
 		"compile.tooltip.statTotal": "Wiki 内の概念・実体・ソースページの合計数です。",
 		"compile.tooltip.historyDetail": "展開すると、そのコンパイルで追加・変更・削除されたページ名の一覧が表示されます。",
 		"compile.tooltip.usageStats": "この保管庫にだけ保存されるコンパイル回数・成功率・所要時間などです（クラウドには送信されません）。",
+		"compile.closeConfirm": "コンパイルが進行中です。閉じるとキャンセルされます。続行しますか？",
 
 		"chat.title": "Wiki チャット",
 		"chat.clear": "チャットをクリア",
@@ -254,6 +255,9 @@ export const ja: typeof import("./en").en = {
 		"chat.refLabel": "参考: ",
 		"chat.contextInfo": "コンテキスト: {n}ラウンド",
 		"chat.clearContext": "コンテキストをクリア",
+		"chat.newChat": "新しいチャット",
+		"chat.sessions": "保存されたチャット",
+		"chat.contextLimit": "コンテキスト: {used}/{max} ラウンド上限",
 		"chat.systemPrompt": "あなたはこのナレッジベースのアシスタントです。以下の Wiki ページに基づいて回答してください。{lang}。Markdown 形式で回答し、コードはコードブロックで囲んでください。\n\n関連ページ：\n{context}",
 		"chat.systemPromptEmpty": "あなたはナレッジベースアシスタントです。この質問に関連する内容はまだありません。自然に応答してください。{lang}。Markdown 形式で回答し、コードはコードブロックで囲んでください。",
 	"chat.freeQuota": "無料メッセージ {n}/3",

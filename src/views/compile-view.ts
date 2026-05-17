@@ -134,6 +134,32 @@ export class CompileView extends ItemView {
 		this.logEl = lowerScroll.createDiv({ cls: "sb-log" });
 		this.addLog(t("compile.clickToStart", lang), "");
 
+		// 检测是否有之前未完成的编译仍在运行（面板关闭后重开）
+		const mutexLocked = (this.plugin as unknown as { compileMutex?: { locked?: boolean } }).compileMutex?.locked;
+		if (mutexLocked) {
+			const staleEl = this.logEl.createDiv({ cls: "sb-compile-stale-warn" });
+			staleEl.createSpan({ text: t("compile.closeConfirm", lang) });
+			const forceCancelBtn = staleEl.createEl("button", { text: t("compile.cancel", lang), cls: "sb-retry-btn mod-warning" });
+			forceCancelBtn.addEventListener("click", () => {
+				staleEl.remove();
+				this.cancelCompile();
+				this.addLog(t("compile.cancelled", lang), "");
+			});
+			this.compileBtn.disabled = true;
+			this.compileBtn.textContent = t("compile.compiling", lang);
+			// Poll until mutex releases, then re-enable
+			const poll = window.setInterval(() => {
+				const locked = (this.plugin as unknown as { compileMutex?: { locked?: boolean } }).compileMutex?.locked;
+				if (!locked) {
+					window.clearInterval(poll);
+					this.compileBtn.disabled = false;
+					this.resetCompileUI(lang);
+					if (staleEl.isConnected) staleEl.remove();
+					this.addLog(t("compile.complete", lang), "ok");
+				}
+			}, 1000);
+		}
+
 		// 空状态引导：没有 API Key 或未编译过时显示
 		const cache = (await this.plugin.loadData()) as CompileCache | null;
 		const hasHistory = !!(cache?.compileHistory && cache.compileHistory.length > 0);
@@ -660,12 +686,16 @@ export class CompileView extends ItemView {
 
 	async onClose() {
 		await Promise.resolve();
-		this.cancelCompile();
+		// Cancel any running compile owned by this view instance
+		if (this.abortController) {
+			this.abortController.abort();
+			this.abortController = null;
+		}
 		if (this.rawRefreshTimer != null) {
 			window.clearTimeout(this.rawRefreshTimer);
 			this.rawRefreshTimer = null;
 		}
 		this.stopEstimateTimer();
-		this.abortController = null;
+		this.compiling = false;
 	}
 }

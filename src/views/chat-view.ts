@@ -12,6 +12,13 @@ import { findWikiFile } from "./wiki-shared";
 import { quickIngest } from "../core/quick-ingest";
 import { RAW_FLASH_INBOX } from "../core/raw-organize";
 
+interface ChatSession {
+	id: string;
+	title: string;
+	messages: Array<{ role: string; content: string }>;
+	createdAt: string;
+}
+
 export const VIEW_TYPE_CHAT = "second-brain-chat";
 
 export class ChatView extends ItemView {
@@ -27,6 +34,9 @@ export class ChatView extends ItemView {
 	private contextIndicator!: HTMLElement;
 	private streamRenderPending = false;
 	private streamRenderRaf = 0;
+	private sessions: ChatSession[] = [];
+	private sessionEl!: HTMLElement;
+	private newChatBtn!: HTMLButtonElement;
 
 	constructor(leaf: WorkspaceLeaf, plugin: SecondBrainPlugin) {
 		super(leaf);
@@ -39,6 +49,7 @@ export class ChatView extends ItemView {
 	getIcon() { return "message-circle"; }
 
 	private static readonly STORAGE_KEY = "sb-chat-history";
+	private static readonly SESSIONS_KEY = "sb-chat-sessions";
 	private static readonly MAX_HISTORY = 50;
 
 	private saveHistory(): void {
@@ -46,6 +57,7 @@ export class ChatView extends ItemView {
 			const data = this.chatHistory.slice(-ChatView.MAX_HISTORY * 2);
 			this.app.saveLocalStorage(ChatView.STORAGE_KEY, JSON.stringify(data));
 		} catch { /* quota exceeded, ignore */ }
+		this.saveCurrentSession();
 	}
 
 	private loadHistory(): Array<{ role: string; content: string }> {
@@ -56,6 +68,108 @@ export class ChatView extends ItemView {
 			if (!Array.isArray(data)) return [];
 			return data.slice(-ChatView.MAX_HISTORY * 2);
 		} catch { return []; }
+	}
+
+	// --- Multi-session management ---
+
+	private loadSessions(): void {
+		try {
+			const raw = this.app.loadLocalStorage(ChatView.SESSIONS_KEY);
+			if (!raw || typeof raw !== "string") { this.sessions = []; return; }
+			const data = JSON.parse(raw);
+			this.sessions = Array.isArray(data) ? data.slice(0, 50) : [];
+		} catch { this.sessions = []; }
+	}
+
+	private saveSessions(): void {
+		try {
+			this.app.saveLocalStorage(ChatView.SESSIONS_KEY, JSON.stringify(this.sessions));
+		} catch { /* quota exceeded */ }
+	}
+
+	private saveCurrentSession(): void {
+		if (this.chatHistory.length === 0) return;
+		const activeId = this.app.loadLocalStorage("sb-chat-active-id");
+		const title = this.sessions.find(s => s.id === activeId)?.title || this.autoTitle();
+		const existing = this.sessions.findIndex(s => s.id === activeId);
+		const session: ChatSession = {
+			id: activeId || Date.now().toString(),
+			title,
+			messages: [...this.chatHistory],
+			createdAt: new Date().toISOString(),
+		};
+		if (existing >= 0) this.sessions[existing] = session;
+		else this.sessions.unshift(session);
+		this.saveSessions();
+	}
+
+	private autoTitle(): string {
+		const firstUser = this.chatHistory.find(m => m.role === "user");
+		if (!firstUser) return "New chat";
+		return firstUser.content.slice(0, 40).replace(/\n/g, " ") + (firstUser.content.length > 40 ? "…" : "");
+	}
+
+	private newChat(): void {
+		this.saveCurrentSession();
+		this.chatHistory = [];
+		this.saveHistory();
+		const newId = Date.now().toString();
+		this.app.saveLocalStorage("sb-chat-active-id", newId);
+		this.messagesEl.empty();
+		this.addWelcome();
+		this.contextIndicator.classList.add("sb-hidden");
+		this.renderSessionTabs();
+	}
+
+	private switchSession(id: string): void {
+		if (this.sending) return;
+		this.saveCurrentSession();
+		const session = this.sessions.find(s => s.id === id);
+		if (!session) return;
+		this.app.saveLocalStorage("sb-chat-active-id", id);
+		this.chatHistory = session.messages;
+		this.saveHistory();
+		// Re-render messages
+		this.messagesEl.empty();
+		if (this.chatHistory.length === 0) {
+			this.addWelcome();
+		} else {
+			for (const msg of this.chatHistory) {
+				if (msg.role === "user") {
+					this.addUserMessage(msg.content);
+				} else if (msg.role === "assistant") {
+					const el = this.addAiMessagePlaceholder();
+					const typing = el.querySelector(".sb-typing");
+					if (typing) typing.remove();
+					const contentEl = el.querySelector(".sb-ai-content") as HTMLElement;
+					if (contentEl) void MarkdownRenderer.render(this.app, sanitizeLLMOutput(msg.content), contentEl, "", this.component);
+					this.addMsgCopyBtn(el);
+				}
+			}
+		}
+		this.updateContextIndicator();
+		this.renderSessionTabs();
+	}
+
+	private renderSessionTabs(): void {
+		if (!this.sessionEl) return;
+		this.sessionEl.empty();
+		const activeId = this.app.loadLocalStorage("sb-chat-active-id");
+		// Show tabs for sessions with messages only
+		const visible = this.sessions.filter(s => s.messages.length > 0).slice(0, 10);
+		for (const s of visible) {
+			const tab = this.sessionEl.createEl("button", {
+				text: s.title,
+				cls: "sb-session-tab" + (s.id === activeId ? " active" : ""),
+				attr: { type: "button", title: s.title },
+			});
+			tab.addEventListener("click", () => this.switchSession(s.id));
+		}
+		// Update new chat button state
+		if (this.newChatBtn) {
+			const hasContent = this.chatHistory.length > 0;
+			this.newChatBtn.classList.toggle("sb-hidden", !hasContent && visible.length === 0);
+		}
 	}
 
 	async onOpen() {
@@ -73,14 +187,21 @@ export class ChatView extends ItemView {
 		titleBlock.createSpan({ text: t("chat.title", lang), cls: "sb-chat-title" });
 		const modelInfo = titleRow.createDiv({ cls: "sb-chat-pro-info" });
 		modelInfo.createSpan({ text: this.plugin.settings.model, cls: "sb-chat-pro-tag" });
-		const clearBtn = header.createEl("button", { text: t("chat.clear", lang), cls: "sb-chat-clear-btn", attr: { type: "button" } });
+		const headerActions = header.createDiv({ cls: "sb-chat-header-actions" });
+		this.newChatBtn = headerActions.createEl("button", { text: t("chat.newChat", lang), cls: "sb-chat-new-btn mod-cta", attr: { type: "button" } });
+		this.newChatBtn.addEventListener("click", () => this.newChat());
+		const clearBtn = headerActions.createEl("button", { text: t("chat.clear", lang), cls: "sb-chat-clear-btn", attr: { type: "button" } });
 		clearBtn.addEventListener("click", () => {
 			this.chatHistory = [];
-				this.saveHistory();
+			this.saveHistory();
 			this.messagesEl.empty();
 			this.contextIndicator.classList.add("sb-hidden");
 			this.addWelcome();
+			this.renderSessionTabs();
 		});
+
+		// 会话标签栏
+		this.sessionEl = container.createDiv({ cls: "sb-session-tabs" });
 
 		// 消息区
 		this.messagesEl = container.createDiv({ cls: "sb-messages", attr: { role: "log", "aria-live": "polite" } });
@@ -169,15 +290,23 @@ export class ChatView extends ItemView {
 
 	private updateContextIndicator() {
 		const rounds = Math.floor(this.chatHistory.length / 2);
+		const maxRounds = 10; // matches chatHistory.slice(-20) in send()
 		if (rounds > 0) {
 			const lang = this.plugin.settings.language;
 			this.contextIndicator.empty();
-			this.contextIndicator.createSpan({ text: t("chat.contextInfo", lang, { n: rounds }) });
+			this.contextIndicator.createSpan({ text: t("chat.contextLimit", lang, { used: String(rounds), max: String(maxRounds) }), cls: "sb-context-text" });
 			const clearCtxBtn = this.contextIndicator.createEl("button", { text: t("chat.clearContext", lang), cls: "sb-context-clear" });
 			clearCtxBtn.addEventListener("click", () => {
 				this.chatHistory = [];
 				this.contextIndicator.classList.add("sb-hidden");
+				this.saveHistory();
 			});
+			// Warn when near limit
+			if (rounds >= maxRounds) {
+				this.contextIndicator.classList.add("sb-context-warn");
+			} else {
+				this.contextIndicator.classList.remove("sb-context-warn");
+			}
 			this.contextIndicator.classList.remove("sb-hidden");
 		} else {
 			this.contextIndicator.classList.add("sb-hidden");
@@ -217,6 +346,9 @@ export class ChatView extends ItemView {
 				void this.plugin.activateView("second-brain-compile");
 			});
 		}
+		// 加载并渲染会话标签
+		this.loadSessions();
+		this.renderSessionTabs();
 	}
 
 	private async loadWiki() {

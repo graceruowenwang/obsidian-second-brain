@@ -228,6 +228,7 @@ export const en = {
 		"compile.tooltip.statTotal": "Total count of concept + entity + source pages in the wiki.",
 		"compile.tooltip.historyDetail": "Expand to see titles added, modified, or removed in that compile.",
 		"compile.tooltip.usageStats": "Locally stored compile counts, success rate, and timing for this vault only (not uploaded).",
+		"compile.closeConfirm": "Compilation is in progress. Closing will cancel it. Proceed?",
 
 		"chat.title": "Wiki chat",
 		"chat.clear": "Clear chat",
@@ -254,6 +255,9 @@ export const en = {
 		"chat.refLabel": "Reference: ",
 		"chat.contextInfo": "Context: {n} rounds",
 		"chat.clearContext": "Clear context",
+		"chat.newChat": "New chat",
+		"chat.sessions": "Saved chats",
+		"chat.contextLimit": "Context: {used}/{max} max rounds",
 		"chat.systemPrompt": "You are the knowledge base assistant. Answer based on the following wiki pages. {lang}. Use Markdown format, code in code blocks.\n\nRelated pages:\n{context}",
 		"chat.systemPromptEmpty": "You are the knowledge base assistant. No relevant content found for this query. Respond naturally. {lang}. Use Markdown format, code in code blocks.",
 	"chat.freeQuota": "Free messages {n}/3",
