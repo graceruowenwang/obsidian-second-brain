@@ -504,13 +504,22 @@ export class ChatView extends ItemView {
 		if (this.saving || this.sending) return;
 		const lang = this.plugin.settings.language;
 
-		// 取最后一条 AI 回复的原始文本
-		const lastAiMsg = [...this.chatHistory].reverse().find(m => m.role === "assistant");
-		const content = lastAiMsg?.content?.trim();
-		if (!content) {
+		// 取最后一条 AI 回复及对应的用户问题
+		const lastAiIdx = [...this.chatHistory].map((m, i) => ({ ...m, i })).reverse().find(m => m.role === "assistant");
+		const aiContent = lastAiIdx?.content?.trim();
+		if (!aiContent) {
 			new Notice(t("chat.noteEmpty", lang));
 			return;
 		}
+
+		// 取对应的用户问题作为上下文
+		const userQuestion = lastAiIdx && lastAiIdx.i > 0
+			? this.chatHistory[lastAiIdx.i - 1]?.content?.trim() || ""
+			: "";
+
+		const noteContent = userQuestion
+			? `# Q: ${userQuestion.split("\n")[0]}\n\n${aiContent}`
+			: aiContent;
 		if (!this.plugin.settings.apiKey) {
 			new Notice(t("chat.noApiKey", lang));
 			return;
@@ -529,11 +538,18 @@ export class ChatView extends ItemView {
 
 		try {
 			await ensureFolder(this.app, `${rawFolder}/${relDir}`);
-			await this.app.vault.create(filePath, content);
+			await this.app.vault.create(filePath, noteContent);
 			new Notice(t("chat.noteSaved", lang, { path: filePath }));
 
+			// 自动打开保存的笔记
+			const savedFile = this.app.vault.getAbstractFileByPath(filePath);
+			if (savedFile instanceof TFile) {
+				const leaf = this.app.workspace.getLeaf(false);
+				void leaf.openFile(savedFile);
+			}
+
 			new Notice(t("chat.noteCompiling", lang));
-			const targetFile = { path: filePath, content };
+			const targetFile = { path: filePath, content: noteContent };
 			const result = await this.plugin.runWithCompileLock(() =>
 				quickIngest(this.app, this.plugin.settings, targetFile),
 			);
