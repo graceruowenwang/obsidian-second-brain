@@ -17,6 +17,7 @@ import { validateLicense, isPro, needsRevalidation, enterGraceIfNeeded, checkGra
 import { quickIngest } from "./core/quick-ingest";
 import { SecondBrainSettingTab } from "./ui/settings-tab";
 import { encryptKeys, decryptKeys, isEncryptionAvailable, SecureStorageError } from "./core/secure-storage";
+import { requirePro } from "./core/feature-gate";
 import { describeLLMFailure } from "./core/llm-user-message";
 import { organizeLooseRawFiles, RAW_FLASH_INBOX } from "./core/raw-organize";
 
