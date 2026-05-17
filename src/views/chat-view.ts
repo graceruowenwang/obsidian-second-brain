@@ -671,7 +671,6 @@ export class ChatView extends ItemView {
 		try {
 			await ensureFolder(this.app, `${rawFolder}/${relDir}`);
 			await this.app.vault.create(filePath, noteContent);
-			new Notice(t("chat.noteSaved", lang, { path: filePath }));
 
 			// 自动打开保存的笔记
 			const savedFile = this.app.vault.getAbstractFileByPath(filePath);
@@ -679,8 +678,6 @@ export class ChatView extends ItemView {
 				const leaf = this.app.workspace.getLeaf(false);
 				void leaf.openFile(savedFile);
 			}
-
-			new Notice(t("chat.noteCompiling", lang));
 			const targetFile = { path: filePath, content: noteContent };
 			const result = await this.plugin.runWithCompileLock(() =>
 				quickIngest(this.app, this.plugin.settings, targetFile),

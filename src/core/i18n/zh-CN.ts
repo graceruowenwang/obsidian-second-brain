@@ -169,6 +169,7 @@ export const zhCN: typeof import("./en").en = {
 		"compile.report.duration": "耗时 {t} 秒",
 		"compile.report.validationWarning": "{n} 个分析结果需注意",
 		"compile.report.gapDetection": "缺口检测: 发现 {detected} 个知识缺口，生成 {stubs} 个待补充页面",
+		"compile.report.bgWarnings": "{n} 个后台任务发生非致命错误（详见下方）",
 		"compile.report.linkEnrichment": "智能补链: 新增 {links} 条语义关联链接",
 		"compile.impact.title": "变更影响",
 		"compile.impact.line": "修改了 {file}，影响了 {pages}",

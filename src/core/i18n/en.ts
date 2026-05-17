@@ -166,6 +166,7 @@ export const en = {
 		"compile.report.duration": "Completed in {t}s",
 		"compile.report.validationWarning": "{n} analysis issues noted",
 		"compile.report.gapDetection": "Gap detection: found {detected} knowledge gaps, generated {stubs} stub pages",
+		"compile.report.bgWarnings": "{n} background task(s) had non-fatal errors (see details)",
 		"compile.report.linkEnrichment": "Smart linking: added {links} semantic links",
 		"compile.impact.title": "Change impact",
 		"compile.impact.line": "Modified {file}, affected {pages}",

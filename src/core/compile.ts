@@ -321,6 +321,7 @@ interface CompileContext {
 	stubsGenerated: number;
 	linksAdded: number;
 	logBuilder: CompileLogBuilder;
+	backgroundWarnings: string[];
 }
 
 /** 阶段 1: 加载素材和缓存 */
@@ -395,7 +396,7 @@ async function phaseGenerate(ctx: CompileContext): Promise<void> {
 		updateFingerprints(allFiles, cache);
 		await getStorage(ctx.app, ctx.plugin).saveData(cache);
 	} catch (e) {
-		console.warn("compile: checkpoint save failed, continuing:", e);
+		ctx.backgroundWarnings.push("Checkpoint save failed (non-fatal)");
 	}
 }
 
@@ -425,7 +426,7 @@ async function phaseEnrich(ctx: CompileContext): Promise<void> {
 		try {
 			await getStorage(ctx.app, ctx.plugin).saveData(cache);
 		} catch (e) {
-			console.warn("compile: gap checkpoint save failed:", e);
+			ctx.backgroundWarnings.push("Gap detection checkpoint save failed (non-fatal)");
 		}
 	}
 
@@ -529,6 +530,7 @@ async function phaseFinalize(ctx: CompileContext): Promise<CompileResult> {
 		gapDetected: ctx.gapDetected,
 		stubsGenerated: ctx.stubsGenerated,
 		linksAdded: ctx.linksAdded,
+		backgroundWarnings: ctx.backgroundWarnings.length > 0 ? ctx.backgroundWarnings : undefined,
 	};
 }
 
@@ -564,6 +566,7 @@ export async function runCompile(
 		stubsGenerated: 0,
 		linksAdded: 0,
 		logBuilder: new CompileLogBuilder(forceRecompile ? "full" : "incremental"),
+		backgroundWarnings: [],
 	};
 
 	// 阶段 1: 加载

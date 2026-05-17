@@ -166,6 +166,7 @@ export const ja: typeof import("./en").en = {
 		"compile.report.duration": "{t}秒で完了",
 		"compile.report.validationWarning": "{n} 個の分析の問題が検出されました",
 		"compile.report.gapDetection": "ギャップ検出: {detected} 個のナレッジギャップを発見、{stubs} 個のスタブページを生成",
+		"compile.report.bgWarnings": "{n} 件のバックグラウンドタスクで軽微なエラーが発生しました",
 		"compile.report.linkEnrichment": "スマートリンク: {links} 件のセマンティックリンクを追加",
 		"compile.impact.title": "変更の影響",
 		"compile.impact.line": "{file}を変更し、{pages}に影響しました",

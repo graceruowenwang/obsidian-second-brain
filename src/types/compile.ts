@@ -141,6 +141,7 @@ export interface CompileResult {
 	gapDetected?: number;
 	stubsGenerated?: number;
 	linksAdded?: number;
+	backgroundWarnings?: string[];
 }
 
 export interface ProgressEvent {

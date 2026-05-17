@@ -441,6 +441,10 @@ export class CompileView extends ItemView {
 		if (result.linksAdded && result.linksAdded > 0) {
 			this.addLog(t("compile.report.linkEnrichment", lang, { links: String(result.linksAdded) }), "ok");
 		}
+		if (result.backgroundWarnings && result.backgroundWarnings.length > 0) {
+			this.addLog(t("compile.report.bgWarnings", lang, { n: result.backgroundWarnings.length }), "warn");
+			for (const w of result.backgroundWarnings) this.addLog(`  ${w}`, "warn");
+		}
 		if (result.errors.length > 0) {
 			errorCount = result.errors.length;
 			this.addLog(t("compile.errors", lang, { n: result.errors.length }), "err");
