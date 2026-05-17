@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-second-brain",
-	"version": "2.1.9",
+	"version": "2.1.10",
 	"description": "AI-powered knowledge compilation engine for Obsidian",
 	"main": "main.js",
 	"scripts": {
