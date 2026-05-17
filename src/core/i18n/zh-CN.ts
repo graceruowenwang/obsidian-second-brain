@@ -5,7 +5,7 @@ export const zhCN: typeof import("./en").en = {
 		"set.title": "Second Brain — 设置",
 		"set.provider": "LLM Provider",
 		"set.model": "Model",
-		"set.modelPh": "deepseek-chat",
+		"set.modelPh": "deepseek-v4-flash",
 		"set.apiKey": "API Key",
 		"set.apiKeyDesc": "密钥保存在本地，不会上传。",
 		"set.getApiKey": "获取 DeepSeek API Key",

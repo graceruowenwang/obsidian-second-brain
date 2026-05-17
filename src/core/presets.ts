@@ -12,7 +12,7 @@ export interface ProviderPreset {
 export const PROVIDER_PRESETS: Record<Exclude<LLMProviderId, "custom">, ProviderPreset> = {
 	deepseek: {
 		label: "DeepSeek",
-		models: ["deepseek-chat", "deepseek-reasoner"],
+		models: ["deepseek-v4-flash", "deepseek-v4-pro"],
 		baseUrl: "https://api.deepseek.com",
 		keyUrl: "https://platform.deepseek.com/api_keys",
 	},

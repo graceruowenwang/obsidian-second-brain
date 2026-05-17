@@ -5,7 +5,7 @@ export const en = {
 		"set.title": "Second brain — settings",
 		"set.provider": "AI provider",
 		"set.model": "Model",
-		"set.modelPh": "Deepseek-chat",
+		"set.modelPh": "deepseek-v4-flash",
 		"set.apiKey": "API key",
 		"set.apiKeyDesc": "API key is stored locally and never uploaded.",
 		"set.getApiKey": "Get DeepSeek API key",

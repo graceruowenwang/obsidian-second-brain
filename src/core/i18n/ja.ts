@@ -5,7 +5,7 @@ export const ja: typeof import("./en").en = {
 		"set.title": "Second Brain — 設定",
 		"set.provider": "LLM Provider",
 		"set.model": "Model",
-		"set.modelPh": "deepseek-chat",
+		"set.modelPh": "deepseek-v4-flash",
 		"set.apiKey": "API Key",
 		"set.apiKeyDesc": "APIキーはローカルに保存され、アップロードされません。",
 		"set.getApiKey": "DeepSeek API Key を取得",

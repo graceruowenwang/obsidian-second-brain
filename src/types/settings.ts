@@ -40,7 +40,7 @@ export interface PluginSettings {
 
 export const DEFAULT_SETTINGS: PluginSettings = {
 	provider: "deepseek" satisfies LLMProviderId,
-	model: "deepseek-chat",
+	model: "deepseek-v4-flash",
 	apiKey: "",
 	baseUrl: "https://api.deepseek.com",
 	maxTokens: 8000,
