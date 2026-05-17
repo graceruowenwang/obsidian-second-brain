@@ -488,6 +488,7 @@ async function phaseFinalize(ctx: CompileContext): Promise<CompileResult> {
 
 	// 追加编译历史
 	if (!cache.compileHistory) cache.compileHistory = [];
+	cache.compileHistory = cache.compileHistory.slice(0, 50);
 	cache.compileHistory.unshift({
 		date: new Date().toISOString(),
 		action: ctx.forceRecompile ? "full" : "incremental",

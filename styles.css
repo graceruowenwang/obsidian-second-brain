@@ -1,6 +1,16 @@
 /* Pro 主题色 */
 :root {
 	--sb-pro-accent: #7c3aed;
+	/* 主题感知变量 — fallback 到 Obsidian 原生变量 */
+	--sb-bg-primary: var(--background-primary);
+	--sb-bg-secondary: var(--background-secondary);
+	--sb-text-normal: var(--text-normal);
+	--sb-text-muted: var(--text-muted);
+	--sb-border: var(--background-modifier-border);
+	--sb-accent: var(--interactive-accent);
+	--sb-accent-hover: var(--interactive-accent-hover);
+	--sb-card-bg: var(--background-secondary);
+	--sb-card-hover: var(--background-modifier-hover);
 	--sb-spacing-xs: 4px;
 	--sb-spacing-sm: 8px;
 	--sb-spacing-md: 12px;
