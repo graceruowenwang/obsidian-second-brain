@@ -163,9 +163,11 @@ export class SetupWizardModal extends Modal {
 		testBtn.addEventListener("click", () => {
 			void (async () => {
 			testBtn.textContent = "...";
+			const start = Date.now();
 			try {
 				await callLLM([{ role: "user", content: "Hi" }], this.plugin.settings, { maxTokens: 5, temperature: 0 });
-				testBtn.textContent = "OK";
+				const ms = Date.now() - start;
+				testBtn.textContent = ms < 1000 ? `OK ${ms}ms` : `OK ${(ms/1000).toFixed(1)}s`;
 				testBtn.classList.add("mod-cta");
 			} catch (e) {
 				console.warn("setup-wizard: test failed:", e);
@@ -175,7 +177,7 @@ export class SetupWizardModal extends Modal {
 			activeWindow.setTimeout(() => {
 				testBtn.textContent = t("wizard.testConn", lang);
 				testBtn.classList.remove("mod-cta", "mod-warning");
-			}, 2000);
+			}, 2500);
 			})();
 		});
 

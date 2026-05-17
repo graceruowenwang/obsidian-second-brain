@@ -104,7 +104,7 @@ export const ja: typeof import("./en").en = {
 		"notice.compiling": "{path} をコンパイル中...",
 		"notice.compileDone": "コンパイル完了：{n} ページを生成",
 		"notice.compileFail": "コンパイル失敗: {msg}",
-		"notice.connOk": "接続成功: {msg}",
+		"notice.connOk": "接続成功 ({ms})",
 		"notice.connOkSimple": "API 接続成功",
 		"notice.connFail": "接続失敗: {msg}",
 		"notice.tplGenerated": "テンプレートファイルを生成: {path}",

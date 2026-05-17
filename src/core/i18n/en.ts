@@ -104,7 +104,7 @@ export const en = {
 		"notice.compiling": "Compiling {path}...",
 		"notice.compileDone": "Compile done: {n} pages generated",
 		"notice.compileFail": "Compile failed: {msg}",
-		"notice.connOk": "Connection OK: {msg}",
+		"notice.connOk": "Connection OK ({ms})",
 		"notice.connOkSimple": "API connection successful",
 		"notice.connFail": "Connection failed: {msg}",
 		"notice.tplGenerated": "Template file generated: {path}",

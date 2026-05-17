@@ -106,7 +106,7 @@ export const zhCN: typeof import("./en").en = {
 		"notice.compiling": "正在编译 {path}...",
 		"notice.compileDone": "编译完成：{n} 个页面",
 		"notice.compileFail": "编译失败: {msg}",
-		"notice.connOk": "连接成功: {msg}",
+		"notice.connOk": "连接成功 ({ms})",
 		"notice.connOkSimple": "API 连接成功",
 		"notice.connFail": "连接失败: {msg}",
 		"notice.tplGenerated": "模板文件已生成: {path}",
