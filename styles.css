@@ -661,7 +661,6 @@
 	color: var(--text-normal);
 	border: 1px solid var(--background-modifier-border);
 	border-bottom-left-radius: 5px;
-	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 	box-shadow: 0 1px 2px color-mix(in srgb, var(--background-modifier-box-shadow) 25%, transparent);
 }
 
@@ -754,14 +753,6 @@
 	background: var(--background-primary-alt);
 }
 
-/* 行内代码 */
-.sb-ai-content code {
-	font-family: var(--font-monospace);
-	font-size: 0.9em;
-	padding: 2px 6px;
-	border-radius: 3px;
-	background: var(--background-primary-alt);
-}
 
 /* Mermaid / SVG 图表约束 */
 .sb-ai-content svg {
@@ -1355,7 +1346,7 @@ pre:hover .sb-copy-btn {
 	transition: width 0.35s ease;
 	background: linear-gradient(
 		90deg,
-		color-mix(in srgb, var(--interactive-accent) 75%, #fff),
+		color-mix(in srgb, var(--interactive-accent) 75%, #ffffff),
 		var(--interactive-accent)
 	);
 }
@@ -1571,7 +1562,6 @@ pre:hover .sb-copy-btn {
 	border: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 88%, transparent);
 	border-radius: var(--sb-wiki-radius, 12px);
 	cursor: pointer;
-	position: relative;
 	transition:
 		border-color 0.18s ease,
 		box-shadow 0.22s ease,
@@ -3516,7 +3506,7 @@ pre:hover .sb-copy-btn {
 	background: linear-gradient(
 		135deg,
 		color-mix(in srgb, var(--interactive-accent) 100%, transparent),
-		color-mix(in srgb, var(--interactive-accent) 78%, #000) 100%
+		color-mix(in srgb, var(--interactive-accent) 78%, #000000) 100%
 	);
 	color: var(--text-on-accent);
 	cursor: pointer;
@@ -4096,7 +4086,7 @@ pre:hover .sb-copy-btn {
 	height: 100%;
 	background: linear-gradient(
 		90deg,
-		color-mix(in srgb, var(--text-success) 90%, #fff),
+		color-mix(in srgb, var(--text-success) 90%, #ffffff),
 		var(--text-success)
 	);
 	border-radius: 999px;
