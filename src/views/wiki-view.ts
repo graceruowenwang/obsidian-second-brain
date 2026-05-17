@@ -30,24 +30,24 @@ export const VIEW_TYPE_WIKI = "second-brain-wiki";
 
 export class WikiView extends ItemView {
 	plugin: SecondBrainPlugin;
-	private bodyEl: HTMLElement;
-	private searchEl: HTMLInputElement;
-	private sortSelect: HTMLSelectElement;
-	private statusSelect: HTMLSelectElement;
+	private bodyEl!: HTMLElement;
+	private searchEl!: HTMLInputElement;
+	private sortSelect!: HTMLSelectElement;
+	private statusSelect!: HTMLSelectElement;
 	private wikiPages: WikiPage[] = [];
 	private indexData: IndexSection[] = [];
 	private currentView: "index" | "page" = "index";
 	private currentName = "";
 	private navHistory: string[] = [];
 	private component: Component;
-	private indexBtn: HTMLButtonElement;
-	private mocBtn: HTMLButtonElement;
+	private indexBtn!: HTMLButtonElement;
+	private mocBtn!: HTMLButtonElement;
 	private sortMode: WikiIndexSortMode = "name-asc";
 	private statusFilter: WikiStatusFilter = "all";
 	private selectedPages = new Set<string>();
 	private batchBar: HTMLElement | null = null;
 	private pageLimit = 50;
-	private searchTimer: ReturnType<typeof setTimeout> | null = null;
+	private searchTimer: number | null = null;
 	/** View header action buttons (refresh / overflow); removed in onClose to avoid duplicates on reopen */
 	private wikiHeaderActionEls: HTMLElement[] = [];
 	/** Invalidates stale vectorSearch callbacks after a new index render */

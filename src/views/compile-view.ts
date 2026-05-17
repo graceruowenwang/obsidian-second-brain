@@ -16,17 +16,17 @@ export const VIEW_TYPE_COMPILE = "second-brain-compile";
 
 export class CompileView extends ItemView {
 	plugin: SecondBrainPlugin;
-	private logEl: HTMLElement;
-	private progressFill: HTMLElement;
-	private progressLabel: HTMLElement;
-	private compileBtn: HTMLButtonElement;
-	private cancelBtn: HTMLButtonElement;
+	private logEl!: HTMLElement;
+	private progressFill!: HTMLElement;
+	private progressLabel!: HTMLElement;
+	private compileBtn!: HTMLButtonElement;
+	private cancelBtn!: HTMLButtonElement;
 	private compiling = false;
 	private abortController: AbortController | null = null;
 	private compileStartTime = 0;
-	private timeEstimateEl: HTMLElement;
-	private stageIndicator: HTMLElement;
-	private currentFileEl: HTMLElement;
+	private timeEstimateEl!: HTMLElement;
+	private stageIndicator!: HTMLElement;
+	private currentFileEl!: HTMLElement;
 	private dataVaultMount!: HTMLElement;
 	private dataStatsMount!: HTMLElement;
 	private dataHistoryMount!: HTMLElement;
@@ -334,13 +334,6 @@ export class CompileView extends ItemView {
 			// 编译摘要
 			const elapsed = this.elapsedSeconds();
 			this.renderCompileSummary(elapsed, errorCount, force, result);
-
-			// 首次编译成功 → 记录完整 Pro 试用起点（公测 BETA_MODE 下门控仍全开，但设置页可显示剩余天数）
-			if (shouldStartCompileTrial(this.plugin.licenseInfo, this.plugin.settings.licenseKey)) {
-				this.plugin.licenseInfo = getCompileTrialLicense();
-				await this.plugin.saveLicenseInfo();
-				new Notice(t("pro.trialStarted", lang));
-			}
 
 			await this.refreshVaultStripOnly();
 			await this.renderStats();

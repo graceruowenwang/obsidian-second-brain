@@ -11,7 +11,7 @@ import { hasAnySampleSource, loadSamplesIntoVault } from "../core/sample-loader"
 export class SetupWizardModal extends Modal {
 	private plugin: SecondBrainPlugin;
 	private step = 0;
-	private container: HTMLElement;
+	private container!: HTMLElement;
 
 	constructor(app: App, plugin: SecondBrainPlugin) {
 		super(app);

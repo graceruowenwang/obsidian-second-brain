@@ -16,15 +16,15 @@ export const VIEW_TYPE_CHAT = "second-brain-chat";
 
 export class ChatView extends ItemView {
 	plugin: SecondBrainPlugin;
-	private messagesEl: HTMLElement;
-	private inputEl: HTMLTextAreaElement;
+	private messagesEl!: HTMLElement;
+	private inputEl!: HTMLTextAreaElement;
 	private chatHistory: Array<{ role: string; content: string }> = [];
 	private wikiMap: Record<string, string> = {};
 	private sending = false;
 	private saving = false;
 	private abortController: AbortController | null = null;
 	private component: Component;
-	private contextIndicator: HTMLElement;
+	private contextIndicator!: HTMLElement;
 	private streamRenderPending = false;
 	private streamRenderRaf = 0;
 
@@ -403,7 +403,7 @@ export class ChatView extends ItemView {
 				const dlBtn = actions.createEl("button", { text: t("chat.download", lang), cls: "sb-img-preview-btn" });
 				const openBtn = actions.createEl("button", { text: t("chat.fullscreen", lang), cls: "sb-img-preview-btn" });
 
-				let hoverTimer: ReturnType<typeof setTimeout> | null = null;
+				let hoverTimer: number | null = null;
 
 				const showPreview = () => { preview.classList.add("active"); };
 				const hidePreview = () => { preview.classList.remove("active"); };

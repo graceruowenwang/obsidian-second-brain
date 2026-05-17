@@ -13,7 +13,7 @@ import { runCompile } from "./core/compile";
 import { readRawFiles, diffFingerprints, emptyCache, clearEmbeddingCache } from "./core/file-utils";
 import { t } from "./core/i18n";
 import { SetupWizardModal } from "./ui/setup-wizard";
-import { validateLicense, getDefaultLicense } from "./core/license";
+import { getDefaultLicense } from "./core/license";
 import { quickIngest } from "./core/quick-ingest";
 import { SecondBrainSettingTab } from "./ui/settings-tab";
 import { encryptKeys, decryptKeys, isEncryptionAvailable, SecureStorageError } from "./core/secure-storage";
@@ -47,7 +47,7 @@ class AsyncMutex {
 export default class SecondBrain extends Plugin implements SecondBrainPlugin {
 	settings!: PluginSettings;
 	licenseInfo: LicenseInfo = getDefaultLicense();
-	private autoCompileTimer: ReturnType<typeof setTimeout> | null = null;
+	private autoCompileTimer: number | null = null;
 	private compileMutex = new AsyncMutex();
 	private statusBarItem: HTMLElement | null = null;
 	private settingsTab: SecondBrainSettingTab | null = null;
