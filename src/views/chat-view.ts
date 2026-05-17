@@ -127,7 +127,6 @@ export class ChatView extends ItemView {
 		stopBtn.classList.add("sb-hidden");
 		const saveNoteBtn = composerActions.createEl("button", { cls: "sb-save-note-btn", attr: { type: "button", "aria-label": t("chat.saveAsNote", lang) } });
 		setIcon(saveNoteBtn, "save");
-		saveNoteBtn.title = t("chat.saveAsNote", lang);
 
 		sendBtn.addEventListener("click", () => { void this.send(); });
 		stopBtn.addEventListener("click", () => this.stop());
@@ -503,8 +502,11 @@ export class ChatView extends ItemView {
 
 	private async saveAsNote() {
 		if (this.saving || this.sending) return;
-		const content = this.inputEl.value.trim();
 		const lang = this.plugin.settings.language;
+
+		// 取最后一条 AI 回复的原始文本
+		const lastAiMsg = [...this.chatHistory].reverse().find(m => m.role === "assistant");
+		const content = lastAiMsg?.content?.trim();
 		if (!content) {
 			new Notice(t("chat.noteEmpty", lang));
 			return;
@@ -514,8 +516,6 @@ export class ChatView extends ItemView {
 			return;
 		}
 
-		this.inputEl.value = "";
-		this.inputEl.setCssProps({ height: "auto" });
 		this.saving = true;
 		this.toggleButtons(false);
 

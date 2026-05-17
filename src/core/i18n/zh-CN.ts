@@ -265,7 +265,7 @@ export const zhCN: typeof import("./en").en = {
 	"chat.noteCompiling": "正在编译笔记...",
 	"chat.noteCompileDone": "笔记已编译：{n} 个页面",
 	"chat.noteCompileFail": "编译失败: {msg}",
-	"chat.noteEmpty": "请输入要保存的内容",
+	"chat.noteEmpty": "暂无 AI 回复可保存",
 
 		// Wiki view
 		"wiki.tabIndex": "目录",

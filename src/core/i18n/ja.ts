@@ -261,7 +261,7 @@ export const ja: typeof import("./en").en = {
 	"chat.noteCompiling": "メモをコンパイル中...",
 	"chat.noteCompileDone": "メモをコンパイル完了：{n} ページ生成",
 	"chat.noteCompileFail": "コンパイル失敗: {msg}",
-	"chat.noteEmpty": "保存する内容を入力してください",
+	"chat.noteEmpty": "保存するAIの回答がありません",
 
 		"wiki.tabIndex": "インデックス",
 		"wiki.mocShort": "MOC",

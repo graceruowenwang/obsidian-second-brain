@@ -261,7 +261,7 @@ export const en = {
 	"chat.noteCompiling": "Compiling note...",
 	"chat.noteCompileDone": "Note compiled: {n} pages generated",
 	"chat.noteCompileFail": "Compile failed: {msg}",
-	"chat.noteEmpty": "Please enter content to save",
+	"chat.noteEmpty": "No AI response to save yet",
 
 		"wiki.tabIndex": "Index",
 		"wiki.mocShort": "MOC",
