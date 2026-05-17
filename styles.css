@@ -500,6 +500,20 @@
 }
 
 /* === 对话面板（主编辑区全宽） === */
+.workspace-leaf-content[data-type="second-brain-chat"] {
+	display: flex;
+	flex-direction: column;
+	min-height: 0 !important;
+}
+
+.workspace-leaf-content[data-type="second-brain-chat"] > .view-content {
+	flex: 1 1 auto;
+	min-height: 0 !important;
+	display: flex !important;
+	flex-direction: column;
+	overflow: hidden !important;
+}
+
 .second-brain-chat {
 	display: flex;
 	flex-direction: column;
