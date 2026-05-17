@@ -1,6 +1,17 @@
 /* Pro 主题色 */
 :root {
 	--sb-pro-accent: #7c3aed;
+	--sb-spacing-xs: 4px;
+	--sb-spacing-sm: 8px;
+	--sb-spacing-md: 12px;
+	--sb-spacing-lg: 16px;
+	--sb-spacing-xl: 24px;
+	--sb-radius-sm: 6px;
+	--sb-radius-md: 8px;
+	--sb-radius-lg: 12px;
+	--sb-shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+	--sb-shadow-md: 0 4px 12px rgba(0,0,0,0.1);
+	--sb-transition: 0.15s ease;
 }
 
 /* === Wiki compile overlay === */
@@ -1782,12 +1793,99 @@ pre:hover .sb-copy-btn {
 	max-width: 65ch;
 }
 
-@media (max-width: 520px) {
-	.second-brain-wiki .sb-wiki-page-wrap {
+/* ================================================================
+   响应式布局 — 三断点：手机 / 平板 / 小屏桌面
+   ================================================================ */
+
+/* ── 紧凑手机: ≤480px ── */
+@media (max-width: 480px) {
+	/* 编译面板 */
+	.sb-compile-toolbar.sb-btn-row {
+		flex-wrap: wrap;
+		gap: 6px;
+	}
+	.sb-compile-toolbar.sb-btn-row button {
+		font-size: 12px;
+		padding: 6px 10px;
+		flex: 1 1 auto;
+		min-width: 0;
+	}
+	.sb-compile-btn-primary.mod-cta {
+		flex: 2 1 auto;
+	}
+	.sb-compile-progress-card {
+		padding: 10px;
+	}
+	.sb-progress-label {
+		font-size: 12px;
+	}
+	.sb-compile-data-panel {
+		font-size: 12px;
+	}
+	.sb-compile-data-panel-header {
+		padding: 8px;
+	}
+
+	/* 对话面板 */
+	.sb-chat-header {
+		flex-wrap: wrap;
+		gap: 6px;
+	}
+	.sb-chat-header-actions {
+		width: 100%;
+		justify-content: flex-end;
+	}
+	.sb-session-tabs {
+		overflow-x: auto;
+		-webkit-overflow-scrolling: touch;
+	}
+	.sb-session-tab {
+		font-size: 11px;
+		padding: 4px 8px;
+		white-space: nowrap;
+	}
+	.sb-chat-composer {
+		gap: 6px;
+	}
+	.sb-chat-input {
+		font-size: 14px;
+		padding: 8px;
+	}
+	.sb-bubble {
+		max-width: 90%;
+		font-size: 13px;
+	}
+	.sb-welcome h3 {
+		font-size: 16px;
+	}
+	.sb-tips {
 		flex-direction: column;
 	}
 
-	.second-brain-wiki .sb-wiki-toc-col {
+	/* Wiki 面板 */
+	.sb-wiki-toolbar {
+		gap: 6px;
+	}
+	.sb-wiki-toolbar-row1,
+	.sb-wiki-toolbar-row2 {
+		flex-wrap: wrap;
+		gap: 6px;
+	}
+	.sb-wiki-search {
+		width: 100%;
+	}
+	.sb-wiki-view-btn {
+		font-size: 12px;
+		padding: 5px 10px;
+	}
+	.sb-wiki-toolbar-select {
+		font-size: 12px;
+		flex: 1;
+	}
+	.sb-wiki-page-wrap {
+		flex-direction: column;
+	}
+	.sb-wiki-toc-col {
 		position: relative;
 		top: 0;
 		max-height: 200px;
@@ -1795,9 +1893,106 @@ pre:hover .sb-copy-btn {
 		flex: none;
 		box-shadow: inset 0 3px 0 color-mix(in srgb, var(--interactive-accent) 40%, transparent);
 	}
-
-	.second-brain-wiki .sb-wiki-page-wrap .sb-wiki-page-content {
+	.sb-wiki-page-content {
 		max-width: none;
+	}
+
+	/* 设置面板 */
+	.setting-item {
+		flex-wrap: wrap;
+	}
+	.setting-item-info {
+		width: 100%;
+	}
+	.setting-item-control {
+		width: 100%;
+		justify-content: flex-start;
+	}
+	.sb-settings-section {
+		padding: 10px;
+	}
+
+	/* 向导 */
+	.sb-wizard {
+		padding: 12px;
+	}
+	.sb-wizard-value-cards {
+		flex-direction: column;
+	}
+	.sb-wizard-value-card {
+		width: 100%;
+	}
+	.sb-wizard-comparison {
+		flex-direction: column;
+	}
+	.sb-wizard-compare-arrow {
+		transform: rotate(90deg);
+	}
+	.sb-wizard-btn-row {
+		flex-wrap: wrap;
+		gap: 6px;
+	}
+
+	/* 通用 */
+	.sb-flex-row-end {
+		flex-wrap: wrap;
+		gap: 6px;
+	}
+}
+
+/* ── 平板: 481-768px ── */
+@media (min-width: 481px) and (max-width: 768px) {
+	/* 编译面板 */
+	.sb-compile-toolbar.sb-btn-row {
+		gap: 6px;
+	}
+	.sb-compile-toolbar.sb-btn-row button {
+		font-size: 12px;
+		padding: 6px 12px;
+	}
+
+	/* 对话面板 */
+	.sb-chat-header {
+		flex-wrap: wrap;
+	}
+	.sb-bubble {
+		max-width: 85%;
+	}
+
+	/* Wiki */
+	.sb-wiki-toolbar-row1,
+	.sb-wiki-toolbar-row2 {
+		flex-wrap: wrap;
+		gap: 8px;
+	}
+	.sb-wiki-page-wrap {
+		flex-direction: column;
+	}
+	.sb-wiki-toc-col {
+		position: relative;
+		top: 0;
+		max-height: 220px;
+		width: 100%;
+		flex: none;
+		box-shadow: inset 0 3px 0 color-mix(in srgb, var(--interactive-accent) 40%, transparent);
+	}
+	.sb-wiki-page-content {
+		max-width: none;
+	}
+
+	/* 设置 */
+	.sb-settings-section {
+		padding: 12px;
+	}
+}
+
+/* ── 小屏桌面: 769-1024px ── */
+@media (min-width: 769px) and (max-width: 1024px) {
+	.sb-wiki-toc-col {
+		width: 200px;
+	}
+	.sb-compile-data-panel {
+		gap: 8px;
 	}
 }
 
