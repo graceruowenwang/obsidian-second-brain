@@ -878,7 +878,6 @@ pre:hover .sb-copy-btn {
 .sb-source-link {
 	color: var(--text-accent);
 	cursor: pointer;
-	text-decoration: none;
 	padding: 2px 6px;
 	margin: 0 2px 2px 0;
 	border-radius: 6px;
@@ -887,7 +886,6 @@ pre:hover .sb-copy-btn {
 }
 
 .sb-source-link:hover {
-	text-decoration: none;
 	background: color-mix(in srgb, var(--text-accent) 16%, transparent);
 }
 
@@ -1434,11 +1432,12 @@ pre:hover .sb-copy-btn {
 .second-brain-wiki .sb-wiki-data-stale-name {
 	font-weight: 600;
 	color: var(--interactive-accent);
-	text-decoration: none;
+	border-bottom: 2px solid transparent;
+	transition: border-color 0.15s ease;
 }
 
 .second-brain-wiki .sb-wiki-data-stale-name:hover {
-	text-decoration: underline;
+	border-bottom-color: currentColor;
 }
 
 .second-brain-wiki .sb-wiki-data-stale-meta {
@@ -1767,7 +1766,6 @@ pre:hover .sb-copy-btn {
 	font-size: 12px;
 	line-height: 1.4;
 	color: var(--text-muted);
-	text-decoration: none;
 	border-radius: 6px;
 	padding: 5px 8px;
 	word-break: break-word;
@@ -2114,7 +2112,6 @@ pre:hover .sb-copy-btn {
 
 .sb-wiki-page-content a.internal-link {
 	color: var(--text-accent);
-	text-decoration: none;
 	cursor: pointer;
 	border-bottom: 1px dotted color-mix(in srgb, var(--text-accent) 45%, transparent);
 	transition: border-color 0.15s ease, color 0.15s ease;
@@ -2183,9 +2180,7 @@ pre:hover .sb-copy-btn {
 	border: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 88%, transparent);
 	border-radius: 999px;
 	color: var(--text-accent);
-	text-decoration: none;
-	cursor: pointer;
-	transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.18s ease;
+	cursor: pointer; border-color 0.15s ease, background 0.15s ease, box-shadow 0.18s ease;
 }
 
 .sb-wiki-backlink-chip:hover {
@@ -3290,11 +3285,12 @@ pre:hover .sb-copy-btn {
 .sb-license-purchase a {
 	color: var(--text-accent);
 	font-size: 13px;
-	text-decoration: none;
+	border-bottom: 2px solid transparent;
+	transition: border-color 0.15s ease;
 }
 
 .sb-license-purchase a:hover {
-	text-decoration: underline;
+	border-bottom-color: currentColor;
 }
 
 
@@ -4196,7 +4192,6 @@ pre:hover .sb-copy-btn {
 	padding: 4px 10px;
 	border-radius: 999px;
 	cursor: pointer;
-	text-decoration: none;
 	transition: transform 0.12s ease, box-shadow 0.15s ease, opacity 0.15s ease;
 }
 
@@ -4528,12 +4523,13 @@ pre:hover .sb-copy-btn {
 .second-brain-wiki .sb-qa-stale-name {
 	font-size: 12px;
 	color: var(--interactive-accent);
-	text-decoration: none;
 	cursor: pointer;
+	border-bottom: 2px solid transparent;
+	transition: border-color 0.15s ease;
 }
 
 .second-brain-wiki .sb-qa-stale-name:hover {
-	text-decoration: underline;
+	border-bottom-color: currentColor;
 }
 
 .second-brain-wiki .sb-qa-stale-days {
