@@ -121,7 +121,7 @@ export class ChatView extends ItemView {
 			cls: "sb-chat-input",
 		});
 		const composerActions = composer.createDiv({ cls: "sb-chat-composer-actions" });
-		inputArea.createDiv({ cls: "sb-chat-input-hint", text: "Shift+Enter 换行" });
+		inputArea.createDiv({ cls: "sb-chat-input-hint", text: t("chat.inputHint", lang) });
 		const sendBtn = composerActions.createEl("button", { text: t("chat.send", lang), cls: "sb-send-btn mod-cta", attr: { type: "button", "aria-label": t("chat.send", lang) } });
 		const stopBtn = composerActions.createEl("button", { text: t("chat.stop", lang), cls: "sb-stop-btn", attr: { type: "button", "aria-label": t("chat.stop", lang) } });
 		stopBtn.classList.add("sb-hidden");

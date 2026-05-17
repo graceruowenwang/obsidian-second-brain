@@ -110,8 +110,36 @@ export class SetupWizardModal extends Modal {
 						this.plugin.settings.baseUrl = preset.baseUrl;
 						this.plugin.settings.model = preset.models[0];
 						await this.plugin.saveSettings();
+						this.renderStep(); // refresh to show updated model list
 					}
 				});
+			});
+
+		new Setting(this.container)
+			.setName(t("set.model", lang))
+			.addDropdown((dd) => {
+				const preset = providerPresetOrUndefined(this.plugin.settings.provider);
+				if (preset) {
+					for (const m of preset.models) dd.addOption(m, m);
+					dd.addOption("__custom", "(" + t("set.modelPh", lang) + ")");
+					dd.setValue(preset.models.includes(this.plugin.settings.model) ? this.plugin.settings.model : "__custom");
+				} else {
+					dd.addOption(this.plugin.settings.model, this.plugin.settings.model);
+				}
+				dd.onChange(async (v) => {
+					if (v !== "__custom") {
+						this.plugin.settings.model = v;
+						await this.plugin.saveSettings();
+					}
+				});
+			})
+			.addText((t2) => {
+				const preset = providerPresetOrUndefined(this.plugin.settings.provider);
+				if (preset && preset.models.includes(this.plugin.settings.model)) {
+					t2.inputEl.classList.add("sb-hidden");
+				} else {
+					t2.setPlaceholder(t("set.modelPh", lang)).setValue(this.plugin.settings.model).onChange(async (v) => { this.plugin.settings.model = v; await this.plugin.saveSettings(); });
+				}
 			});
 
 		const apiKeySetting = new Setting(this.container)

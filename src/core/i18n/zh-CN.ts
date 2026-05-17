@@ -235,7 +235,8 @@ export const zhCN: typeof import("./en").en = {
 		// Chat
 		"chat.title": "Wiki 对话",
 		"chat.clear": "清空对话",
-		"chat.placeholder": "输入你的问题... (Enter 发送, Shift+Enter 换行)",
+		"chat.placeholder": "输入问题... (Enter 发送，Shift+Enter 换行)",
+		"chat.inputHint": "Enter 发送，Shift+Enter 换行",
 		"chat.send": "发送",
 		"chat.stop": "停止",
 		"chat.pageNotFound": "页面未找到: {name}",

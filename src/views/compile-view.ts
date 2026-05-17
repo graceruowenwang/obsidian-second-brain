@@ -453,6 +453,12 @@ export class CompileView extends ItemView {
 			this.addLog(t("compile.fail", lang, { msg: friendlyMsg }), "err");
 			new Notice(t("compile.fail", lang, { msg: friendlyMsg }));
 		}
+
+		// 添加重试按钮到日志区
+		const retryEl = this.logEl.createDiv({ cls: "sb-log-line" });
+		const retryBtn = retryEl.createEl("button", { text: t("compile.retryFailed", lang), cls: "sb-retry-btn mod-cta" });
+		retryBtn.addEventListener("click", () => { void this.startCompile(); });
+		this.scrollLogToBottom();
 	}
 
 	private resetCompileUI(lang: string): void {

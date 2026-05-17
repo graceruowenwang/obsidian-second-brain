@@ -231,7 +231,8 @@ export const ja: typeof import("./en").en = {
 
 		"chat.title": "Wiki チャット",
 		"chat.clear": "チャットをクリア",
-		"chat.placeholder": "質問を入力... (Enter で送信, Shift+Enter で改行)",
+		"chat.placeholder": "質問を入力... (Enter 送信, Shift+Enter 改行)",
+		"chat.inputHint": "Enter 送信 / Shift+Enter 改行",
 		"chat.send": "送信",
 		"chat.stop": "停止",
 		"chat.pageNotFound": "ページが見つかりません: {name}",

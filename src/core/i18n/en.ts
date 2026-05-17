@@ -232,6 +232,7 @@ export const en = {
 		"chat.title": "Wiki chat",
 		"chat.clear": "Clear chat",
 		"chat.placeholder": "Ask a question... (Enter to send, Shift+Enter for newline)",
+		"chat.inputHint": "Enter to send, Shift+Enter for newline",
 		"chat.send": "Send",
 		"chat.stop": "Stop",
 		"chat.pageNotFound": "Page not found: {name}",
