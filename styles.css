@@ -2180,7 +2180,8 @@ pre:hover .sb-copy-btn {
 	border: 1px solid color-mix(in srgb, var(--sb-wiki-border, var(--background-modifier-border)) 88%, transparent);
 	border-radius: 999px;
 	color: var(--text-accent);
-	cursor: pointer; border-color 0.15s ease, background 0.15s ease, box-shadow 0.18s ease;
+	cursor: pointer;
+	transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.18s ease;
 }
 
 .sb-wiki-backlink-chip:hover {
