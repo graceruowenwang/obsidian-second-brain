@@ -1,10 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { callLLMBatch } from "../llm";
 
-// Mock requestUrl to avoid real network calls
+// Mock requestUrl / activeWindow to avoid real network calls and Obsidian globals
 vi.mock("obsidian", () => ({
 	requestUrl: vi.fn(),
 }));
+// @ts-expect-error — vitest test env lacks Obsidian's activeWindow global
+globalThis.activeWindow = { setTimeout: setTimeout.bind(globalThis) };
 
 describe("callLLMBatch", () => {
 	const settings = {

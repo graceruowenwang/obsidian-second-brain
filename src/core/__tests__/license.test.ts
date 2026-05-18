@@ -24,21 +24,21 @@ describe("needsRevalidation", () => {
 		expect(needsRevalidation(make({ plan: "free" }))).toBe(false);
 	});
 
-	it("pro 且从未验证过 → 需要", () => {
-		expect(needsRevalidation(make({ lastValidated: null }))).toBe(true);
+	it("pro 且从未验证过 → 全免费模式不需要", () => {
+		expect(needsRevalidation(make({ lastValidated: null }))).toBe(false);
 	});
 
 	it("pro 且最近验证过 → 不需要", () => {
 		expect(needsRevalidation(make())).toBe(false);
 	});
 
-	it("pro 且 lastValidated 超过 7 天 → 需要", () => {
+	it("pro 且 lastValidated 超过 7 天 → 全免费模式不需要", () => {
 		const old = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString();
-		expect(needsRevalidation(make({ lastValidated: old }))).toBe(true);
+		expect(needsRevalidation(make({ lastValidated: old }))).toBe(false);
 	});
 
-	it("lastValidated 是非法字符串 → 保守返回 true（需要重新验证）", () => {
-		expect(needsRevalidation(make({ lastValidated: "not-a-date" }))).toBe(true);
+	it("lastValidated 是非法字符串 → 全免费模式不需要", () => {
+		expect(needsRevalidation(make({ lastValidated: "not-a-date" }))).toBe(false);
 	});
 });
 
@@ -73,8 +73,8 @@ describe("shouldStartCompileTrial", () => {
 		).toBe(false);
 	});
 
-	it("无 key、无试用记录 → 启动（含公测 BETA_MODE 场景）", () => {
-		expect(shouldStartCompileTrial(make({ status: "none", plan: "free", trialStart: null }), "")).toBe(true);
-		expect(shouldStartCompileTrial(make({ status: "trial", plan: "pro", trialStart: null }), "  ")).toBe(true);
+	it("无 key、无试用记录 → 全免费模式无需启动试用", () => {
+		expect(shouldStartCompileTrial(make({ status: "none", plan: "free", trialStart: null }), "")).toBe(false);
+		expect(shouldStartCompileTrial(make({ status: "trial", plan: "pro", trialStart: null }), "  ")).toBe(false);
 	});
 });
